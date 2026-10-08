@@ -1,0 +1,12 @@
+{
+  "cursor.cpp.enablePartialAccepts": false,
+  "editor.inlineSuggest.enabled": false,
+  "json.schemaDownload.enable": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": true,
+  "eslint.validate": ["javascript", "typescript"],
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit",
+    "source.organizeImports": "never"
+  }
+}
