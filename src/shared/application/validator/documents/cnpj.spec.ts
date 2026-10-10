@@ -55,6 +55,10 @@ describe("formatValidCnpj", () => {
     expect(formatValidCnpj(invalidCnpj)).toBeNull();
   });
 
+  it("returns null when the first check digit is invalid", () => {
+    expect(formatValidCnpj("KQ.GLD.O7R/0001-48")).toBeNull();
+  });
+
   it("returns null when the second check digit is invalid", () => {
     const invalidCnpj = VALID_CNPJS.at(randomIndex())?.slice(0, -1) + "9";
     expect(formatValidCnpj(invalidCnpj)).toBeNull();

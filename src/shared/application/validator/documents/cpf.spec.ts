@@ -35,6 +35,10 @@ describe("formatValidCpf", () => {
     expect(formatValidCpf(validCpf)).toBe(validCpf);
   });
 
+  it("returns the formatted cpf when a check digit is zero", () => {
+    expect(formatValidCpf("773.883.327-07")).toBe("773.883.327-07");
+  });
+
   it("returns null when the input is missing", () => {
     expect(formatValidCpf(undefined)).toBeNull();
     expect(formatValidCpf(null)).toBeNull();
@@ -53,6 +57,10 @@ describe("formatValidCpf", () => {
     const invalidCpf =
       VALID_CPFS.at(randomIndex())?.slice(0, -2) + faker.string.alpha(2);
     expect(formatValidCpf(invalidCpf)).toBeNull();
+  });
+
+  it("returns null when the first check digit is invalid", () => {
+    expect(formatValidCpf("773.883.327-17")).toBeNull();
   });
 
   it("returns null when the second check digit is invalid", () => {
