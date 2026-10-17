@@ -64,7 +64,9 @@ describe("array", () => {
 
   it("leaves the default array for further parsing when the input is missing", () => {
     const defaultValue = [faker.lorem.word()];
-    const parsed = array(stringItem, { default: defaultValue }).parse(undefined);
+    const parsed = array(stringItem, { default: defaultValue }).parse(
+      undefined,
+    );
 
     expect(parsed.ok).toBe(true);
     assert(parsed.ok === true);
@@ -181,5 +183,82 @@ describe("array", () => {
     expect(parsed.ok).toBe(true);
     assert(parsed.ok === true);
     expect(parsed.data).toEqual(items);
+  });
+
+  describe("csv", () => {
+    it("splits a comma-separated string into items", () => {
+      const first = faker.lorem.word();
+      const second = faker.lorem.word();
+      const parsed = array(stringItem, { csv: true }).parse(
+        `${first},${second}`,
+      );
+
+      expect(parsed.ok).toBe(true);
+      assert(parsed.ok === true);
+      expect(parsed.data).toEqual([first, second]);
+    });
+
+    it("trims items and drops blank ones", () => {
+      const word = faker.lorem.word();
+      const parsed = array(stringItem, { csv: true }).parse(` ,${word}, `);
+
+      expect(parsed.ok).toBe(true);
+      assert(parsed.ok === true);
+      expect(parsed.data).toEqual([word]);
+    });
+
+    it("checks min_length after splitting", () => {
+      const parsed = array(stringItem, { csv: true, minLength: 1 }).parse(
+        " , , ",
+      );
+
+      expect(parsed).toEqual({
+        ok: false,
+        violations: [{ field: "", reason: "min_length" }],
+      });
+    });
+
+    it("checks max_length after splitting", () => {
+      const parsed = array(stringItem, { csv: true, maxLength: 1 }).parse(
+        `${faker.lorem.word()},${faker.lorem.word()}`,
+      );
+
+      expect(parsed).toEqual({
+        ok: false,
+        violations: [{ field: "", reason: "max_length" }],
+      });
+    });
+
+    it("passes each split item to the item schema", () => {
+      const itemSchema: Schema<number> = {
+        parse(input) {
+          return { ok: true, data: Number(input) };
+        },
+      };
+
+      const parsed = array(itemSchema, { csv: true }).parse("1, 2,3");
+
+      expect(parsed.ok).toBe(true);
+      assert(parsed.ok === true);
+      expect(parsed.data).toEqual([1, 2, 3]);
+    });
+
+    it("still accepts an array", () => {
+      const items = [faker.lorem.word(), faker.lorem.word()];
+      const parsed = array(stringItem, { csv: true }).parse(items);
+
+      expect(parsed.ok).toBe(true);
+      assert(parsed.ok === true);
+      expect(parsed.data).toEqual(items);
+    });
+
+    it("returns an invalid_array violation for other non-array inputs", () => {
+      const parsed = array(stringItem, { csv: true }).parse(10);
+
+      expect(parsed).toEqual({
+        ok: false,
+        violations: [{ field: "", reason: "invalid_array" }],
+      });
+    });
   });
 });

@@ -13,6 +13,7 @@ import {
   number,
   object,
   objectId,
+  record,
   string,
   uuid,
 } from "./index";
@@ -31,6 +32,7 @@ describe("schemas index", () => {
     expect(number).toEqual(expect.any(Function));
     expect(object).toEqual(expect.any(Function));
     expect(objectId).toEqual(expect.any(Function));
+    expect(record).toEqual(expect.any(Function));
     expect(string).toEqual(expect.any(Function));
     expect(uuid).toEqual(expect.any(Function));
   });

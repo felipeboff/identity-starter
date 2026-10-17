@@ -16,6 +16,7 @@ import {
   number,
   object,
   objectId,
+  record,
   string,
   uuid,
   v,
@@ -38,6 +39,7 @@ describe("validator index", () => {
       enum: enumValue,
       array,
       object,
+      record,
     });
   });
 

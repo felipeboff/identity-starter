@@ -1,27 +1,48 @@
-import { addViolation, failure, prefixViolations, resolveInput, result, runRefinements } from '../internal/helpers';
-import type { BaseOptions, Schema, Violation } from '../types';
+import {
+  addViolation,
+  failure,
+  prefixViolations,
+  resolveInput,
+  result,
+  runRefinements,
+} from "../internal/helpers";
+import type { BaseOptions, Schema, Violation } from "../types";
 
 export type ArrayOptions<T> = BaseOptions<T[]> & {
   minLength?: number;
   maxLength?: number;
+  csv?: boolean;
 };
 
-export const array = <T>(itemSchema: Schema<T>, options?: ArrayOptions<T>): Schema<T[]> => ({
+const splitCsv = (input: string): string[] =>
+  input
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+
+export const array = <T>(
+  itemSchema: Schema<T>,
+  options?: ArrayOptions<T>,
+): Schema<T[]> => ({
   parse(input) {
     const resolved = resolveInput(input, options);
     if (resolved.done) return resolved.result;
-    if (!Array.isArray(resolved.value)) return failure('invalid_array');
+    const items =
+      options?.csv === true && typeof resolved.value === "string"
+        ? splitCsv(resolved.value)
+        : resolved.value;
+    if (!Array.isArray(items)) return failure("invalid_array");
 
     const data: T[] = [];
     const violations: Violation[] = [];
-    if (options?.minLength !== undefined && resolved.value.length < options.minLength) {
-      addViolation(violations, 'min_length');
+    if (options?.minLength !== undefined && items.length < options.minLength) {
+      addViolation(violations, "min_length");
     }
-    if (options?.maxLength !== undefined && resolved.value.length > options.maxLength) {
-      addViolation(violations, 'max_length');
+    if (options?.maxLength !== undefined && items.length > options.maxLength) {
+      addViolation(violations, "max_length");
     }
-    for (let index = 0; index < resolved.value.length; index += 1) {
-      const parsed = itemSchema.parse(resolved.value[index]);
+    for (let index = 0; index < items.length; index += 1) {
+      const parsed = itemSchema.parse(items[index]);
       if (!parsed.ok) {
         violations.push(...prefixViolations(String(index), parsed.violations));
       } else {

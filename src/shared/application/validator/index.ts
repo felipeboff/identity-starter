@@ -11,11 +11,12 @@ import {
   number,
   object,
   objectId,
+  record,
   string,
   uuid,
-} from './schemas';
+} from "./schemas";
 
-export type * from './types';
+export type * from "./types";
 export type {
   ArrayOptions,
   BigIntOptions,
@@ -31,13 +32,34 @@ export type {
   NumberOptions,
   ObjectIdOptions,
   ObjectOptions,
+  RecordOptions,
   StringOptions,
   UuidOptions,
-} from './schemas';
+} from "./schemas";
 
-export { formatValidCnpj, formatValidCpf, formatValidCpfOrCnpj } from './documents';
+export {
+  formatValidCnpj,
+  formatValidCpf,
+  formatValidCpfOrCnpj,
+} from "./documents";
 
-export { array, bigint, boolean, cnpj, cpf, cpfCnpj, date, email, enumValue, number, object, objectId, string, uuid };
+export {
+  array,
+  bigint,
+  boolean,
+  cnpj,
+  cpf,
+  cpfCnpj,
+  date,
+  email,
+  enumValue,
+  number,
+  object,
+  objectId,
+  record,
+  string,
+  uuid,
+};
 
 export const v = {
   string,
@@ -54,4 +76,5 @@ export const v = {
   enum: enumValue,
   array,
   object,
+  record,
 };
