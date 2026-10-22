@@ -1,125 +1,82 @@
 import { faker } from "@faker-js/faker";
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { cnpj, cpf, cpfCnpj } from "./document";
 
-const VALID_CPF = "773.883.327-07";
-const VALID_CNPJ = "KQ.GLD.O7R/0001-38";
+const ok = (data: unknown) => ({ ok: true, data });
+const fail = (reason: string) => ({
+  ok: false,
+  violations: [{ field: "", reason }],
+});
+
+const CPF = "773.883.327-07";
+const CNPJ = "KQ.GLD.O7R/0001-38";
 
 describe("cpf", () => {
-  it("returns the formatted cpf when it is valid", () => {
-    const parsed = cpf().parse("77388332707");
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBe(VALID_CPF);
+  it("formats a valid cpf", () => {
+    expect(cpf().parse("77388332707")).toEqual(ok(CPF));
   });
 
-  it("finishes with a required violation when the input is missing", () => {
-    expect(cpf().parse(undefined)).toEqual({
-      ok: false,
-      violations: [{ field: "", reason: "required" }],
+  it.each([
+    ["a number", faker.number.int()],
+    ["an invalid cpf", "00000000000"],
+  ])("rejects %s as invalid_cpf", (_, input) => {
+    expect(cpf().parse(input)).toEqual(fail("invalid_cpf"));
+  });
+
+  describe("missing values", () => {
+    it("requires a value by default", () => {
+      expect(cpf().parse(undefined)).toEqual(fail("required"));
     });
-  });
 
-  it("finishes with undefined when the input is optional and missing", () => {
-    const parsed = cpf({ optional: true }).parse(undefined);
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBeUndefined();
-  });
-
-  it("finishes with null when the input is nullable", () => {
-    const parsed = cpf({ nullable: true }).parse(null);
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBeNull();
-  });
-
-  it("returns an invalid_cpf violation when the input is not a string", () => {
-    expect(cpf().parse(10)).toEqual({
-      ok: false,
-      violations: [{ field: "", reason: "invalid_cpf" }],
+    it("accepts undefined when optional", () => {
+      expect(cpf({ optional: true }).parse(undefined)).toEqual(ok(undefined));
     });
-  });
 
-  it("returns an invalid_cpf violation when the document is invalid", () => {
-    expect(cpf().parse("00000000000")).toEqual({
-      ok: false,
-      violations: [{ field: "", reason: "invalid_cpf" }],
+    it("accepts null when nullable", () => {
+      expect(cpf({ nullable: true }).parse(null)).toEqual(ok(null));
     });
-  });
 
-  it("allows an empty string when empty is enabled", () => {
-    const parsed = cpf({ empty: true }).parse("   ");
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBe("");
+    it("accepts a blank string as empty when empty is enabled", () => {
+      expect(cpf({ empty: true }).parse("   ")).toEqual(ok(""));
+    });
   });
 
   it("applies transform to the formatted document", () => {
-    const parsed = cpf({
-      transform: (value) => value.replaceAll(".", ""),
-    }).parse(VALID_CPF);
+    const schema = cpf({ transform: (value) => value.replaceAll(".", "") });
 
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBe("773883327-07");
+    expect(schema.parse(CPF)).toEqual(ok("773883327-07"));
   });
 
-  it("returns refine violations after a successful parse", () => {
-    const reason = faker.lorem.word();
+  it("reports refine violations after a successful parse", () => {
+    const reason = faker.lorem.slug();
+    const schema = cpf({ refine: [{ check: () => false, reason }] });
 
-    expect(
-      cpf({ refine: [{ check: () => false, reason }] }).parse(VALID_CPF),
-    ).toEqual({
-      ok: false,
-      violations: [{ field: "", reason }],
-    });
+    expect(schema.parse(CPF)).toEqual(fail(reason));
   });
 });
 
 describe("cnpj", () => {
-  it("returns the formatted cnpj when it is valid", () => {
-    const parsed = cnpj().parse("KQGLDO7R000138");
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBe(VALID_CNPJ);
+  it("formats a valid cnpj", () => {
+    expect(cnpj().parse("KQGLDO7R000138")).toEqual(ok(CNPJ));
   });
 
-  it("returns an invalid_cnpj violation when the document is invalid", () => {
-    expect(cnpj().parse("00000000000000")).toEqual({
-      ok: false,
-      violations: [{ field: "", reason: "invalid_cnpj" }],
-    });
+  it("rejects an invalid cnpj as invalid_cnpj", () => {
+    expect(cnpj().parse("00000000000000")).toEqual(fail("invalid_cnpj"));
   });
 });
 
 describe("cpfCnpj", () => {
-  it("returns the formatted cpf when the input is a cpf", () => {
-    const parsed = cpfCnpj().parse(VALID_CPF);
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBe(VALID_CPF);
+  it.each([
+    ["a cpf", CPF],
+    ["a cnpj", CNPJ],
+  ])("accepts %s", (_, input) => {
+    expect(cpfCnpj().parse(input)).toEqual(ok(input));
   });
 
-  it("returns the formatted cnpj when the input is a cnpj", () => {
-    const parsed = cpfCnpj().parse(VALID_CNPJ);
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBe(VALID_CNPJ);
-  });
-
-  it("returns an invalid_cpf_cnpj violation when the document is invalid", () => {
-    expect(cpfCnpj().parse("invalid")).toEqual({
-      ok: false,
-      violations: [{ field: "", reason: "invalid_cpf_cnpj" }],
-    });
+  it("rejects an invalid document as invalid_cpf_cnpj", () => {
+    expect(cpfCnpj().parse(faker.lorem.word())).toEqual(
+      fail("invalid_cpf_cnpj"),
+    );
   });
 });

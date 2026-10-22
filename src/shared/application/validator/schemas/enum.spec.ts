@@ -1,91 +1,73 @@
 import { faker } from "@faker-js/faker";
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { enumValue } from "./enum";
+
+const ok = (data: unknown) => ({ ok: true, data });
+const fail = (reason: string) => ({
+  ok: false,
+  violations: [{ field: "", reason }],
+});
 
 const values = ["draft", "published"] as const;
 
 describe("enumValue", () => {
-  it("returns the value when it is allowed", () => {
-    const parsed = enumValue({ values }).parse("draft");
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBe("draft");
+  it("accepts an allowed string value", () => {
+    expect(enumValue({ values }).parse("draft")).toEqual(ok("draft"));
   });
 
-  it("accepts a numeric enum value", () => {
-    const parsed = enumValue({ values: [1, 2] as const }).parse(2);
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBe(2);
+  it("accepts an allowed numeric value", () => {
+    expect(enumValue({ values: [1, 2] as const }).parse(2)).toEqual(ok(2));
   });
 
-  it("finishes with a required violation when the input is missing", () => {
-    expect(enumValue({ values }).parse(undefined)).toEqual({
-      ok: false,
-      violations: [{ field: "", reason: "required" }],
+  it("rejects a value outside the list as invalid_enum", () => {
+    expect(enumValue({ values }).parse("archived")).toEqual(
+      fail("invalid_enum"),
+    );
+  });
+
+  describe("missing values", () => {
+    it("requires a value by default", () => {
+      expect(enumValue({ values }).parse(undefined)).toEqual(fail("required"));
+    });
+
+    it("accepts undefined when optional", () => {
+      expect(enumValue({ values, optional: true }).parse(undefined)).toEqual(
+        ok(undefined),
+      );
+    });
+
+    it("accepts null when nullable", () => {
+      expect(enumValue({ values, nullable: true }).parse(null)).toEqual(
+        ok(null),
+      );
     });
   });
 
-  it("finishes with undefined when the input is optional and missing", () => {
-    const parsed = enumValue({ values, optional: true }).parse(undefined);
+  describe("transform", () => {
+    it("applies transform to the allowed value", () => {
+      const schema = enumValue({ values, transform: () => "published" });
 
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBeUndefined();
-  });
-
-  it("finishes with null when the input is nullable", () => {
-    const parsed = enumValue({ values, nullable: true }).parse(null);
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBeNull();
-  });
-
-  it("returns an invalid_enum violation when the value is not allowed", () => {
-    expect(enumValue({ values }).parse("archived")).toEqual({
-      ok: false,
-      violations: [{ field: "", reason: "invalid_enum" }],
+      expect(schema.parse("draft")).toEqual(ok("published"));
     });
-  });
 
-  it("applies transform to the allowed value", () => {
-    const parsed = enumValue({
-      values,
-      transform: () => "published",
-    }).parse("draft");
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBe("published");
-  });
-
-  it("returns an invalid_enum violation when transform leaves an unknown value", () => {
-    expect(
-      enumValue({
+    it("rejects a transformed value outside the list as invalid_enum", () => {
+      const schema = enumValue({
         values,
         transform: () => "archived" as (typeof values)[number],
-      }).parse("draft"),
-    ).toEqual({
-      ok: false,
-      violations: [{ field: "", reason: "invalid_enum" }],
+      });
+
+      expect(schema.parse("draft")).toEqual(fail("invalid_enum"));
     });
   });
 
-  it("returns refine violations after a successful parse", () => {
-    const reason = faker.lorem.word();
-
-    expect(
-      enumValue({
-        values,
-        refine: [{ check: () => false, reason }],
-      }).parse("draft"),
-    ).toEqual({
-      ok: false,
-      violations: [{ field: "", reason }],
+  it("reports refine violations after a successful parse", () => {
+    const reason = faker.lorem.slug();
+    const schema = enumValue({
+      values,
+      refine: [{ check: () => false, reason }],
     });
+
+    expect(schema.parse("draft")).toEqual(fail(reason));
   });
 });

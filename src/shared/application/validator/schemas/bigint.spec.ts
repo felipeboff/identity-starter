@@ -1,126 +1,70 @@
 import { faker } from "@faker-js/faker";
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { bigint } from "./bigint";
 
+const ok = (data: unknown) => ({ ok: true, data });
+const fail = (reason: string) => ({
+  ok: false,
+  violations: [{ field: "", reason }],
+});
+
 describe("bigint", () => {
-  it("returns a bigint when the input is a bigint", () => {
-    const value = BigInt(faker.number.int());
-    const parsed = bigint().parse(value);
+  const integer = faker.number.int({ min: -1_000_000, max: 1_000_000 });
 
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBe(value);
+  it.each([
+    ["a bigint", BigInt(integer)],
+    ["a safe integer number", integer],
+    ["a trimmed integer string", `  ${integer}  `],
+  ])("accepts %s", (_, input) => {
+    expect(bigint().parse(input)).toEqual(ok(BigInt(integer)));
   });
 
-  it("coerces a safe integer number", () => {
-    const value = faker.number.int();
-    const parsed = bigint().parse(value);
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBe(BigInt(value));
+  it.each([
+    ["a word", faker.lorem.word()],
+    ["a decimal number", 1.5],
+    ["a decimal string", "1.5"],
+  ])("rejects %s as invalid_bigint", (_, input) => {
+    expect(bigint().parse(input)).toEqual(fail("invalid_bigint"));
   });
 
-  it("coerces a trimmed integer string", () => {
-    const value = faker.number.int();
-    const parsed = bigint().parse(`  ${value}  `);
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBe(BigInt(value));
-  });
-
-  it("finishes with a required violation when the input is missing", () => {
-    expect(bigint().parse(undefined)).toEqual({
-      ok: false,
-      violations: [{ field: "", reason: "required" }],
+  describe("missing values", () => {
+    it("requires a value by default", () => {
+      expect(bigint().parse(undefined)).toEqual(fail("required"));
     });
-  });
 
-  it("finishes with undefined when the input is optional and missing", () => {
-    const parsed = bigint({ optional: true }).parse(undefined);
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBeUndefined();
-  });
-
-  it("finishes with null when the input is nullable", () => {
-    const parsed = bigint({ nullable: true }).parse(null);
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBeNull();
-  });
-
-  it("returns an invalid_bigint violation when the input cannot be coerced", () => {
-    expect(bigint().parse(faker.lorem.word())).toEqual({
-      ok: false,
-      violations: [{ field: "", reason: "invalid_bigint" }],
+    it("accepts undefined when optional", () => {
+      expect(bigint({ optional: true }).parse(undefined)).toEqual(
+        ok(undefined),
+      );
     });
-  });
 
-  it("returns an invalid_bigint violation for a decimal number", () => {
-    expect(bigint().parse(1.5)).toEqual({
-      ok: false,
-      violations: [{ field: "", reason: "invalid_bigint" }],
-    });
-  });
-
-  it("returns an invalid_bigint violation for a decimal string", () => {
-    expect(bigint().parse("1.5")).toEqual({
-      ok: false,
-      violations: [{ field: "", reason: "invalid_bigint" }],
+    it("accepts null when nullable", () => {
+      expect(bigint({ nullable: true }).parse(null)).toEqual(ok(null));
     });
   });
 
   it("applies transform to the coerced value", () => {
-    const parsed = bigint({ transform: (value) => value + 1n }).parse(10);
+    const schema = bigint({ transform: (value) => value + 1n });
 
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBe(11n);
+    expect(schema.parse(integer)).toEqual(ok(BigInt(integer) + 1n));
   });
 
-  it("returns a min violation when the value is below the minimum", () => {
-    expect(bigint({ min: 10n }).parse(5n)).toEqual({
-      ok: false,
-      violations: [{ field: "", reason: "min" }],
+  describe("range", () => {
+    it.each([
+      [{ min: 10n }, 10n, ok(10n)],
+      [{ min: 10n }, 5n, fail("min")],
+      [{ max: 10n }, 10n, ok(10n)],
+      [{ max: 10n }, 11n, fail("max")],
+    ])("with %o parses %s", (options, input, expected) => {
+      expect(bigint(options).parse(input)).toEqual(expected);
     });
   });
 
-  it("accepts a value that meets the minimum", () => {
-    const parsed = bigint({ min: 10n }).parse(10n);
+  it("reports refine violations after a successful parse", () => {
+    const reason = faker.lorem.slug();
+    const schema = bigint({ refine: [{ check: () => false, reason }] });
 
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBe(10n);
-  });
-
-  it("returns a max violation when the value is above the maximum", () => {
-    expect(bigint({ max: 10n }).parse(11n)).toEqual({
-      ok: false,
-      violations: [{ field: "", reason: "max" }],
-    });
-  });
-
-  it("accepts a value that meets the maximum", () => {
-    const parsed = bigint({ max: 10n }).parse(10n);
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBe(10n);
-  });
-
-  it("returns refine violations after a successful parse", () => {
-    const reason = faker.lorem.word();
-
-    expect(
-      bigint({ refine: [{ check: () => false, reason }] }).parse(1n),
-    ).toEqual({
-      ok: false,
-      violations: [{ field: "", reason }],
-    });
+    expect(schema.parse(BigInt(integer))).toEqual(fail(reason));
   });
 });

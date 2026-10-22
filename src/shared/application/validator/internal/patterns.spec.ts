@@ -12,12 +12,20 @@ import {
 } from "./patterns";
 
 describe("NUMBER_PATTERN", () => {
-  it.each(["0", "42", "+1", "-1", "1.5", ".5", "1.", "1e10", "1E-2", "+1.5e+3"])(
-    "accepts %s",
-    (value) => {
-      expect(NUMBER_PATTERN.test(value)).toBe(true);
-    },
-  );
+  it.each([
+    "0",
+    "42",
+    "+1",
+    "-1",
+    "1.5",
+    ".5",
+    "1.",
+    "1e10",
+    "1E-2",
+    "+1.5e+3",
+  ])("accepts %s", (value) => {
+    expect(NUMBER_PATTERN.test(value)).toBe(true);
+  });
 
   it.each(["", "abc", "1.2.3", "e10", "--1", "1e", "1e+", " "])(
     "rejects %s",
@@ -38,13 +46,16 @@ describe("INTEGER_PATTERN", () => {
 });
 
 describe("EMAIL_PATTERN", () => {
-  it("accepts a typical email", () => {
+  it("accepts a generated e-mail", () => {
     expect(EMAIL_PATTERN.test(faker.internet.email())).toBe(true);
   });
 
-  it.each(["user@example.com", "a@b.c"])("accepts %s", (value) => {
-    expect(EMAIL_PATTERN.test(value)).toBe(true);
-  });
+  it.each(["ana@example.com", "ana.souza+news@mail.example.com.br", "a@b.c"])(
+    "accepts %s",
+    (value) => {
+      expect(EMAIL_PATTERN.test(value)).toBe(true);
+    },
+  );
 
   it.each([
     "",
@@ -59,12 +70,19 @@ describe("EMAIL_PATTERN", () => {
 });
 
 describe("UUID_PATTERN", () => {
-  it("accepts a generated uuid", () => {
-    expect(UUID_PATTERN.test(faker.string.uuid())).toBe(true);
+  it.each([
+    ["v4", faker.string.uuid()],
+    ["v7", faker.string.uuid({ version: 7 })],
+  ])("accepts a generated %s uuid", (_, value) => {
+    expect(UUID_PATTERN.test(value)).toBe(true);
   });
 
-  it("accepts an uppercase uuid", () => {
-    expect(UUID_PATTERN.test(faker.string.uuid().toUpperCase())).toBe(true);
+  it.each([
+    "01890a5d-ac96-774b-bcce-b302099a8057",
+    "550e8400-e29b-41d4-a716-446655440000",
+    "550E8400-E29B-41D4-A716-446655440000",
+  ])("accepts %s", (value) => {
+    expect(UUID_PATTERN.test(value)).toBe(true);
   });
 
   it.each([
@@ -82,11 +100,12 @@ describe("OBJECT_ID_PATTERN", () => {
     expect(OBJECT_ID_PATTERN.test(faker.database.mongodbObjectId())).toBe(true);
   });
 
-  it("accepts an uppercase object id", () => {
-    expect(
-      OBJECT_ID_PATTERN.test(faker.database.mongodbObjectId().toUpperCase()),
-    ).toBe(true);
-  });
+  it.each(["507f1f77bcf86cd799439011", "507F1F77BCF86CD799439011"])(
+    "accepts %s",
+    (value) => {
+      expect(OBJECT_ID_PATTERN.test(value)).toBe(true);
+    },
+  );
 
   it.each(["", "abc", "507f1f77bcf86cd79943901", "507f1f77bcf86cd7994390111"])(
     "rejects %s",
@@ -97,22 +116,31 @@ describe("OBJECT_ID_PATTERN", () => {
 });
 
 describe("ISO_DATE_PATTERN", () => {
+  it("accepts the date part of a generated date", () => {
+    const day = faker.date.past().toISOString().slice(0, 10);
+
+    expect(ISO_DATE_PATTERN.test(day)).toBe(true);
+  });
+
   it.each(["2026-10-09", "1970-01-01"])("accepts %s", (value) => {
     expect(ISO_DATE_PATTERN.test(value)).toBe(true);
   });
 
-  it.each([
-    "",
-    "2026/10/09",
-    "09-10-2026",
-    "2026-10-09T00:00:00Z",
-    "2026-10",
-  ])("rejects %s", (value) => {
-    expect(ISO_DATE_PATTERN.test(value)).toBe(false);
-  });
+  it.each(["", "2026/10/09", "09-10-2026", "2026-10-09T00:00:00Z", "2026-10"])(
+    "rejects %s",
+    (value) => {
+      expect(ISO_DATE_PATTERN.test(value)).toBe(false);
+    },
+  );
 });
 
 describe("ISO_DATE_TIME_PATTERN", () => {
+  it("accepts a generated date in ISO format", () => {
+    expect(ISO_DATE_TIME_PATTERN.test(faker.date.past().toISOString())).toBe(
+      true,
+    );
+  });
+
   it.each([
     "2026-10-09T12:30Z",
     "2026-10-09T12:30:45Z",

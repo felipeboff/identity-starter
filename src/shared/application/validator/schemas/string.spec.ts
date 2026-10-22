@@ -1,154 +1,89 @@
 import { faker } from "@faker-js/faker";
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { string } from "./string";
 
-describe("string", () => {
-  it("returns the string when the input is a string", () => {
-    const value = faker.lorem.word();
-    const parsed = string().parse(value);
+const ok = (data: unknown) => ({ ok: true, data });
+const fail = (reason: string) => ({
+  ok: false,
+  violations: [{ field: "", reason }],
+});
 
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBe(value);
+describe("string", () => {
+  const word = faker.lorem.word();
+  const integer = faker.number.int();
+  const decimal = faker.number.float({ fractionDigits: 2 });
+  const day = faker.date.past();
+
+  it.each([
+    ["a string", word, word],
+    ["true", true, "true"],
+    ["false", false, "false"],
+    ["a bigint", BigInt(integer), String(integer)],
+    ["a number", decimal, String(decimal)],
+    ["a valid date", day, day.toISOString()],
+  ])("accepts %s", (_, input, expected) => {
+    expect(string().parse(input)).toEqual(ok(expected));
   });
 
   it.each([
-    [true, "true"],
-    [false, "false"],
-    [10n, "10"],
-    [12.5, "12.5"],
-  ] as const)("coerces %s to %s", (input, expected) => {
-    const parsed = string().parse(input);
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBe(expected);
+    ["an object", {}],
+    ["Infinity", Number.POSITIVE_INFINITY],
+    ["an invalid date", new Date(Number.NaN)],
+  ])("rejects %s as invalid_string", (_, input) => {
+    expect(string().parse(input)).toEqual(fail("invalid_string"));
   });
 
-  it("coerces a valid date to iso", () => {
-    const value = new Date("2026-10-09T12:00:00.000Z");
-    const parsed = string().parse(value);
+  describe("missing values", () => {
+    it("requires a value by default", () => {
+      expect(string().parse(undefined)).toEqual(fail("required"));
+    });
 
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBe(value.toISOString());
-  });
+    it("accepts undefined when optional", () => {
+      expect(string({ optional: true }).parse(undefined)).toEqual(
+        ok(undefined),
+      );
+    });
 
-  it("finishes with a required violation when the input is missing", () => {
-    expect(string().parse(undefined)).toEqual({
-      ok: false,
-      violations: [{ field: "", reason: "required" }],
+    it("accepts null when nullable", () => {
+      expect(string({ nullable: true }).parse(null)).toEqual(ok(null));
     });
   });
 
-  it("finishes with undefined when the input is optional and missing", () => {
-    const parsed = string({ optional: true }).parse(undefined);
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBeUndefined();
-  });
-
-  it("finishes with null when the input is nullable", () => {
-    const parsed = string({ nullable: true }).parse(null);
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBeNull();
-  });
-
-  it("returns an invalid_string violation when the input cannot be coerced", () => {
-    expect(string().parse({})).toEqual({
-      ok: false,
-      violations: [{ field: "", reason: "invalid_string" }],
+  describe("normalization", () => {
+    it.each([
+      ["trim", { trim: true }, `  ${word}  `, word],
+      [
+        "lowercase",
+        { lowercase: true },
+        word.toUpperCase(),
+        word.toLowerCase(),
+      ],
+      ["uppercase", { uppercase: true }, word, word.toUpperCase()],
+      ["transform", { transform: (v: string) => `${v}!` }, word, `${word}!`],
+    ])("applies %s", (_, options, input, expected) => {
+      expect(string(options).parse(input)).toEqual(ok(expected));
     });
   });
 
-  it("returns an invalid_string violation for Infinity", () => {
-    expect(string().parse(Number.POSITIVE_INFINITY)).toEqual({
-      ok: false,
-      violations: [{ field: "", reason: "invalid_string" }],
+  describe("length", () => {
+    const two = faker.string.alpha(2);
+    const three = faker.string.alpha(3);
+
+    it.each([
+      [{ minLength: 2 }, two, ok(two)],
+      [{ minLength: 3 }, two, fail("min_length")],
+      [{ maxLength: 3 }, three, ok(three)],
+      [{ maxLength: 2 }, three, fail("max_length")],
+    ])("with %o parses %s", (options, input, expected) => {
+      expect(string(options).parse(input)).toEqual(expected);
     });
   });
 
-  it("returns an invalid_string violation for an invalid date", () => {
-    expect(string().parse(new Date(Number.NaN))).toEqual({
-      ok: false,
-      violations: [{ field: "", reason: "invalid_string" }],
-    });
-  });
+  it("reports refine violations after a successful parse", () => {
+    const reason = faker.lorem.slug();
+    const schema = string({ refine: [{ check: () => false, reason }] });
 
-  it("trims the value when trim is enabled", () => {
-    const parsed = string({ trim: true }).parse("  hello  ");
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBe("hello");
-  });
-
-  it("lowercases the value when lowercase is enabled", () => {
-    const parsed = string({ lowercase: true }).parse("Hello");
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBe("hello");
-  });
-
-  it("uppercases the value when uppercase is enabled", () => {
-    const parsed = string({ uppercase: true }).parse("Hello");
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBe("HELLO");
-  });
-
-  it("applies transform to the coerced value", () => {
-    const parsed = string({ transform: (value) => `${value}!` }).parse("hi");
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBe("hi!");
-  });
-
-  it("returns a min_length violation when the string is too short", () => {
-    expect(string({ minLength: 3 }).parse("hi")).toEqual({
-      ok: false,
-      violations: [{ field: "", reason: "min_length" }],
-    });
-  });
-
-  it("accepts a string that meets the min length", () => {
-    const parsed = string({ minLength: 2 }).parse("hi");
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBe("hi");
-  });
-
-  it("returns a max_length violation when the string is too long", () => {
-    expect(string({ maxLength: 2 }).parse("hey")).toEqual({
-      ok: false,
-      violations: [{ field: "", reason: "max_length" }],
-    });
-  });
-
-  it("accepts a string that meets the max length", () => {
-    const parsed = string({ maxLength: 3 }).parse("hey");
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBe("hey");
-  });
-
-  it("returns refine violations after a successful parse", () => {
-    const reason = faker.lorem.word();
-
-    expect(
-      string({ refine: [{ check: () => false, reason }] }).parse("ok"),
-    ).toEqual({
-      ok: false,
-      violations: [{ field: "", reason }],
-    });
+    expect(schema.parse(word)).toEqual(fail(reason));
   });
 });

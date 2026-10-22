@@ -3,18 +3,12 @@ import { describe, expect, it } from "vitest";
 import { formatValidCpfOrCnpj } from ".";
 
 describe("formatValidCpfOrCnpj", () => {
-  it("returns the formatted cpf when it is valid", () => {
-    const result = formatValidCpfOrCnpj("77388332707");
-    expect(result).toBe("773.883.327-07");
-  });
-
-  it("returns null when the input is missing", () => {
-    const result = formatValidCpfOrCnpj(null);
-    expect(result).toBeNull();
-  });
-
-  it("returns the formatted cnpj when it is valid", () => {
-    const result = formatValidCpfOrCnpj("KQGLDO7R000138");
-    expect(result).toBe("KQ.GLD.O7R/0001-38");
+  it.each([
+    ["a cpf", "77388332707", "773.883.327-07"],
+    ["a cnpj", "KQGLDO7R000138", "KQ.GLD.O7R/0001-38"],
+    ["a missing value", null, null],
+    ["an invalid document", "12345", null],
+  ])("handles %s", (_, input, expected) => {
+    expect(formatValidCpfOrCnpj(input)).toBe(expected);
   });
 });

@@ -1,146 +1,78 @@
 import { faker } from "@faker-js/faker";
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { number } from "./number";
 
+const ok = (data: unknown) => ({ ok: true, data });
+const fail = (reason: string) => ({
+  ok: false,
+  violations: [{ field: "", reason }],
+});
+
 describe("number", () => {
-  it("returns the number when the input is a finite number", () => {
-    const value = faker.number.float({ min: 1, max: 100 });
-    const parsed = number().parse(value);
+  const decimal = faker.number.float({
+    min: -1000,
+    max: 1000,
+    fractionDigits: 2,
+  });
+  const integer = faker.number.int({ min: -1000, max: 1000 });
 
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBe(value);
+  it.each([
+    ["a finite number", decimal, decimal],
+    ["a trimmed numeric string", `  ${decimal}  `, decimal],
+    ["a safe bigint", BigInt(integer), integer],
+  ])("accepts %s", (_, input, expected) => {
+    expect(number().parse(input)).toEqual(ok(expected));
   });
 
-  it("coerces a numeric string", () => {
-    const parsed = number().parse("  12.5  ");
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBe(12.5);
+  it.each([
+    ["a word", faker.lorem.word()],
+    ["Infinity", Number.POSITIVE_INFINITY],
+    ["a non-finite numeric string", "1e1000"],
+    ["an unsafe bigint", BigInt(Number.MAX_SAFE_INTEGER) + 1n],
+  ])("rejects %s as invalid_number", (_, input) => {
+    expect(number().parse(input)).toEqual(fail("invalid_number"));
   });
 
-  it("coerces a safe bigint", () => {
-    const parsed = number().parse(10n);
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBe(10);
-  });
-
-  it("finishes with a required violation when the input is missing", () => {
-    expect(number().parse(undefined)).toEqual({
-      ok: false,
-      violations: [{ field: "", reason: "required" }],
+  describe("missing values", () => {
+    it("requires a value by default", () => {
+      expect(number().parse(undefined)).toEqual(fail("required"));
     });
-  });
 
-  it("finishes with undefined when the input is optional and missing", () => {
-    const parsed = number({ optional: true }).parse(undefined);
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBeUndefined();
-  });
-
-  it("finishes with null when the input is nullable", () => {
-    const parsed = number({ nullable: true }).parse(null);
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBeNull();
-  });
-
-  it("returns an invalid_number violation when the input cannot be coerced", () => {
-    expect(number().parse(faker.lorem.word())).toEqual({
-      ok: false,
-      violations: [{ field: "", reason: "invalid_number" }],
+    it("accepts undefined when optional", () => {
+      expect(number({ optional: true }).parse(undefined)).toEqual(
+        ok(undefined),
+      );
     });
-  });
 
-  it("returns an invalid_number violation for Infinity", () => {
-    expect(number().parse(Number.POSITIVE_INFINITY)).toEqual({
-      ok: false,
-      violations: [{ field: "", reason: "invalid_number" }],
-    });
-  });
-
-  it("returns an invalid_number violation for a non-finite numeric string", () => {
-    expect(number().parse("1e1000")).toEqual({
-      ok: false,
-      violations: [{ field: "", reason: "invalid_number" }],
-    });
-  });
-
-  it("returns an invalid_number violation for an unsafe bigint", () => {
-    expect(number().parse(BigInt(Number.MAX_SAFE_INTEGER) + 1n)).toEqual({
-      ok: false,
-      violations: [{ field: "", reason: "invalid_number" }],
+    it("accepts null when nullable", () => {
+      expect(number({ nullable: true }).parse(null)).toEqual(ok(null));
     });
   });
 
   it("applies transform to the coerced value", () => {
-    const parsed = number({ transform: (value) => value * 2 }).parse(4);
+    const schema = number({ transform: (value) => value * 2 });
 
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBe(8);
+    expect(schema.parse(integer)).toEqual(ok(integer * 2));
   });
 
-  it("returns an invalid_integer violation when an integer is required", () => {
-    expect(number({ integer: true }).parse(1.5)).toEqual({
-      ok: false,
-      violations: [{ field: "", reason: "invalid_integer" }],
+  describe("constraints", () => {
+    it.each([
+      [{ integer: true }, 2, ok(2)],
+      [{ integer: true }, 1.5, fail("invalid_integer")],
+      [{ min: 10 }, 10, ok(10)],
+      [{ min: 10 }, 9, fail("min")],
+      [{ max: 10 }, 10, ok(10)],
+      [{ max: 10 }, 11, fail("max")],
+    ])("with %o parses %s", (options, input, expected) => {
+      expect(number(options).parse(input)).toEqual(expected);
     });
   });
 
-  it("accepts an integer when an integer is required", () => {
-    const parsed = number({ integer: true }).parse(2);
+  it("reports refine violations after a successful parse", () => {
+    const reason = faker.lorem.slug();
+    const schema = number({ refine: [{ check: () => false, reason }] });
 
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBe(2);
-  });
-
-  it("returns a min violation when the value is below the minimum", () => {
-    expect(number({ min: 10 }).parse(9)).toEqual({
-      ok: false,
-      violations: [{ field: "", reason: "min" }],
-    });
-  });
-
-  it("accepts a value that meets the minimum", () => {
-    const parsed = number({ min: 10 }).parse(10);
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBe(10);
-  });
-
-  it("returns a max violation when the value is above the maximum", () => {
-    expect(number({ max: 10 }).parse(11)).toEqual({
-      ok: false,
-      violations: [{ field: "", reason: "max" }],
-    });
-  });
-
-  it("accepts a value that meets the maximum", () => {
-    const parsed = number({ max: 10 }).parse(10);
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBe(10);
-  });
-
-  it("returns refine violations after a successful parse", () => {
-    const reason = faker.lorem.word();
-
-    expect(
-      number({ refine: [{ check: () => false, reason }] }).parse(1),
-    ).toEqual({
-      ok: false,
-      violations: [{ field: "", reason }],
-    });
+    expect(schema.parse(integer)).toEqual(fail(reason));
   });
 });

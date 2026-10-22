@@ -1,74 +1,55 @@
 import { faker } from "@faker-js/faker";
-import { AppError } from "@shared/domain/errors/app-error";
-import { describe, expect, test } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { IdentityError } from "../errors/identity.error";
 
 import { PasswordHash } from "./password-hash.value-object";
 
-describe("PasswordHash Value Object", () => {
-  test("creates a password hash with the given value", () => {
-    const hash = "$" + faker.internet.password({ length: 10 });
-    const passwordHash = PasswordHash.create(hash);
+const fakeHash = () => `$${faker.string.alphanumeric(40)}`;
 
-    expect(passwordHash.value).toBe(hash);
+describe("PasswordHash", () => {
+  describe("create", () => {
+    it("keeps the given hash", () => {
+      const hash = fakeHash();
+
+      expect(PasswordHash.create(hash).value).toBe(hash);
+    });
+
+    it("keeps surrounding whitespace (create does not trim)", () => {
+      const hash = `${fakeHash()} `;
+
+      expect(PasswordHash.create(hash).value).toBe(hash);
+    });
+
+    it.each([
+      ["an empty string", "", IdentityError.PasswordHashRequired],
+      ["undefined", undefined, IdentityError.PasswordHashRequired],
+      [
+        "a hash without a leading $",
+        faker.string.alphanumeric(40),
+        IdentityError.PasswordHashInvalid,
+      ],
+    ])("throws for %s", (_, input, error) => {
+      expect(() => PasswordHash.create(input as string)).toThrow(error.code);
+    });
   });
 
-  test("updates the password hash with a new value", () => {
-    const passwordHash = PasswordHash.create(
-      "$" + faker.internet.password({ length: 10 }),
-    );
-    const updatedHash = "$" + faker.internet.password({ length: 10 });
+  describe("update", () => {
+    it("replaces the hash with the trimmed new value", () => {
+      const passwordHash = PasswordHash.create(fakeHash());
+      const newHash = fakeHash();
 
-    passwordHash.update(updatedHash);
+      passwordHash.update(` ${newHash} `);
 
-    expect(passwordHash.value).toBe(updatedHash);
-  });
+      expect(passwordHash.value).toBe(newHash);
+    });
 
-  test("throws when password hash is empty", () => {
-    const emptyHash = "";
+    it("throws PasswordHashInvalid when the new hash has no leading $", () => {
+      const passwordHash = PasswordHash.create(fakeHash());
 
-    expect(() => PasswordHash.create(emptyHash)).toThrow(AppError);
-    expect(() => PasswordHash.create(emptyHash)).toThrow(
-      IdentityError.PasswordHashRequired.code,
-    );
-  });
-
-  test("throws when password hash is undefined", () => {
-    expect(() => PasswordHash.create(undefined as never)).toThrow(AppError);
-    expect(() => PasswordHash.create(undefined as never)).toThrow(
-      IdentityError.PasswordHashRequired.code,
-    );
-  });
-
-  test("throws when password hash does not start with $", () => {
-    const invalidHash = faker.internet.password({ length: 10 });
-
-    expect(() => PasswordHash.create(invalidHash)).toThrow(AppError);
-    expect(() => PasswordHash.create(invalidHash)).toThrow(
-      IdentityError.PasswordHashInvalid.code,
-    );
-  });
-
-  test("throws when the updated password hash is invalid", () => {
-    const passwordHash = PasswordHash.create(
-      "$" + faker.internet.password({ length: 10 }),
-    );
-    const invalidHash = faker.internet.password({ length: 10 });
-
-    expect(() => passwordHash.update(invalidHash)).toThrow(
-      IdentityError.PasswordHashInvalid.code,
-    );
-  });
-
-  test("trims whitespace from the password hash", () => {
-    const hash = "$" + faker.internet.password({ length: 10 });
-    const hashWithTrailingSpace = hash + " ";
-
-    const passwordHash = PasswordHash.create(hashWithTrailingSpace);
-
-    expect(passwordHash.value).toBe(hashWithTrailingSpace);
-    passwordHash.update(hashWithTrailingSpace);
-    expect(passwordHash.value).toBe(hash);
+      expect(() => passwordHash.update(faker.string.alphanumeric(40))).toThrow(
+        IdentityError.PasswordHashInvalid.code,
+      );
+    });
   });
 });

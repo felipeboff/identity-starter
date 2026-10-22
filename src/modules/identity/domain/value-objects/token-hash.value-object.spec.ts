@@ -1,66 +1,43 @@
 import { faker } from "@faker-js/faker";
-import { AppError } from "@shared/domain/errors/app-error";
-import { describe, expect, test } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { IdentityError } from "../errors/identity.error";
 
 import { TokenHash } from "./token-hash.value-object";
 
-describe("TokenHash Value Object", () => {
-  test("creates a token hash with the given value", () => {
-    const hash = faker.string.alphanumeric(32);
-    const tokenHash = TokenHash.create(hash);
+describe("TokenHash", () => {
+  it("keeps the given value", () => {
+    const value = faker.string.alphanumeric(32);
 
-    expect(tokenHash.value).toBe(hash);
+    expect(TokenHash.create(value).value).toBe(value);
   });
 
-  test("creates a token hash after trimming whitespace", () => {
-    const hash = faker.string.alphanumeric(32);
-    const hashWithTrailingSpace = hash + " ";
+  it("trims surrounding whitespace", () => {
+    const value = faker.string.alphanumeric(32);
 
-    const tokenHash = TokenHash.create(hashWithTrailingSpace);
-
-    expect(tokenHash.value).toBe(hash);
+    expect(TokenHash.create(` ${value} `).value).toBe(value);
   });
 
-  test("considers different token hashes as not equal", () => {
-    const firstHash = faker.string.alphanumeric(32);
-    const secondHash = faker.string.alphanumeric(32);
-
-    const firstTokenHash = TokenHash.create(firstHash);
-    const secondTokenHash = TokenHash.create(secondHash);
-
-    expect(secondTokenHash.equals(firstTokenHash)).toBe(false);
-  });
-
-  test("considers the same token hash as equal", () => {
-    const hash = faker.string.alphanumeric(32);
-    const tokenHash = TokenHash.create(hash);
-    const otherTokenHash = TokenHash.create(hash);
-
-    expect(tokenHash.equals(otherTokenHash)).toBe(true);
-  });
-
-  test("throws when token hash is empty", () => {
-    const emptyHash = "";
-
-    expect(() => TokenHash.create(emptyHash)).toThrow(AppError);
-    expect(() => TokenHash.create(emptyHash)).toThrow(
+  it.each([
+    ["an empty string", ""],
+    ["undefined", undefined],
+    ["null", null],
+  ])("throws TokenHashRequired for %s", (_, input) => {
+    expect(() => TokenHash.create(input as string)).toThrow(
       IdentityError.TokenHashRequired.code,
     );
   });
 
-  test("throws when token hash is undefined", () => {
-    expect(() => TokenHash.create(undefined as never)).toThrow(AppError);
-    expect(() => TokenHash.create(undefined as never)).toThrow(
-      IdentityError.TokenHashRequired.code,
-    );
+  it("is equal to another token hash with the same value", () => {
+    const value = faker.string.alphanumeric(32);
+
+    expect(TokenHash.create(value).equals(TokenHash.create(value))).toBe(true);
   });
 
-  test("throws when token hash is null", () => {
-    expect(() => TokenHash.create(null as never)).toThrow(AppError);
-    expect(() => TokenHash.create(null as never)).toThrow(
-      IdentityError.TokenHashRequired.code,
-    );
+  it("is not equal to a token hash with another value", () => {
+    const first = TokenHash.create(faker.string.alphanumeric(32));
+    const second = TokenHash.create(faker.string.alphanumeric(32));
+
+    expect(first.equals(second)).toBe(false);
   });
 });

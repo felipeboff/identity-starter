@@ -1,136 +1,106 @@
 import { faker } from "@faker-js/faker";
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { record } from "./record";
 
+const ok = (data: unknown) => ({ ok: true, data });
+const fail = (reason: string) => ({
+  ok: false,
+  violations: [{ field: "", reason }],
+});
+
 describe("record", () => {
-  it("returns a copy of a plain object", () => {
-    const input = { [faker.lorem.word()]: faker.lorem.word(), count: 1 };
+  it("returns a shallow copy of a plain object", () => {
+    const name = faker.person.firstName();
+    const tags = [faker.lorem.word()];
+    const input = { name, tags };
+
     const parsed = record().parse(input);
 
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toEqual(input);
-    expect(parsed.data).not.toBe(input);
-  });
-
-  it("keeps values by reference without validating them", () => {
-    const nested = { tags: [faker.lorem.word()] };
-    const parsed = record().parse({ nested });
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data.nested).toBe(nested);
+    expect(parsed).toEqual(ok({ name, tags: [...tags] }));
+    expect(parsed.ok && parsed.data).not.toBe(input);
+    expect(parsed.ok && parsed.data.tags).toBe(tags);
   });
 
   it("accepts an object without a prototype", () => {
+    const name = faker.person.firstName();
     const input = Object.create(null) as Record<string, unknown>;
-    input.name = faker.lorem.word();
-    const parsed = record().parse(input);
+    input.name = name;
 
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toEqual({ name: input.name });
+    expect(record().parse(input)).toEqual(ok({ name }));
   });
 
-  it("keeps a __proto__ key as an own property", () => {
+  it("keeps a __proto__ key as an own property instead of changing the prototype", () => {
     const input = JSON.parse('{"__proto__": {"polluted": true}}') as unknown;
+
     const parsed = record().parse(input);
 
     expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(Object.getPrototypeOf(parsed.data)).toBe(Object.prototype);
-    expect(Object.prototype.hasOwnProperty.call(parsed.data, "__proto__")).toBe(
-      true,
-    );
-    expect((parsed.data as { polluted?: boolean }).polluted).toBeUndefined();
+    const data = parsed.ok ? parsed.data : {};
+    expect(Object.getPrototypeOf(data)).toBe(Object.prototype);
+    expect(Object.hasOwn(data, "__proto__")).toBe(true);
+    expect((data as { polluted?: boolean }).polluted).toBeUndefined();
   });
 
   it.each([
-    ["an array", []],
-    ["a date", new Date()],
+    ["an array", [faker.lorem.word()]],
+    ["a date", faker.date.past()],
     ["a class instance", new (class Example {})()],
-    ["a string", "text"],
-    ["a number", 10],
-    ["a boolean", true],
-  ])("returns an invalid_object violation for %s", (_, input) => {
-    expect(record().parse(input)).toEqual({
-      ok: false,
-      violations: [{ field: "", reason: "invalid_object" }],
+    ["a string", faker.lorem.word()],
+    ["a number", faker.number.int()],
+    ["a boolean", faker.datatype.boolean()],
+  ])("rejects %s as invalid_object", (_, input) => {
+    expect(record().parse(input)).toEqual(fail("invalid_object"));
+  });
+
+  describe("missing values", () => {
+    it("requires a value by default", () => {
+      expect(record().parse(undefined)).toEqual(fail("required"));
     });
-  });
 
-  it("finishes with a required violation when the input is missing", () => {
-    expect(record().parse(undefined)).toEqual({
-      ok: false,
-      violations: [{ field: "", reason: "required" }],
+    it("rejects null as invalid_type by default", () => {
+      expect(record().parse(null)).toEqual(fail("invalid_type"));
     });
-  });
 
-  it("finishes with undefined when the input is optional and missing", () => {
-    const parsed = record({ optional: true }).parse(undefined);
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBeUndefined();
-  });
-
-  it("finishes with an invalid_type violation when the input is null", () => {
-    expect(record().parse(null)).toEqual({
-      ok: false,
-      violations: [{ field: "", reason: "invalid_type" }],
+    it("accepts undefined when optional", () => {
+      expect(record({ optional: true }).parse(undefined)).toEqual(
+        ok(undefined),
+      );
     });
-  });
 
-  it("finishes with null when the input is nullable", () => {
-    const parsed = record({ nullable: true }).parse(null);
+    it("accepts null when nullable", () => {
+      expect(record({ nullable: true }).parse(null)).toEqual(ok(null));
+    });
 
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toBeNull();
-  });
+    it("uses the default when the input is missing", () => {
+      const fallback = { name: faker.person.firstName() };
 
-  it("uses the default when the input is missing", () => {
-    const defaultValue = { name: faker.lorem.word() };
-    const parsed = record({ default: defaultValue }).parse(undefined);
-
-    expect(parsed.ok).toBe(true);
-    assert(parsed.ok === true);
-    expect(parsed.data).toEqual(defaultValue);
+      expect(record({ default: fallback }).parse(undefined)).toEqual(
+        ok(fallback),
+      );
+    });
   });
 
   it("runs refinements on the transformed value", () => {
-    const reason = faker.lorem.word();
-    const parsed = record({
+    const reason = faker.lorem.slug();
+    const schema = record({
       transform: (value) => ({ ...value, transformed: true }),
       refine: [{ check: (value) => value.transformed !== true, reason }],
-    }).parse({});
-
-    expect(parsed).toEqual({
-      ok: false,
-      violations: [{ field: "", reason }],
     });
+
+    expect(schema.parse({})).toEqual(fail(reason));
   });
 
-  it("does not run transform or refinements for an invalid input", () => {
-    let calls = 0;
-    const parsed = record({
-      transform: (value) => {
-        calls += 1;
-        return value;
-      },
-      refine: [
-        {
-          check: () => {
-            calls += 1;
-            return true;
-          },
-          reason: faker.lorem.word(),
-        },
-      ],
+  it("skips transform and refinements for an invalid input", () => {
+    const transform = vi.fn((value: Record<string, unknown>) => value);
+    const check = vi.fn(() => true);
+
+    record({
+      transform,
+      refine: [{ check, reason: faker.lorem.slug() }],
     }).parse([]);
 
-    expect(parsed.ok).toBe(false);
-    expect(calls).toBe(0);
+    expect(transform).not.toHaveBeenCalled();
+    expect(check).not.toHaveBeenCalled();
   });
 });
