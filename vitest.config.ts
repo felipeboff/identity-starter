@@ -12,6 +12,9 @@ export default defineConfig({
   test: {
     coverage: {
       provider: "v8",
+      // Measure every source file, not only the ones some test imports.
+      include: ["src/**/*.ts"],
+      thresholds: { 100: true },
     },
   },
 });
