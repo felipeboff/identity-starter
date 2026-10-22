@@ -8,6 +8,7 @@ export const SessionRevocationReason = {
   LOGOUT: "logout",
   REPLACED: "replaced",
   SECURITY: "security",
+  PASSWORD_CHANGED: "password_changed",
 } as const;
 
 export type SessionRevocationReason =

@@ -1,330 +1,222 @@
 import { faker } from "@faker-js/faker";
-import { AppError } from "@shared/domain/errors/app-error";
 import { describe, expect, it } from "vitest";
 
 import { IdentityError } from "./errors/identity.error";
 import {
   Membership,
   MembershipPermission,
+  MembershipRegister,
   MembershipRole,
 } from "./membership.entity";
 
+const CREATED_AT = faker.date.past();
+const LATER = faker.date.soon({ refDate: CREATED_AT });
+const EVEN_LATER = faker.date.soon({ refDate: LATER });
+
+const makeMembership = (overrides: Partial<MembershipRegister> = {}) =>
+  Membership.register(
+    {
+      id: faker.database.mongodbObjectId(),
+      accountId: faker.database.mongodbObjectId(),
+      createdBy: faker.database.mongodbObjectId(),
+      role: MembershipRole.USER,
+      permissions: [MembershipPermission.READ],
+      ...overrides,
+    },
+    CREATED_AT,
+  );
+
+const makeDeletedMembership = () => {
+  const membership = makeMembership();
+  membership.markAsDeleted(CREATED_AT);
+  return membership;
+};
+
 describe("Membership", () => {
   describe("register", () => {
-    it("creates a membership with the given identity and default state", () => {
+    it("creates an active membership at version 0", () => {
       const id = faker.database.mongodbObjectId();
       const accountId = faker.database.mongodbObjectId();
       const createdBy = faker.database.mongodbObjectId();
-      const registeredAt = new Date();
 
-      const membership = Membership.register(
-        {
-          id,
-          role: MembershipRole.USER,
-          permissions: [MembershipPermission.READ],
-          createdBy,
-          accountId,
-        },
-        registeredAt,
-      );
+      const membership = makeMembership({ id, accountId, createdBy });
 
-      expect(membership.id.value).toBe(id);
-      expect(membership.role).toBe(MembershipRole.USER);
-      expect(membership.permissions).toEqual([MembershipPermission.READ]);
-      expect(membership.createdBy.value).toBe(createdBy);
-      expect(membership.accountId.value).toBe(accountId);
-      expect(membership.version).toBe(0);
-      expect(membership.createdAt).toBe(registeredAt);
-      expect(membership.updatedAt).toBe(registeredAt);
-      expect(membership.deletedAt).toBeNull();
+      expect(membership.toSnapshot()).toEqual({
+        id,
+        accountId,
+        createdBy,
+        role: MembershipRole.USER,
+        permissions: [MembershipPermission.READ],
+        version: 0,
+        createdAt: CREATED_AT,
+        updatedAt: CREATED_AT,
+        deletedAt: null,
+      });
       expect(membership.isDeleted()).toBe(false);
     });
 
-    it("throws when the role is invalid", () => {
-      expect(() =>
-        Membership.register(
-          {
-            id: faker.database.mongodbObjectId(),
-            role: "owner" as MembershipRole,
-            permissions: [MembershipPermission.READ],
-            createdBy: faker.database.mongodbObjectId(),
-            accountId: faker.database.mongodbObjectId(),
-          },
-          new Date(),
-        ),
-      ).toThrow(IdentityError.InvalidMembershipRole.code);
+    it("throws InvalidMembershipRole when the role is unknown", () => {
+      expect(() => makeMembership({ role: "owner" as MembershipRole })).toThrow(
+        IdentityError.InvalidMembershipRole.code,
+      );
     });
 
-    it("throws when a permission is invalid", () => {
+    it("throws InvalidMembershipPermissions when a permission is unknown", () => {
       expect(() =>
-        Membership.register(
-          {
-            id: faker.database.mongodbObjectId(),
-            role: MembershipRole.USER,
-            permissions: ["manage" as MembershipPermission],
-            createdBy: faker.database.mongodbObjectId(),
-            accountId: faker.database.mongodbObjectId(),
-          },
-          new Date(),
-        ),
+        makeMembership({ permissions: ["manage" as MembershipPermission] }),
       ).toThrow(IdentityError.InvalidMembershipPermissions.code);
     });
   });
 
   describe("restore", () => {
-    it("rebuilds a membership from persisted state", () => {
-      const persistedState = {
+    it("rebuilds the membership from persisted state", () => {
+      const persisted = {
         id: faker.database.mongodbObjectId(),
+        accountId: faker.database.mongodbObjectId(),
+        createdBy: faker.database.mongodbObjectId(),
         role: MembershipRole.ADMIN,
         permissions: [MembershipPermission.ADMIN],
-        createdBy: faker.database.mongodbObjectId(),
-        accountId: faker.database.mongodbObjectId(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        version: 3,
+        version: faker.number.int({ min: 1, max: 10 }),
+        createdAt: CREATED_AT,
+        updatedAt: LATER,
         deletedAt: null,
       };
 
-      const membership = Membership.restore(persistedState);
+      const membership = Membership.restore(persisted);
 
-      expect(membership.toSnapshot()).toEqual(persistedState);
+      expect(membership.toSnapshot()).toEqual(persisted);
     });
   });
 
-  describe("toSnapshot", () => {
-    it("returns a snapshot of the current membership state", () => {
-      const membership = Membership.register(
-        {
-          id: faker.database.mongodbObjectId(),
-          role: MembershipRole.USER,
-          permissions: [MembershipPermission.READ, MembershipPermission.WRITE],
-          createdBy: faker.database.mongodbObjectId(),
-          accountId: faker.database.mongodbObjectId(),
-        },
-        new Date(),
-      );
-
+  describe("getters", () => {
+    it("expose the membership state", () => {
+      const membership = makeMembership();
       const snapshot = membership.toSnapshot();
 
-      expect(snapshot.id).toBe(membership.id.value);
-      expect(snapshot.role).toBe(membership.role);
-      expect(snapshot.permissions).toEqual(membership.permissions);
-      expect(snapshot.permissions).not.toBe(membership.permissions);
-      expect(snapshot.createdBy).toBe(membership.createdBy.value);
-      expect(snapshot.accountId).toBe(membership.accountId.value);
-      expect(snapshot.version).toBe(membership.version);
-      expect(snapshot.createdAt).toBe(membership.createdAt);
-      expect(snapshot.updatedAt).toBe(membership.updatedAt);
-      expect(snapshot.deletedAt).toBe(membership.deletedAt);
+      expect({
+        id: membership.id.value,
+        accountId: membership.accountId.value,
+        createdBy: membership.createdBy.value,
+        role: membership.role,
+        permissions: membership.permissions,
+        version: membership.version,
+        createdAt: membership.createdAt,
+        updatedAt: membership.updatedAt,
+        deletedAt: membership.deletedAt,
+      }).toEqual(snapshot);
+    });
+
+    it("return copies of the permissions so callers cannot mutate them", () => {
+      const membership = makeMembership();
+
+      membership.permissions.push(MembershipPermission.ADMIN);
+      membership.toSnapshot().permissions.push(MembershipPermission.ADMIN);
+
+      expect(membership.permissions).toEqual([MembershipPermission.READ]);
     });
   });
 
   describe("updateRole", () => {
-    it("changes the membership role", () => {
-      const membership = Membership.register(
-        {
-          id: faker.database.mongodbObjectId(),
-          role: MembershipRole.USER,
-          permissions: [MembershipPermission.READ],
-          createdBy: faker.database.mongodbObjectId(),
-          accountId: faker.database.mongodbObjectId(),
-        },
-        new Date(),
-      );
-      const updatedAt = new Date();
+    it("changes the role and touches updatedAt", () => {
+      const membership = makeMembership({ role: MembershipRole.USER });
 
-      membership.updateRole(MembershipRole.ADMIN, updatedAt);
+      membership.updateRole(MembershipRole.ADMIN, LATER);
 
       expect(membership.role).toBe(MembershipRole.ADMIN);
-      expect(membership.updatedAt).toBe(updatedAt);
+      expect(membership.updatedAt).toBe(LATER);
     });
 
-    it("throws when the membership is deleted", () => {
-      const membership = Membership.register(
-        {
-          id: faker.database.mongodbObjectId(),
-          role: MembershipRole.USER,
-          permissions: [MembershipPermission.READ],
-          createdBy: faker.database.mongodbObjectId(),
-          accountId: faker.database.mongodbObjectId(),
-        },
-        new Date(),
+    it("throws MembershipDeleted when the membership is deleted", () => {
+      const membership = makeDeletedMembership();
+
+      expect(() => membership.updateRole(MembershipRole.ADMIN, LATER)).toThrow(
+        IdentityError.MembershipDeleted.code,
       );
-
-      membership.markAsDeleted(new Date());
-
-      expect(() =>
-        membership.updateRole(MembershipRole.ADMIN, new Date()),
-      ).toThrow(AppError);
-      expect(() =>
-        membership.updateRole(MembershipRole.ADMIN, new Date()),
-      ).toThrow(IdentityError.MembershipDeleted.code);
     });
 
-    it("throws when the role is invalid", () => {
-      const membership = Membership.register(
-        {
-          id: faker.database.mongodbObjectId(),
-          role: MembershipRole.USER,
-          permissions: [MembershipPermission.READ],
-          createdBy: faker.database.mongodbObjectId(),
-          accountId: faker.database.mongodbObjectId(),
-        },
-        new Date(),
-      );
+    it("throws InvalidMembershipRole when the role is unknown", () => {
+      const membership = makeMembership();
 
       expect(() =>
-        membership.updateRole("owner" as MembershipRole, new Date()),
+        membership.updateRole("owner" as MembershipRole, LATER),
       ).toThrow(IdentityError.InvalidMembershipRole.code);
     });
   });
 
   describe("updatePermissions", () => {
-    it("changes the membership permissions", () => {
-      const membership = Membership.register(
-        {
-          id: faker.database.mongodbObjectId(),
-          role: MembershipRole.USER,
-          permissions: [MembershipPermission.READ],
-          createdBy: faker.database.mongodbObjectId(),
-          accountId: faker.database.mongodbObjectId(),
-        },
-        new Date(),
-      );
-      const updatedPermissions = [
+    it("replaces the permissions with a copy and touches updatedAt", () => {
+      const membership = makeMembership();
+      const permissions: MembershipPermission[] = [
         MembershipPermission.READ,
         MembershipPermission.WRITE,
-        MembershipPermission.DELETE,
       ];
-      const updatedAt = new Date();
 
-      membership.updatePermissions(updatedPermissions, updatedAt);
+      membership.updatePermissions(permissions, LATER);
+      permissions.push(MembershipPermission.ADMIN);
 
-      expect(membership.permissions).toEqual(updatedPermissions);
-      expect(membership.permissions).not.toBe(updatedPermissions);
-      expect(membership.updatedAt).toBe(updatedAt);
+      expect(membership.permissions).toEqual([
+        MembershipPermission.READ,
+        MembershipPermission.WRITE,
+      ]);
+      expect(membership.updatedAt).toBe(LATER);
     });
 
-    it("throws when the membership is deleted", () => {
-      const membership = Membership.register(
-        {
-          id: faker.database.mongodbObjectId(),
-          role: MembershipRole.USER,
-          permissions: [MembershipPermission.READ],
-          createdBy: faker.database.mongodbObjectId(),
-          accountId: faker.database.mongodbObjectId(),
-        },
-        new Date(),
-      );
-
-      membership.markAsDeleted(new Date());
+    it("throws MembershipDeleted when the membership is deleted", () => {
+      const membership = makeDeletedMembership();
 
       expect(() =>
-        membership.updatePermissions([MembershipPermission.WRITE], new Date()),
+        membership.updatePermissions([MembershipPermission.WRITE], LATER),
       ).toThrow(IdentityError.MembershipDeleted.code);
     });
 
-    it("throws when a permission is invalid", () => {
-      const membership = Membership.register(
-        {
-          id: faker.database.mongodbObjectId(),
-          role: MembershipRole.USER,
-          permissions: [MembershipPermission.READ],
-          createdBy: faker.database.mongodbObjectId(),
-          accountId: faker.database.mongodbObjectId(),
-        },
-        new Date(),
-      );
+    it("throws InvalidMembershipPermissions when a permission is unknown", () => {
+      const membership = makeMembership();
 
       expect(() =>
-        membership.updatePermissions(
-          [MembershipPermission.READ, "manage" as MembershipPermission],
-          new Date(),
-        ),
+        membership.updatePermissions(["manage" as MembershipPermission], LATER),
       ).toThrow(IdentityError.InvalidMembershipPermissions.code);
     });
   });
 
   describe("markAsDeleted", () => {
-    it("marks the membership as deleted", () => {
-      const membership = Membership.register(
-        {
-          id: faker.database.mongodbObjectId(),
-          role: MembershipRole.USER,
-          permissions: [MembershipPermission.READ],
-          createdBy: faker.database.mongodbObjectId(),
-          accountId: faker.database.mongodbObjectId(),
-        },
-        new Date(),
-      );
-      const deletedAt = new Date();
+    it("sets deletedAt and touches updatedAt", () => {
+      const membership = makeMembership();
 
-      membership.markAsDeleted(deletedAt);
+      membership.markAsDeleted(LATER);
 
-      expect(membership.deletedAt).toBe(deletedAt);
       expect(membership.isDeleted()).toBe(true);
+      expect(membership.deletedAt).toBe(LATER);
+      expect(membership.updatedAt).toBe(LATER);
     });
 
-    it("does not overwrite deletedAt when the membership is already deleted", () => {
-      const membership = Membership.register(
-        {
-          id: faker.database.mongodbObjectId(),
-          role: MembershipRole.USER,
-          permissions: [MembershipPermission.READ],
-          createdBy: faker.database.mongodbObjectId(),
-          accountId: faker.database.mongodbObjectId(),
-        },
-        new Date(),
-      );
-      const firstDeletedAt = new Date();
-      const laterDeletedAt = new Date();
+    it("keeps the first deletedAt when called twice", () => {
+      const membership = makeMembership();
 
-      membership.markAsDeleted(firstDeletedAt);
-      membership.markAsDeleted(laterDeletedAt);
+      membership.markAsDeleted(LATER);
+      membership.markAsDeleted(EVEN_LATER);
 
-      expect(membership.deletedAt).toBe(firstDeletedAt);
+      expect(membership.deletedAt).toBe(LATER);
     });
   });
 
   describe("reactivate", () => {
-    it("keeps the membership active when it was never deleted", () => {
-      const membership = Membership.register(
-        {
-          id: faker.database.mongodbObjectId(),
-          role: MembershipRole.USER,
-          permissions: [MembershipPermission.READ],
-          createdBy: faker.database.mongodbObjectId(),
-          accountId: faker.database.mongodbObjectId(),
-        },
-        new Date(),
-      );
+    it("clears deletedAt and touches updatedAt", () => {
+      const membership = makeDeletedMembership();
 
-      membership.reactivate(new Date());
+      membership.reactivate(LATER);
 
-      expect(membership.deletedAt).toBeNull();
       expect(membership.isDeleted()).toBe(false);
+      expect(membership.deletedAt).toBeNull();
+      expect(membership.updatedAt).toBe(LATER);
     });
 
-    it("clears deletedAt when the membership is deleted", () => {
-      const membership = Membership.register(
-        {
-          id: faker.database.mongodbObjectId(),
-          role: MembershipRole.USER,
-          permissions: [MembershipPermission.READ],
-          createdBy: faker.database.mongodbObjectId(),
-          accountId: faker.database.mongodbObjectId(),
-        },
-        new Date(),
-      );
-      const deletedAt = new Date();
-      const reactivatedAt = new Date();
+    it("does nothing when the membership is active", () => {
+      const membership = makeMembership();
 
-      membership.markAsDeleted(deletedAt);
-      membership.reactivate(reactivatedAt);
+      membership.reactivate(LATER);
 
-      expect(membership.isDeleted()).toBe(false);
       expect(membership.deletedAt).toBeNull();
-      expect(membership.updatedAt).toBe(reactivatedAt);
+      expect(membership.updatedAt).toBe(CREATED_AT);
     });
   });
 });

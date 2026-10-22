@@ -1,13 +1,40 @@
 import { faker } from "@faker-js/faker";
-import { AppError } from "@shared/domain/errors/app-error";
 import { describe, expect, it } from "vitest";
 
 import { IdentityError } from "./errors/identity.error";
-import { Session, SessionRevocationReason } from "./session.entity";
+import {
+  Session,
+  SessionRegister,
+  SessionRevocationReason,
+} from "./session.entity";
+
+const laterThan = (date: Date) =>
+  faker.date.soon({ refDate: date, days: { min: 1, max: 30 } });
+
+const CREATED_AT = faker.date.recent();
+const LATER = laterThan(CREATED_AT);
+const EVEN_LATER = laterThan(LATER);
+const EXPIRES_AT = laterThan(EVEN_LATER);
+
+const makeSession = (overrides: Partial<SessionRegister> = {}) =>
+  Session.register(
+    {
+      id: faker.database.mongodbObjectId(),
+      accountId: faker.database.mongodbObjectId(),
+      credentialId: faker.database.mongodbObjectId(),
+      membershipId: faker.database.mongodbObjectId(),
+      tokenHash: faker.string.alphanumeric(32),
+      expiresAt: EXPIRES_AT,
+      userAgent: faker.internet.userAgent(),
+      ipAddress: faker.internet.ip(),
+      ...overrides,
+    },
+    CREATED_AT,
+  );
 
 describe("Session", () => {
   describe("register", () => {
-    it("creates a session with the given identity and default state", () => {
+    it("creates an active session at version 0", () => {
       const id = faker.database.mongodbObjectId();
       const accountId = faker.database.mongodbObjectId();
       const credentialId = faker.database.mongodbObjectId();
@@ -15,274 +42,151 @@ describe("Session", () => {
       const tokenHash = faker.string.alphanumeric(32);
       const userAgent = faker.internet.userAgent();
       const ipAddress = faker.internet.ip();
-      const registeredAt = new Date();
-      const expiresAt = new Date(registeredAt.getTime() + 60_000);
 
-      const session = Session.register(
-        {
-          id,
-          accountId,
-          credentialId,
-          membershipId,
-          tokenHash,
-          expiresAt,
-          userAgent,
-          ipAddress,
-        },
-        registeredAt,
-      );
+      const session = makeSession({
+        id,
+        accountId,
+        credentialId,
+        membershipId,
+        tokenHash,
+        userAgent,
+        ipAddress,
+      });
 
-      expect(session.id.value).toBe(id);
-      expect(session.accountId.value).toBe(accountId);
-      expect(session.credentialId.value).toBe(credentialId);
-      expect(session.membershipId.value).toBe(membershipId);
-      expect(session.tokenHash.value).toBe(tokenHash);
-      expect(session.expiresAt).toBe(expiresAt);
-      expect(session.userAgent).toBe(userAgent);
-      expect(session.ipAddress).toBe(ipAddress);
-      expect(session.version).toBe(0);
-      expect(session.createdAt).toBe(registeredAt);
-      expect(session.revokedAt).toBeNull();
-      expect(session.acceptedByAccountId).toBeNull();
-      expect(session.revokedReason).toBeNull();
-      expect(session.isRevoked()).toBe(false);
-      expect(session.isActive(registeredAt)).toBe(true);
+      expect(session.toSnapshot()).toEqual({
+        id,
+        accountId,
+        credentialId,
+        membershipId,
+        tokenHash,
+        expiresAt: EXPIRES_AT,
+        userAgent,
+        ipAddress,
+        version: 0,
+        createdAt: CREATED_AT,
+        revokedAt: null,
+        acceptedByAccountId: null,
+        revokedReason: null,
+      });
+      expect(session.isActive(CREATED_AT)).toBe(true);
     });
   });
 
   describe("restore", () => {
     it("rebuilds an active session from persisted state", () => {
-      const persistedAt = new Date();
-      const persistedState = {
-        id: faker.database.mongodbObjectId(),
-        accountId: faker.database.mongodbObjectId(),
-        credentialId: faker.database.mongodbObjectId(),
-        membershipId: faker.database.mongodbObjectId(),
-        tokenHash: faker.string.alphanumeric(32),
-        expiresAt: new Date(persistedAt.getTime() + 60_000),
-        userAgent: faker.internet.userAgent(),
-        ipAddress: faker.internet.ip(),
-        createdAt: persistedAt,
-        version: 1,
-        revokedAt: null,
-        acceptedByAccountId: null,
-        revokedReason: null,
-      };
+      const persisted = makeSession().toSnapshot();
 
-      const session = Session.restore(persistedState);
+      const session = Session.restore(persisted);
 
-      expect(session.toSnapshot()).toEqual(persistedState);
+      expect(session.toSnapshot()).toEqual(persisted);
     });
 
     it("rebuilds a revoked session with the account that revoked it", () => {
-      const acceptedByAccountId = faker.database.mongodbObjectId();
-      const revokedAt = new Date();
-      const session = Session.restore({
-        id: faker.database.mongodbObjectId(),
-        accountId: faker.database.mongodbObjectId(),
-        credentialId: faker.database.mongodbObjectId(),
-        membershipId: faker.database.mongodbObjectId(),
-        tokenHash: faker.string.alphanumeric(32),
-        expiresAt: new Date(revokedAt.getTime() + 60_000),
-        userAgent: faker.internet.userAgent(),
-        ipAddress: faker.internet.ip(),
-        createdAt: revokedAt,
-        version: 1,
-        revokedAt,
-        acceptedByAccountId,
+      const persisted = {
+        ...makeSession().toSnapshot(),
+        revokedAt: LATER,
+        acceptedByAccountId: faker.database.mongodbObjectId(),
         revokedReason: SessionRevocationReason.SECURITY,
-      });
+      };
 
+      const session = Session.restore(persisted);
+
+      expect(session.toSnapshot()).toEqual(persisted);
       expect(session.isRevoked()).toBe(true);
-      expect(session.revokedAt).toBe(revokedAt);
-      expect(session.acceptedByAccountId?.value).toBe(acceptedByAccountId);
-      expect(session.revokedReason).toBe(SessionRevocationReason.SECURITY);
-      expect(session.toSnapshot().acceptedByAccountId).toBe(
-        acceptedByAccountId,
-      );
     });
 
-    it("throws when the revocation reason is invalid", () => {
-      expect(() =>
-        Session.restore({
-          id: faker.database.mongodbObjectId(),
-          accountId: faker.database.mongodbObjectId(),
-          credentialId: faker.database.mongodbObjectId(),
-          membershipId: faker.database.mongodbObjectId(),
-          tokenHash: faker.string.alphanumeric(32),
-          expiresAt: new Date(),
-          userAgent: faker.internet.userAgent(),
-          ipAddress: faker.internet.ip(),
-          createdAt: new Date(),
-          version: 1,
-          revokedAt: new Date(),
-          acceptedByAccountId: null,
-          revokedReason: "unknown" as SessionRevocationReason,
-        }),
-      ).toThrow(IdentityError.InvalidSessionRevocationReason.code);
+    it("throws InvalidSessionRevocationReason when the reason is unknown", () => {
+      const persisted = {
+        ...makeSession().toSnapshot(),
+        revokedAt: LATER,
+        revokedReason: "unknown" as SessionRevocationReason,
+      };
+
+      expect(() => Session.restore(persisted)).toThrow(
+        IdentityError.InvalidSessionRevocationReason.code,
+      );
     });
   });
 
-  describe("toSnapshot", () => {
-    it("returns a snapshot of the current session state", () => {
-      const session = Session.register(
-        {
-          id: faker.database.mongodbObjectId(),
-          accountId: faker.database.mongodbObjectId(),
-          credentialId: faker.database.mongodbObjectId(),
-          membershipId: faker.database.mongodbObjectId(),
-          tokenHash: faker.string.alphanumeric(32),
-          expiresAt: new Date(),
-          userAgent: faker.internet.userAgent(),
-          ipAddress: faker.internet.ip(),
-        },
-        new Date(),
+  describe("getters", () => {
+    it("expose the session state", () => {
+      const session = makeSession();
+      session.revoke(
+        SessionRevocationReason.REPLACED,
+        LATER,
+        faker.database.mongodbObjectId(),
       );
 
-      const snapshot = session.toSnapshot();
-
-      expect(snapshot.id).toBe(session.id.value);
-      expect(snapshot.accountId).toBe(session.accountId.value);
-      expect(snapshot.credentialId).toBe(session.credentialId.value);
-      expect(snapshot.membershipId).toBe(session.membershipId.value);
-      expect(snapshot.tokenHash).toBe(session.tokenHash.value);
-      expect(snapshot.expiresAt).toBe(session.expiresAt);
-      expect(snapshot.userAgent).toBe(session.userAgent);
-      expect(snapshot.ipAddress).toBe(session.ipAddress);
-      expect(snapshot.version).toBe(session.version);
-      expect(snapshot.createdAt).toBe(session.createdAt);
-      expect(snapshot.revokedAt).toBe(session.revokedAt);
-      expect(snapshot.acceptedByAccountId).toBeNull();
-      expect(snapshot.revokedReason).toBe(session.revokedReason);
+      expect({
+        id: session.id.value,
+        accountId: session.accountId.value,
+        credentialId: session.credentialId.value,
+        membershipId: session.membershipId.value,
+        tokenHash: session.tokenHash.value,
+        expiresAt: session.expiresAt,
+        userAgent: session.userAgent,
+        ipAddress: session.ipAddress,
+        version: session.version,
+        createdAt: session.createdAt,
+        revokedAt: session.revokedAt,
+        acceptedByAccountId: session.acceptedByAccountId?.value,
+        revokedReason: session.revokedReason,
+      }).toEqual(session.toSnapshot());
     });
   });
 
-  describe("isExpired", () => {
-    it("considers the session expired at the expiration time", () => {
-      const registeredAt = new Date();
-      const expiresAt = new Date(registeredAt.getTime() + 60_000);
-      const session = Session.register(
-        {
-          id: faker.database.mongodbObjectId(),
-          accountId: faker.database.mongodbObjectId(),
-          credentialId: faker.database.mongodbObjectId(),
-          membershipId: faker.database.mongodbObjectId(),
-          tokenHash: faker.string.alphanumeric(32),
-          expiresAt,
-          userAgent: faker.internet.userAgent(),
-          ipAddress: faker.internet.ip(),
-        },
-        registeredAt,
-      );
+  describe("isActive", () => {
+    it("expires exactly at expiresAt", () => {
+      const session = makeSession();
 
-      expect(session.isExpired(registeredAt)).toBe(false);
-      expect(session.isExpired(expiresAt)).toBe(true);
-      expect(session.isActive(expiresAt)).toBe(false);
+      expect(session.isExpired(CREATED_AT)).toBe(false);
+      expect(session.isExpired(EXPIRES_AT)).toBe(true);
+      expect(session.isActive(EXPIRES_AT)).toBe(false);
     });
   });
 
   describe("revoke", () => {
-    it("revokes an active session without an accepting account", () => {
-      const registeredAt = new Date();
-      const session = Session.register(
-        {
-          id: faker.database.mongodbObjectId(),
-          accountId: faker.database.mongodbObjectId(),
-          credentialId: faker.database.mongodbObjectId(),
-          membershipId: faker.database.mongodbObjectId(),
-          tokenHash: faker.string.alphanumeric(32),
-          expiresAt: new Date(registeredAt.getTime() + 60_000),
-          userAgent: faker.internet.userAgent(),
-          ipAddress: faker.internet.ip(),
-        },
-        registeredAt,
-      );
-      const revokedAt = new Date();
+    it("records the reason and time without a revoking account", () => {
+      const session = makeSession();
 
-      session.revoke(SessionRevocationReason.LOGOUT, revokedAt);
+      session.revoke(SessionRevocationReason.LOGOUT, LATER);
 
-      expect(session.isRevoked()).toBe(true);
-      expect(session.revokedAt).toBe(revokedAt);
-      expect(session.revokedReason).toBe(SessionRevocationReason.LOGOUT);
-      expect(session.acceptedByAccountId).toBeNull();
-      expect(session.isActive(registeredAt)).toBe(false);
+      expect(session.toSnapshot()).toMatchObject({
+        revokedAt: LATER,
+        revokedReason: SessionRevocationReason.LOGOUT,
+        acceptedByAccountId: null,
+      });
+      expect(session.isActive(CREATED_AT)).toBe(false);
     });
 
-    it("revokes an active session with the account that revoked it", () => {
-      const registeredAt = new Date();
-      const session = Session.register(
-        {
-          id: faker.database.mongodbObjectId(),
-          accountId: faker.database.mongodbObjectId(),
-          credentialId: faker.database.mongodbObjectId(),
-          membershipId: faker.database.mongodbObjectId(),
-          tokenHash: faker.string.alphanumeric(32),
-          expiresAt: new Date(registeredAt.getTime() + 60_000),
-          userAgent: faker.internet.userAgent(),
-          ipAddress: faker.internet.ip(),
-        },
-        registeredAt,
-      );
-      const acceptedByAccountId = faker.database.mongodbObjectId();
-      const revokedAt = new Date();
+    it("records the account that revoked it", () => {
+      const session = makeSession();
+      const adminId = faker.database.mongodbObjectId();
 
-      session.revoke(
-        SessionRevocationReason.REPLACED,
-        revokedAt,
-        acceptedByAccountId,
-      );
+      session.revoke(SessionRevocationReason.REPLACED, LATER, adminId);
 
-      expect(session.revokedReason).toBe(SessionRevocationReason.REPLACED);
-      expect(session.acceptedByAccountId?.value).toBe(acceptedByAccountId);
-      expect(session.revokedAt).toBe(revokedAt);
+      expect(session.toSnapshot()).toMatchObject({
+        revokedAt: LATER,
+        revokedReason: SessionRevocationReason.REPLACED,
+        acceptedByAccountId: adminId,
+      });
     });
 
-    it("does not overwrite revocation data when the session is already revoked", () => {
-      const registeredAt = new Date();
-      const session = Session.register(
-        {
-          id: faker.database.mongodbObjectId(),
-          accountId: faker.database.mongodbObjectId(),
-          credentialId: faker.database.mongodbObjectId(),
-          membershipId: faker.database.mongodbObjectId(),
-          tokenHash: faker.string.alphanumeric(32),
-          expiresAt: new Date(registeredAt.getTime() + 60_000),
-          userAgent: faker.internet.userAgent(),
-          ipAddress: faker.internet.ip(),
-        },
-        registeredAt,
-      );
-      const firstRevokedAt = new Date();
-      const laterRevokedAt = new Date();
+    it("keeps the first revocation when called twice", () => {
+      const session = makeSession();
 
-      session.revoke(SessionRevocationReason.LOGOUT, firstRevokedAt);
-      session.revoke(SessionRevocationReason.SECURITY, laterRevokedAt);
+      session.revoke(SessionRevocationReason.LOGOUT, LATER);
+      session.revoke(SessionRevocationReason.SECURITY, EVEN_LATER);
 
-      expect(session.revokedAt).toBe(firstRevokedAt);
+      expect(session.revokedAt).toBe(LATER);
       expect(session.revokedReason).toBe(SessionRevocationReason.LOGOUT);
     });
 
-    it("throws when the revocation reason is invalid", () => {
-      const registeredAt = new Date();
-      const session = Session.register(
-        {
-          id: faker.database.mongodbObjectId(),
-          accountId: faker.database.mongodbObjectId(),
-          credentialId: faker.database.mongodbObjectId(),
-          membershipId: faker.database.mongodbObjectId(),
-          tokenHash: faker.string.alphanumeric(32),
-          expiresAt: new Date(registeredAt.getTime() + 60_000),
-          userAgent: faker.internet.userAgent(),
-          ipAddress: faker.internet.ip(),
-        },
-        registeredAt,
-      );
+    it("throws InvalidSessionRevocationReason when the reason is unknown", () => {
+      const session = makeSession();
 
       expect(() =>
-        session.revoke("unknown" as SessionRevocationReason, new Date()),
-      ).toThrow(AppError);
-      expect(() =>
-        session.revoke("unknown" as SessionRevocationReason, new Date()),
+        session.revoke("unknown" as SessionRevocationReason, LATER),
       ).toThrow(IdentityError.InvalidSessionRevocationReason.code);
     });
   });

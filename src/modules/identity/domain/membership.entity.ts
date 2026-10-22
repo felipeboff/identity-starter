@@ -175,7 +175,9 @@ export class Membership {
 
   private ensureNotDeleted(): void {
     if (this.isDeleted()) {
-      throw new AppError(IdentityError.MembershipDeleted);
+      throw new AppError(IdentityError.MembershipDeleted, {
+        membershipId: this.state.id.value,
+      });
     }
   }
 

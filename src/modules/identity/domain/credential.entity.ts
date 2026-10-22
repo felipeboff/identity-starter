@@ -231,7 +231,9 @@ export class Credential {
 
   private ensureNotDeleted(): void {
     if (this.isDeleted()) {
-      throw new AppError(IdentityError.CredentialDeleted);
+      throw new AppError(IdentityError.CredentialDeleted, {
+        credentialId: this.state.id.value,
+      });
     }
   }
 

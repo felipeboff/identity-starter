@@ -17,6 +17,7 @@ export type AccountRestore = AccountRegister & {
   version: number;
   deletedAt?: Date | null;
   lastSeenAt?: Date | null;
+  emailVerifiedAt?: Date | null;
 };
 
 export type AccountSnapshot = AccountRestore;
@@ -31,6 +32,7 @@ export type AccountState = {
   updatedAt: Date;
   deletedAt: Date | null;
   lastSeenAt: Date | null;
+  emailVerifiedAt: Date | null;
 };
 
 export class Account {
@@ -45,6 +47,7 @@ export class Account {
       updatedAt: at,
       deletedAt: null,
       lastSeenAt: null,
+      emailVerifiedAt: null,
       version: 0,
       createdBy: Id.create(input.createdBy),
     });
@@ -59,6 +62,7 @@ export class Account {
       updatedAt: input.updatedAt,
       deletedAt: input.deletedAt ?? null,
       lastSeenAt: input.lastSeenAt ?? null,
+      emailVerifiedAt: input.emailVerifiedAt ?? null,
       version: input.version,
       createdBy: Id.create(input.createdBy),
     });
@@ -73,6 +77,7 @@ export class Account {
       updatedAt: this.state.updatedAt,
       deletedAt: this.state.deletedAt,
       lastSeenAt: this.state.lastSeenAt,
+      emailVerifiedAt: this.state.emailVerifiedAt,
       version: this.state.version,
       createdBy: this.state.createdBy.value,
     };
@@ -114,8 +119,16 @@ export class Account {
     return this.state.lastSeenAt;
   }
 
+  public get emailVerifiedAt(): Date | null {
+    return this.state.emailVerifiedAt;
+  }
+
   public isDeleted(): boolean {
     return this.state.deletedAt !== null;
+  }
+
+  public isEmailVerified(): boolean {
+    return this.state.emailVerifiedAt !== null;
   }
 
   public updateName(name: string, at: Date): void {
@@ -148,9 +161,22 @@ export class Account {
     this.touch(at);
   }
 
+  public markEmailAsVerified(at: Date): void {
+    this.ensureNotDeleted();
+
+    if (this.isEmailVerified()) {
+      return;
+    }
+
+    this.state.emailVerifiedAt = at;
+    this.touch(at);
+  }
+
   private ensureNotDeleted(): void {
     if (this.isDeleted()) {
-      throw new AppError(IdentityError.AccountDeleted);
+      throw new AppError(IdentityError.AccountDeleted, {
+        accountId: this.state.id.value,
+      });
     }
   }
 
