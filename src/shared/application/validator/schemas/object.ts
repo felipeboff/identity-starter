@@ -1,13 +1,25 @@
-import { failure, isPlainObject, prefixViolations, resolveInput, result, runRefinements } from '../internal/helpers';
-import type { BaseOptions, Schema, Shape, Violation } from '../types';
+import {
+  failure,
+  isPlainObject,
+  prefixViolations,
+  resolveInput,
+  result,
+  runRefinements,
+} from "../internal/helpers";
+import type { BaseOptions, Schema, Shape, Violation } from "../types";
+
+import { schema } from "./schema";
 
 export type ObjectOptions<T extends object> = BaseOptions<T>;
 
-export const object = <T extends object>(shape: Shape<T>, options?: ObjectOptions<T>): Schema<T> => ({
-  parse(input) {
+export const object = <T extends object>(
+  shape: Shape<T>,
+  options?: ObjectOptions<T>,
+): Schema<T> =>
+  schema((input) => {
     const resolved = resolveInput(input, options);
     if (resolved.done) return resolved.result;
-    if (!isPlainObject(resolved.value)) return failure('invalid_object');
+    if (!isPlainObject(resolved.value)) return failure("invalid_object");
 
     const data: Record<string, unknown> = {};
     const violations: Violation[] = [];
@@ -33,5 +45,4 @@ export const object = <T extends object>(shape: Shape<T>, options?: ObjectOption
     let value = data as T;
     if (options?.transform) value = options.transform(value);
     return result(value, runRefinements(value, options?.refine));
-  },
-});
+  });

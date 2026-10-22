@@ -7,12 +7,14 @@ import {
 } from "../internal/helpers";
 import type { BaseOptions, Schema } from "../types";
 
+import { schema } from "./schema";
+
 export type RecordOptions = BaseOptions<Record<string, unknown>>;
 
 export const record = (
   options?: RecordOptions,
-): Schema<Record<string, unknown>> => ({
-  parse(input) {
+): Schema<Record<string, unknown>> =>
+  schema((input) => {
     const resolved = resolveInput(input, options);
     if (resolved.done) return resolved.result;
     if (!isPlainObject(resolved.value)) return failure("invalid_object");
@@ -30,5 +32,4 @@ export const record = (
     let value = data;
     if (options?.transform) value = options.transform(value);
     return result(value, runRefinements(value, options?.refine));
-  },
-});
+  });

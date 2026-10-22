@@ -8,6 +8,8 @@ import {
 } from "../internal/helpers";
 import type { BaseOptions, Schema, Violation } from "../types";
 
+import { schema } from "./schema";
+
 export type ArrayOptions<T> = BaseOptions<T[]> & {
   minLength?: number;
   maxLength?: number;
@@ -23,8 +25,8 @@ const splitCsv = (input: string): string[] =>
 export const array = <T>(
   itemSchema: Schema<T>,
   options?: ArrayOptions<T>,
-): Schema<T[]> => ({
-  parse(input) {
+): Schema<T[]> =>
+  schema((input) => {
     const resolved = resolveInput(input, options);
     if (resolved.done) return resolved.result;
     const items =
@@ -54,5 +56,4 @@ export const array = <T>(
     let value = data;
     if (options?.transform) value = options.transform(value);
     return result(value, runRefinements(value, options?.refine));
-  },
-});
+  });

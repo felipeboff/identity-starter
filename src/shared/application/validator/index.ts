@@ -12,6 +12,7 @@ import {
   object,
   objectId,
   record,
+  schema,
   string,
   uuid,
 } from "./schemas";
@@ -57,6 +58,7 @@ export {
   object,
   objectId,
   record,
+  schema,
   string,
   uuid,
 };
@@ -77,4 +79,5 @@ export const v = {
   array,
   object,
   record,
+  schema,
 };

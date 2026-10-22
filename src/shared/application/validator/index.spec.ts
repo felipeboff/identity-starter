@@ -17,6 +17,7 @@ import {
   object,
   objectId,
   record,
+  schema,
   string,
   uuid,
   v,
@@ -40,12 +41,13 @@ describe("validator index", () => {
       array,
       object,
       record,
+      schema,
     });
   });
 
   it("re-exports the document formatters", () => {
-    expect(formatValidCpf).toEqual(expect.any(Function));
-    expect(formatValidCnpj).toEqual(expect.any(Function));
-    expect(formatValidCpfOrCnpj).toEqual(expect.any(Function));
+    expect(formatValidCpf("77388332707")).toBe("773.883.327-07");
+    expect(formatValidCnpj("KQGLDO7R000138")).toBe("KQ.GLD.O7R/0001-38");
+    expect(formatValidCpfOrCnpj("77388332707")).toBe("773.883.327-07");
   });
 });

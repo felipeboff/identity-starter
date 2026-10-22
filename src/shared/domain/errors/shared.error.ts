@@ -1,6 +1,13 @@
 import { defineError } from "./app-error";
+import type { InputInvalidData } from "./input-invalid-data";
 
 export const SharedError = {
+  /** Input refused by a `v` schema; `data.violations` names the fields. */
+  InputInvalid: defineError<InputInvalidData>(
+    "shared.input_invalid",
+    "invalid_input",
+  ),
+
   EmailRequired: defineError<{ email: string }>(
     "shared.email_required",
     "invalid_input",

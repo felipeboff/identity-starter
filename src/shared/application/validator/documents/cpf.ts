@@ -1,6 +1,6 @@
 const stripCpfDigits = (input: string | null | undefined): string => {
-  if (input == null) return '';
-  return input.trim().replace(/\D/g, '');
+  if (input == null) return "";
+  return input.trim().replace(/\D/g, "");
 };
 
 const formatCpf = (cpf: string): string => {
@@ -14,12 +14,12 @@ const formatCpf = (cpf: string): string => {
 const validateCpfDigit = (cpf: string, offset = 0): boolean => {
   const firstDigits = cpf
     .slice(0, 9 + offset)
-    .split('')
+    .split("")
     .map((e) => Number.parseInt(e, 10));
 
   const lastDigits = cpf
     .slice(9, 11)
-    .split('')
+    .split("")
     .map((e) => Number.parseInt(e, 10));
 
   const sequence = firstDigits.length + 1;
@@ -35,7 +35,9 @@ const validateCpfDigit = (cpf: string, offset = 0): boolean => {
   return lastDigits[offset] === expectedDigit;
 };
 
-export const formatValidCpf = (value: string | null | undefined): string | null => {
+export const formatValidCpf = (
+  value: string | null | undefined,
+): string | null => {
   const clean = stripCpfDigits(value);
 
   if (clean.length !== 11) return null;

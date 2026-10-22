@@ -27,6 +27,7 @@ export type { NumberOptions } from "./number";
 export { object } from "./object";
 export type { ObjectOptions } from "./object";
 export { record } from "./record";
+export { schema } from "./schema";
 export type { RecordOptions } from "./record";
 export { string } from "./string";
 export type { StringOptions } from "./string";
