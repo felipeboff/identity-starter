@@ -1,6 +1,5 @@
 import { faker } from "@faker-js/faker";
 import { AppError } from "@shared/domain/errors/app-error";
-import { fakeUuid } from "@shared/testing/uuid";
 import { describe, expect, it } from "vitest";
 
 import { IdentityError } from "./errors/identity.error";
@@ -9,10 +8,10 @@ import { Session, SessionRevocationReason } from "./session.entity";
 describe("Session", () => {
   describe("register", () => {
     it("creates a session with the given identity and default state", () => {
-      const id = fakeUuid();
-      const accountId = fakeUuid();
-      const credentialId = fakeUuid();
-      const membershipId = fakeUuid();
+      const id = faker.database.mongodbObjectId();
+      const accountId = faker.database.mongodbObjectId();
+      const credentialId = faker.database.mongodbObjectId();
+      const membershipId = faker.database.mongodbObjectId();
       const tokenHash = faker.string.alphanumeric(32);
       const userAgent = faker.internet.userAgent();
       const ipAddress = faker.internet.ip();
@@ -55,10 +54,10 @@ describe("Session", () => {
     it("rebuilds an active session from persisted state", () => {
       const persistedAt = new Date();
       const persistedState = {
-        id: fakeUuid(),
-        accountId: fakeUuid(),
-        credentialId: fakeUuid(),
-        membershipId: fakeUuid(),
+        id: faker.database.mongodbObjectId(),
+        accountId: faker.database.mongodbObjectId(),
+        credentialId: faker.database.mongodbObjectId(),
+        membershipId: faker.database.mongodbObjectId(),
         tokenHash: faker.string.alphanumeric(32),
         expiresAt: new Date(persistedAt.getTime() + 60_000),
         userAgent: faker.internet.userAgent(),
@@ -76,13 +75,13 @@ describe("Session", () => {
     });
 
     it("rebuilds a revoked session with the account that revoked it", () => {
-      const acceptedByAccountId = fakeUuid();
+      const acceptedByAccountId = faker.database.mongodbObjectId();
       const revokedAt = new Date();
       const session = Session.restore({
-        id: fakeUuid(),
-        accountId: fakeUuid(),
-        credentialId: fakeUuid(),
-        membershipId: fakeUuid(),
+        id: faker.database.mongodbObjectId(),
+        accountId: faker.database.mongodbObjectId(),
+        credentialId: faker.database.mongodbObjectId(),
+        membershipId: faker.database.mongodbObjectId(),
         tokenHash: faker.string.alphanumeric(32),
         expiresAt: new Date(revokedAt.getTime() + 60_000),
         userAgent: faker.internet.userAgent(),
@@ -106,10 +105,10 @@ describe("Session", () => {
     it("throws when the revocation reason is invalid", () => {
       expect(() =>
         Session.restore({
-          id: fakeUuid(),
-          accountId: fakeUuid(),
-          credentialId: fakeUuid(),
-          membershipId: fakeUuid(),
+          id: faker.database.mongodbObjectId(),
+          accountId: faker.database.mongodbObjectId(),
+          credentialId: faker.database.mongodbObjectId(),
+          membershipId: faker.database.mongodbObjectId(),
           tokenHash: faker.string.alphanumeric(32),
           expiresAt: new Date(),
           userAgent: faker.internet.userAgent(),
@@ -128,10 +127,10 @@ describe("Session", () => {
     it("returns a snapshot of the current session state", () => {
       const session = Session.register(
         {
-          id: fakeUuid(),
-          accountId: fakeUuid(),
-          credentialId: fakeUuid(),
-          membershipId: fakeUuid(),
+          id: faker.database.mongodbObjectId(),
+          accountId: faker.database.mongodbObjectId(),
+          credentialId: faker.database.mongodbObjectId(),
+          membershipId: faker.database.mongodbObjectId(),
           tokenHash: faker.string.alphanumeric(32),
           expiresAt: new Date(),
           userAgent: faker.internet.userAgent(),
@@ -164,10 +163,10 @@ describe("Session", () => {
       const expiresAt = new Date(registeredAt.getTime() + 60_000);
       const session = Session.register(
         {
-          id: fakeUuid(),
-          accountId: fakeUuid(),
-          credentialId: fakeUuid(),
-          membershipId: fakeUuid(),
+          id: faker.database.mongodbObjectId(),
+          accountId: faker.database.mongodbObjectId(),
+          credentialId: faker.database.mongodbObjectId(),
+          membershipId: faker.database.mongodbObjectId(),
           tokenHash: faker.string.alphanumeric(32),
           expiresAt,
           userAgent: faker.internet.userAgent(),
@@ -187,10 +186,10 @@ describe("Session", () => {
       const registeredAt = new Date();
       const session = Session.register(
         {
-          id: fakeUuid(),
-          accountId: fakeUuid(),
-          credentialId: fakeUuid(),
-          membershipId: fakeUuid(),
+          id: faker.database.mongodbObjectId(),
+          accountId: faker.database.mongodbObjectId(),
+          credentialId: faker.database.mongodbObjectId(),
+          membershipId: faker.database.mongodbObjectId(),
           tokenHash: faker.string.alphanumeric(32),
           expiresAt: new Date(registeredAt.getTime() + 60_000),
           userAgent: faker.internet.userAgent(),
@@ -213,10 +212,10 @@ describe("Session", () => {
       const registeredAt = new Date();
       const session = Session.register(
         {
-          id: fakeUuid(),
-          accountId: fakeUuid(),
-          credentialId: fakeUuid(),
-          membershipId: fakeUuid(),
+          id: faker.database.mongodbObjectId(),
+          accountId: faker.database.mongodbObjectId(),
+          credentialId: faker.database.mongodbObjectId(),
+          membershipId: faker.database.mongodbObjectId(),
           tokenHash: faker.string.alphanumeric(32),
           expiresAt: new Date(registeredAt.getTime() + 60_000),
           userAgent: faker.internet.userAgent(),
@@ -224,7 +223,7 @@ describe("Session", () => {
         },
         registeredAt,
       );
-      const acceptedByAccountId = fakeUuid();
+      const acceptedByAccountId = faker.database.mongodbObjectId();
       const revokedAt = new Date();
 
       session.revoke(
@@ -242,10 +241,10 @@ describe("Session", () => {
       const registeredAt = new Date();
       const session = Session.register(
         {
-          id: fakeUuid(),
-          accountId: fakeUuid(),
-          credentialId: fakeUuid(),
-          membershipId: fakeUuid(),
+          id: faker.database.mongodbObjectId(),
+          accountId: faker.database.mongodbObjectId(),
+          credentialId: faker.database.mongodbObjectId(),
+          membershipId: faker.database.mongodbObjectId(),
           tokenHash: faker.string.alphanumeric(32),
           expiresAt: new Date(registeredAt.getTime() + 60_000),
           userAgent: faker.internet.userAgent(),
@@ -267,10 +266,10 @@ describe("Session", () => {
       const registeredAt = new Date();
       const session = Session.register(
         {
-          id: fakeUuid(),
-          accountId: fakeUuid(),
-          credentialId: fakeUuid(),
-          membershipId: fakeUuid(),
+          id: faker.database.mongodbObjectId(),
+          accountId: faker.database.mongodbObjectId(),
+          credentialId: faker.database.mongodbObjectId(),
+          membershipId: faker.database.mongodbObjectId(),
           tokenHash: faker.string.alphanumeric(32),
           expiresAt: new Date(registeredAt.getTime() + 60_000),
           userAgent: faker.internet.userAgent(),

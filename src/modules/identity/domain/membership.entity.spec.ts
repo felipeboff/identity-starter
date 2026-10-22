@@ -1,5 +1,5 @@
+import { faker } from "@faker-js/faker";
 import { AppError } from "@shared/domain/errors/app-error";
-import { fakeUuid } from "@shared/testing/uuid";
 import { describe, expect, it } from "vitest";
 
 import { IdentityError } from "./errors/identity.error";
@@ -12,9 +12,9 @@ import {
 describe("Membership", () => {
   describe("register", () => {
     it("creates a membership with the given identity and default state", () => {
-      const id = fakeUuid();
-      const accountId = fakeUuid();
-      const createdBy = fakeUuid();
+      const id = faker.database.mongodbObjectId();
+      const accountId = faker.database.mongodbObjectId();
+      const createdBy = faker.database.mongodbObjectId();
       const registeredAt = new Date();
 
       const membership = Membership.register(
@@ -44,11 +44,11 @@ describe("Membership", () => {
       expect(() =>
         Membership.register(
           {
-            id: fakeUuid(),
+            id: faker.database.mongodbObjectId(),
             role: "owner" as MembershipRole,
             permissions: [MembershipPermission.READ],
-            createdBy: fakeUuid(),
-            accountId: fakeUuid(),
+            createdBy: faker.database.mongodbObjectId(),
+            accountId: faker.database.mongodbObjectId(),
           },
           new Date(),
         ),
@@ -59,11 +59,11 @@ describe("Membership", () => {
       expect(() =>
         Membership.register(
           {
-            id: fakeUuid(),
+            id: faker.database.mongodbObjectId(),
             role: MembershipRole.USER,
             permissions: ["manage" as MembershipPermission],
-            createdBy: fakeUuid(),
-            accountId: fakeUuid(),
+            createdBy: faker.database.mongodbObjectId(),
+            accountId: faker.database.mongodbObjectId(),
           },
           new Date(),
         ),
@@ -74,11 +74,11 @@ describe("Membership", () => {
   describe("restore", () => {
     it("rebuilds a membership from persisted state", () => {
       const persistedState = {
-        id: fakeUuid(),
+        id: faker.database.mongodbObjectId(),
         role: MembershipRole.ADMIN,
         permissions: [MembershipPermission.ADMIN],
-        createdBy: fakeUuid(),
-        accountId: fakeUuid(),
+        createdBy: faker.database.mongodbObjectId(),
+        accountId: faker.database.mongodbObjectId(),
         createdAt: new Date(),
         updatedAt: new Date(),
         version: 3,
@@ -95,11 +95,11 @@ describe("Membership", () => {
     it("returns a snapshot of the current membership state", () => {
       const membership = Membership.register(
         {
-          id: fakeUuid(),
+          id: faker.database.mongodbObjectId(),
           role: MembershipRole.USER,
           permissions: [MembershipPermission.READ, MembershipPermission.WRITE],
-          createdBy: fakeUuid(),
-          accountId: fakeUuid(),
+          createdBy: faker.database.mongodbObjectId(),
+          accountId: faker.database.mongodbObjectId(),
         },
         new Date(),
       );
@@ -123,11 +123,11 @@ describe("Membership", () => {
     it("changes the membership role", () => {
       const membership = Membership.register(
         {
-          id: fakeUuid(),
+          id: faker.database.mongodbObjectId(),
           role: MembershipRole.USER,
           permissions: [MembershipPermission.READ],
-          createdBy: fakeUuid(),
-          accountId: fakeUuid(),
+          createdBy: faker.database.mongodbObjectId(),
+          accountId: faker.database.mongodbObjectId(),
         },
         new Date(),
       );
@@ -142,11 +142,11 @@ describe("Membership", () => {
     it("throws when the membership is deleted", () => {
       const membership = Membership.register(
         {
-          id: fakeUuid(),
+          id: faker.database.mongodbObjectId(),
           role: MembershipRole.USER,
           permissions: [MembershipPermission.READ],
-          createdBy: fakeUuid(),
-          accountId: fakeUuid(),
+          createdBy: faker.database.mongodbObjectId(),
+          accountId: faker.database.mongodbObjectId(),
         },
         new Date(),
       );
@@ -164,11 +164,11 @@ describe("Membership", () => {
     it("throws when the role is invalid", () => {
       const membership = Membership.register(
         {
-          id: fakeUuid(),
+          id: faker.database.mongodbObjectId(),
           role: MembershipRole.USER,
           permissions: [MembershipPermission.READ],
-          createdBy: fakeUuid(),
-          accountId: fakeUuid(),
+          createdBy: faker.database.mongodbObjectId(),
+          accountId: faker.database.mongodbObjectId(),
         },
         new Date(),
       );
@@ -183,11 +183,11 @@ describe("Membership", () => {
     it("changes the membership permissions", () => {
       const membership = Membership.register(
         {
-          id: fakeUuid(),
+          id: faker.database.mongodbObjectId(),
           role: MembershipRole.USER,
           permissions: [MembershipPermission.READ],
-          createdBy: fakeUuid(),
-          accountId: fakeUuid(),
+          createdBy: faker.database.mongodbObjectId(),
+          accountId: faker.database.mongodbObjectId(),
         },
         new Date(),
       );
@@ -208,11 +208,11 @@ describe("Membership", () => {
     it("throws when the membership is deleted", () => {
       const membership = Membership.register(
         {
-          id: fakeUuid(),
+          id: faker.database.mongodbObjectId(),
           role: MembershipRole.USER,
           permissions: [MembershipPermission.READ],
-          createdBy: fakeUuid(),
-          accountId: fakeUuid(),
+          createdBy: faker.database.mongodbObjectId(),
+          accountId: faker.database.mongodbObjectId(),
         },
         new Date(),
       );
@@ -227,11 +227,11 @@ describe("Membership", () => {
     it("throws when a permission is invalid", () => {
       const membership = Membership.register(
         {
-          id: fakeUuid(),
+          id: faker.database.mongodbObjectId(),
           role: MembershipRole.USER,
           permissions: [MembershipPermission.READ],
-          createdBy: fakeUuid(),
-          accountId: fakeUuid(),
+          createdBy: faker.database.mongodbObjectId(),
+          accountId: faker.database.mongodbObjectId(),
         },
         new Date(),
       );
@@ -249,11 +249,11 @@ describe("Membership", () => {
     it("marks the membership as deleted", () => {
       const membership = Membership.register(
         {
-          id: fakeUuid(),
+          id: faker.database.mongodbObjectId(),
           role: MembershipRole.USER,
           permissions: [MembershipPermission.READ],
-          createdBy: fakeUuid(),
-          accountId: fakeUuid(),
+          createdBy: faker.database.mongodbObjectId(),
+          accountId: faker.database.mongodbObjectId(),
         },
         new Date(),
       );
@@ -268,11 +268,11 @@ describe("Membership", () => {
     it("does not overwrite deletedAt when the membership is already deleted", () => {
       const membership = Membership.register(
         {
-          id: fakeUuid(),
+          id: faker.database.mongodbObjectId(),
           role: MembershipRole.USER,
           permissions: [MembershipPermission.READ],
-          createdBy: fakeUuid(),
-          accountId: fakeUuid(),
+          createdBy: faker.database.mongodbObjectId(),
+          accountId: faker.database.mongodbObjectId(),
         },
         new Date(),
       );
@@ -290,11 +290,11 @@ describe("Membership", () => {
     it("keeps the membership active when it was never deleted", () => {
       const membership = Membership.register(
         {
-          id: fakeUuid(),
+          id: faker.database.mongodbObjectId(),
           role: MembershipRole.USER,
           permissions: [MembershipPermission.READ],
-          createdBy: fakeUuid(),
-          accountId: fakeUuid(),
+          createdBy: faker.database.mongodbObjectId(),
+          accountId: faker.database.mongodbObjectId(),
         },
         new Date(),
       );
@@ -308,11 +308,11 @@ describe("Membership", () => {
     it("clears deletedAt when the membership is deleted", () => {
       const membership = Membership.register(
         {
-          id: fakeUuid(),
+          id: faker.database.mongodbObjectId(),
           role: MembershipRole.USER,
           permissions: [MembershipPermission.READ],
-          createdBy: fakeUuid(),
-          accountId: fakeUuid(),
+          createdBy: faker.database.mongodbObjectId(),
+          accountId: faker.database.mongodbObjectId(),
         },
         new Date(),
       );

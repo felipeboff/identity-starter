@@ -1,6 +1,5 @@
 import { faker } from "@faker-js/faker";
 import { AppError } from "@shared/domain/errors/app-error";
-import { fakeUuid } from "@shared/testing/uuid";
 import { describe, expect, it } from "vitest";
 
 import { Account } from "./account.entity";
@@ -9,10 +8,10 @@ import { IdentityError } from "./errors/identity.error";
 describe("Account", () => {
   describe("register", () => {
     it("creates an account with the given identity and default state", () => {
-      const id = fakeUuid();
+      const id = faker.database.mongodbObjectId();
       const name = faker.person.fullName();
       const email = faker.internet.email().toLowerCase();
-      const createdBy = fakeUuid();
+      const createdBy = faker.database.mongodbObjectId();
       const registeredAt = new Date();
 
       const account = Account.register(
@@ -36,10 +35,10 @@ describe("Account", () => {
   describe("restore", () => {
     it("rebuilds an account from persisted state", () => {
       const persistedState = {
-        id: fakeUuid(),
+        id: faker.database.mongodbObjectId(),
         name: faker.person.fullName(),
         email: faker.internet.email().toLowerCase(),
-        createdBy: fakeUuid(),
+        createdBy: faker.database.mongodbObjectId(),
         createdAt: new Date(),
         updatedAt: new Date(),
         version: 0,
@@ -64,10 +63,10 @@ describe("Account", () => {
       const deletedAt = new Date();
       const lastSeenAt = new Date();
       const persistedState = {
-        id: fakeUuid(),
+        id: faker.database.mongodbObjectId(),
         name: faker.person.fullName(),
         email: faker.internet.email().toLowerCase(),
-        createdBy: fakeUuid(),
+        createdBy: faker.database.mongodbObjectId(),
         createdAt: new Date(),
         updatedAt: new Date(),
         version: 2,
@@ -85,10 +84,10 @@ describe("Account", () => {
 
     it("defaults missing deletion and last seen timestamps to null", () => {
       const persistedState = {
-        id: fakeUuid(),
+        id: faker.database.mongodbObjectId(),
         name: faker.person.fullName(),
         email: faker.internet.email().toLowerCase(),
-        createdBy: fakeUuid(),
+        createdBy: faker.database.mongodbObjectId(),
         createdAt: new Date(),
         updatedAt: new Date(),
         version: 0,
@@ -105,10 +104,10 @@ describe("Account", () => {
     it("changes the account name", () => {
       const account = Account.register(
         {
-          id: fakeUuid(),
+          id: faker.database.mongodbObjectId(),
           name: faker.person.fullName(),
           email: faker.internet.email().toLowerCase(),
-          createdBy: fakeUuid(),
+          createdBy: faker.database.mongodbObjectId(),
         },
         new Date(),
       );
@@ -124,10 +123,10 @@ describe("Account", () => {
     it("throws when the account is deleted", () => {
       const account = Account.register(
         {
-          id: fakeUuid(),
+          id: faker.database.mongodbObjectId(),
           name: faker.person.fullName(),
           email: faker.internet.email().toLowerCase(),
-          createdBy: fakeUuid(),
+          createdBy: faker.database.mongodbObjectId(),
         },
         new Date(),
       );
@@ -147,10 +146,10 @@ describe("Account", () => {
     it("marks the account as deleted", () => {
       const account = Account.register(
         {
-          id: fakeUuid(),
+          id: faker.database.mongodbObjectId(),
           name: faker.person.fullName(),
           email: faker.internet.email().toLowerCase(),
-          createdBy: fakeUuid(),
+          createdBy: faker.database.mongodbObjectId(),
         },
         new Date(),
       );
@@ -165,10 +164,10 @@ describe("Account", () => {
     it("does not overwrite deletedAt when the account is already deleted", () => {
       const account = Account.register(
         {
-          id: fakeUuid(),
+          id: faker.database.mongodbObjectId(),
           name: faker.person.fullName(),
           email: faker.internet.email().toLowerCase(),
-          createdBy: fakeUuid(),
+          createdBy: faker.database.mongodbObjectId(),
         },
         new Date(),
       );
@@ -187,10 +186,10 @@ describe("Account", () => {
     it("keeps the account active when it was never deleted", () => {
       const account = Account.register(
         {
-          id: fakeUuid(),
+          id: faker.database.mongodbObjectId(),
           name: faker.person.fullName(),
           email: faker.internet.email().toLowerCase(),
-          createdBy: fakeUuid(),
+          createdBy: faker.database.mongodbObjectId(),
         },
         new Date(),
       );
@@ -204,10 +203,10 @@ describe("Account", () => {
     it("clears deletedAt when the account is deleted", () => {
       const account = Account.register(
         {
-          id: fakeUuid(),
+          id: faker.database.mongodbObjectId(),
           name: faker.person.fullName(),
           email: faker.internet.email().toLowerCase(),
-          createdBy: fakeUuid(),
+          createdBy: faker.database.mongodbObjectId(),
         },
         new Date(),
       );
@@ -228,10 +227,10 @@ describe("Account", () => {
     it("returns a snapshot of the current account state", () => {
       const account = Account.register(
         {
-          id: fakeUuid(),
+          id: faker.database.mongodbObjectId(),
           name: faker.person.fullName(),
           email: faker.internet.email().toLowerCase(),
-          createdBy: fakeUuid(),
+          createdBy: faker.database.mongodbObjectId(),
         },
         new Date(),
       );
@@ -254,10 +253,10 @@ describe("Account", () => {
     it("records the last seen timestamp", () => {
       const account = Account.register(
         {
-          id: fakeUuid(),
+          id: faker.database.mongodbObjectId(),
           name: faker.person.fullName(),
           email: faker.internet.email().toLowerCase(),
-          createdBy: fakeUuid(),
+          createdBy: faker.database.mongodbObjectId(),
         },
         new Date(),
       );
@@ -271,10 +270,10 @@ describe("Account", () => {
     it("throws when the account is deleted", () => {
       const account = Account.register(
         {
-          id: fakeUuid(),
+          id: faker.database.mongodbObjectId(),
           name: faker.person.fullName(),
           email: faker.internet.email().toLowerCase(),
-          createdBy: fakeUuid(),
+          createdBy: faker.database.mongodbObjectId(),
         },
         new Date(),
       );

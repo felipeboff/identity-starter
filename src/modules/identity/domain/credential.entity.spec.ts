@@ -1,7 +1,6 @@
 import { faker } from "@faker-js/faker";
 import { AppError } from "@shared/domain/errors/app-error";
 import { Email } from "@shared/domain/value-objects/email.value-object";
-import { fakeUuid } from "@shared/testing/uuid";
 import { describe, expect, it } from "vitest";
 
 import { AuthProvider, Credential } from "./credential.entity";
@@ -10,8 +9,8 @@ import { IdentityError } from "./errors/identity.error";
 describe("Credential", () => {
   describe("register", () => {
     it("creates an email credential with the given identity and default state", () => {
-      const id = fakeUuid();
-      const accountId = fakeUuid();
+      const id = faker.database.mongodbObjectId();
+      const accountId = faker.database.mongodbObjectId();
       const loginEmail = faker.internet.email().toLowerCase();
       const passwordHash = "$" + faker.internet.password({ length: 10 });
       const registeredAt = new Date();
@@ -44,8 +43,8 @@ describe("Credential", () => {
     });
 
     it("creates an oauth credential without password hash or provider email", () => {
-      const id = fakeUuid();
-      const accountId = fakeUuid();
+      const id = faker.database.mongodbObjectId();
+      const accountId = faker.database.mongodbObjectId();
       const providerSubject = faker.string.numeric(21);
       const registeredAt = new Date();
 
@@ -77,8 +76,8 @@ describe("Credential", () => {
       expect(() =>
         Credential.register(
           {
-            id: fakeUuid(),
-            accountId: fakeUuid(),
+            id: faker.database.mongodbObjectId(),
+            accountId: faker.database.mongodbObjectId(),
             subject: faker.internet.email().toLowerCase(),
             provider: AuthProvider.EMAIL,
             passwordHash: "$" + faker.internet.password({ length: 10 }),
@@ -96,8 +95,8 @@ describe("Credential", () => {
       expect(() =>
         Credential.register(
           {
-            id: fakeUuid(),
-            accountId: fakeUuid(),
+            id: faker.database.mongodbObjectId(),
+            accountId: faker.database.mongodbObjectId(),
             subject: loginEmail,
             provider: AuthProvider.EMAIL,
             passwordHash: "$" + faker.internet.password({ length: 10 }),
@@ -111,8 +110,8 @@ describe("Credential", () => {
 
   describe("restore", () => {
     it("rebuilds an email credential from persisted state", () => {
-      const id = fakeUuid();
-      const accountId = fakeUuid();
+      const id = faker.database.mongodbObjectId();
+      const accountId = faker.database.mongodbObjectId();
       const loginEmail = faker.internet.email().toLowerCase();
       const passwordHash = "$" + faker.internet.password({ length: 10 });
       const persistedAt = new Date();
@@ -145,8 +144,8 @@ describe("Credential", () => {
     });
 
     it("rebuilds an oauth credential from persisted state", () => {
-      const id = fakeUuid();
-      const accountId = fakeUuid();
+      const id = faker.database.mongodbObjectId();
+      const accountId = faker.database.mongodbObjectId();
       const providerSubject = faker.string.numeric(21);
       const persistedAt = new Date();
 
@@ -183,8 +182,8 @@ describe("Credential", () => {
       const persistedAt = new Date();
 
       const credential = Credential.restore({
-        id: fakeUuid(),
-        accountId: fakeUuid(),
+        id: faker.database.mongodbObjectId(),
+        accountId: faker.database.mongodbObjectId(),
         subject: providerSubject,
         provider: AuthProvider.GITHUB,
         passwordHash: null,
@@ -205,8 +204,8 @@ describe("Credential", () => {
       const loginEmail = faker.internet.email().toLowerCase();
       const persistedAt = new Date();
       const credential = Credential.restore({
-        id: fakeUuid(),
-        accountId: fakeUuid(),
+        id: faker.database.mongodbObjectId(),
+        accountId: faker.database.mongodbObjectId(),
         subject: loginEmail,
         provider: AuthProvider.EMAIL,
         passwordHash: "$" + faker.internet.password({ length: 10 }),
@@ -228,8 +227,8 @@ describe("Credential", () => {
     it("throws when the provider is not email", () => {
       const persistedAt = new Date();
       const credential = Credential.restore({
-        id: fakeUuid(),
-        accountId: fakeUuid(),
+        id: faker.database.mongodbObjectId(),
+        accountId: faker.database.mongodbObjectId(),
         subject: faker.string.numeric(21),
         provider: AuthProvider.GOOGLE,
         passwordHash: null,
@@ -253,8 +252,8 @@ describe("Credential", () => {
       const loginEmail = faker.internet.email().toLowerCase();
       const persistedAt = new Date();
       const credential = Credential.restore({
-        id: fakeUuid(),
-        accountId: fakeUuid(),
+        id: faker.database.mongodbObjectId(),
+        accountId: faker.database.mongodbObjectId(),
         subject: loginEmail,
         provider: AuthProvider.EMAIL,
         passwordHash: "$" + faker.internet.password({ length: 10 }),
@@ -281,8 +280,8 @@ describe("Credential", () => {
       const loginEmail = faker.internet.email().toLowerCase();
       const persistedAt = new Date();
       const credential = Credential.restore({
-        id: fakeUuid(),
-        accountId: fakeUuid(),
+        id: faker.database.mongodbObjectId(),
+        accountId: faker.database.mongodbObjectId(),
         subject: loginEmail,
         provider: AuthProvider.EMAIL,
         passwordHash: "$" + faker.internet.password({ length: 10 }),
@@ -303,8 +302,8 @@ describe("Credential", () => {
     it("sets the provider email of an oauth credential", () => {
       const persistedAt = new Date();
       const credential = Credential.restore({
-        id: fakeUuid(),
-        accountId: fakeUuid(),
+        id: faker.database.mongodbObjectId(),
+        accountId: faker.database.mongodbObjectId(),
         subject: faker.string.numeric(21),
         provider: AuthProvider.APPLE,
         passwordHash: null,
@@ -327,8 +326,8 @@ describe("Credential", () => {
       const providerEmail = faker.internet.email().toLowerCase();
       const persistedAt = new Date();
       const credential = Credential.restore({
-        id: fakeUuid(),
-        accountId: fakeUuid(),
+        id: faker.database.mongodbObjectId(),
+        accountId: faker.database.mongodbObjectId(),
         subject: faker.string.numeric(21),
         provider: AuthProvider.GOOGLE,
         passwordHash: null,
@@ -348,8 +347,8 @@ describe("Credential", () => {
       const loginEmail = faker.internet.email().toLowerCase();
       const persistedAt = new Date();
       const credential = Credential.restore({
-        id: fakeUuid(),
-        accountId: fakeUuid(),
+        id: faker.database.mongodbObjectId(),
+        accountId: faker.database.mongodbObjectId(),
         subject: loginEmail,
         provider: AuthProvider.EMAIL,
         passwordHash: "$" + faker.internet.password({ length: 10 }),
@@ -370,8 +369,8 @@ describe("Credential", () => {
       const otherEmail = faker.internet.email().toLowerCase();
       const persistedAt = new Date();
       const credential = Credential.restore({
-        id: fakeUuid(),
-        accountId: fakeUuid(),
+        id: faker.database.mongodbObjectId(),
+        accountId: faker.database.mongodbObjectId(),
         subject: loginEmail,
         provider: AuthProvider.EMAIL,
         passwordHash: "$" + faker.internet.password({ length: 10 }),
@@ -391,8 +390,8 @@ describe("Credential", () => {
       const loginEmail = faker.internet.email().toLowerCase();
       const persistedAt = new Date();
       const credential = Credential.restore({
-        id: fakeUuid(),
-        accountId: fakeUuid(),
+        id: faker.database.mongodbObjectId(),
+        accountId: faker.database.mongodbObjectId(),
         subject: loginEmail,
         provider: AuthProvider.EMAIL,
         passwordHash: "$" + faker.internet.password({ length: 10 }),
@@ -416,8 +415,8 @@ describe("Credential", () => {
       const loginEmail = faker.internet.email().toLowerCase();
       const credential = Credential.register(
         {
-          id: fakeUuid(),
-          accountId: fakeUuid(),
+          id: faker.database.mongodbObjectId(),
+          accountId: faker.database.mongodbObjectId(),
           subject: loginEmail,
           provider: AuthProvider.EMAIL,
           passwordHash: "$" + faker.internet.password({ length: 10 }),
@@ -437,8 +436,8 @@ describe("Credential", () => {
       const loginEmail = faker.internet.email().toLowerCase();
       const credential = Credential.register(
         {
-          id: fakeUuid(),
-          accountId: fakeUuid(),
+          id: faker.database.mongodbObjectId(),
+          accountId: faker.database.mongodbObjectId(),
           subject: loginEmail,
           provider: AuthProvider.EMAIL,
           passwordHash: "$" + faker.internet.password({ length: 10 }),
@@ -461,8 +460,8 @@ describe("Credential", () => {
       const loginEmail = faker.internet.email().toLowerCase();
       const credential = Credential.register(
         {
-          id: fakeUuid(),
-          accountId: fakeUuid(),
+          id: faker.database.mongodbObjectId(),
+          accountId: faker.database.mongodbObjectId(),
           subject: loginEmail,
           provider: AuthProvider.EMAIL,
           passwordHash: "$" + faker.internet.password({ length: 10 }),
@@ -481,8 +480,8 @@ describe("Credential", () => {
       const loginEmail = faker.internet.email().toLowerCase();
       const credential = Credential.register(
         {
-          id: fakeUuid(),
-          accountId: fakeUuid(),
+          id: faker.database.mongodbObjectId(),
+          accountId: faker.database.mongodbObjectId(),
           subject: loginEmail,
           provider: AuthProvider.EMAIL,
           passwordHash: "$" + faker.internet.password({ length: 10 }),

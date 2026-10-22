@@ -2,8 +2,7 @@ import { AppError } from "../errors/app-error";
 import { SharedError } from "../errors/shared.error";
 
 export class Id {
-  private readonly UUID_REGEX =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  private readonly OBJECT_ID_REGEX = /^[0-9a-f]{24}$/;
 
   private constructor(private readonly state: string) {
     this.state = this.validate(state);
@@ -28,7 +27,7 @@ export class Id {
       throw new AppError(SharedError.IdRequired, { id: normalizedInput });
     }
 
-    if (!this.UUID_REGEX.test(normalizedInput)) {
+    if (!this.OBJECT_ID_REGEX.test(normalizedInput)) {
       throw new AppError(SharedError.IdInvalid, { id: normalizedInput });
     }
 
