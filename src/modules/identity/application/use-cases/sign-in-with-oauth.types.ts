@@ -1,0 +1,44 @@
+import { Clock } from "@shared/application/ports/clock";
+import { IdGenerator } from "@shared/application/ports/id-generator";
+
+import { AccountRepository } from "../ports/account.repository";
+import { CredentialRepository } from "../ports/credential.repository";
+import { MembershipRepository } from "../ports/memberships.repository";
+import { OAuthGateway } from "../ports/oauth-gateway";
+import { AccountResolver } from "../services/account-resolver";
+import { MembershipResolver } from "../services/membership-resolver";
+import { SessionIssuer } from "../services/session-issuer";
+
+import { AccountSnapshot } from "@/identity/domain/account.entity";
+
+export type SignInWithOAuthInput = {
+  provider: string;
+  code: string;
+  userAgent: string;
+  ipAddress: string;
+};
+
+export type SignInWithOAuthOutput = {
+  account: AccountSnapshot;
+  isNewAccount: boolean;
+
+  accessToken: string;
+  refreshToken: string;
+};
+
+export type SignInWithOAuthDeps = {
+  accounts: AccountRepository;
+  credentials: CredentialRepository;
+  memberships: MembershipRepository;
+
+  oauth: OAuthGateway;
+  sessionIssuer: SessionIssuer;
+
+  clock: Clock;
+  ids: IdGenerator;
+
+  accountResolver: AccountResolver;
+  membershipResolver: MembershipResolver;
+};
+
+export type Device = Pick<SignInWithOAuthInput, "userAgent" | "ipAddress">;
