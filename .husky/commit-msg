@@ -1,1 +1,5 @@
+# Strip any co-author trailers before validating the message
+grep -viE '^[[:space:]]*co-authored-by:' "$1" > "$1.tmp" || true
+mv "$1.tmp" "$1"
+
 pnpm exec commitlint --edit "$1"
