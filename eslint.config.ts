@@ -37,7 +37,7 @@ export default defineConfig(
       "import-x/order": [
         "error",
         {
-          pathGroups: [{ pattern: "{@,@shared}/**", group: "internal" }],
+          pathGroups: [{ pattern: "{@,@shared,@app}/**", group: "internal" }],
           "newlines-between": "always",
           alphabetize: { order: "asc" },
           named: true,

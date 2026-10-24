@@ -33,4 +33,9 @@ export const SharedError = {
   ),
   /** The request body is not valid JSON. */
   BodyMalformed: defineError("shared.body_malformed", "invalid_input"),
+  /** The in-memory adapters keep no data and forge-able tokens; never in production. */
+  InMemoryAdaptersInProduction: defineError(
+    "shared.in_memory_adapters_in_production",
+    "precondition_failed",
+  ),
 };

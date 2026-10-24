@@ -5,4 +5,5 @@ export const SharedLogEvent = {
   UnexpectedError: defineLogEvent<{ error: unknown }>(
     "shared.unexpected_error",
   ),
+  ServerStarted: defineLogEvent<{ port: number }>("shared.server_started"),
 };

@@ -19,6 +19,7 @@ import { AccountResolver } from "./application/services/account-resolver";
 import { MembershipResolver } from "./application/services/membership-resolver";
 import { SessionIssuer } from "./application/services/session-issuer";
 import { SessionRevoker } from "./application/services/session-revoker";
+import { createIdentityContext } from "./application/testing/identity-context";
 import { AuthenticateUseCase } from "./application/use-cases/authenticate.use-case";
 import { ChangePasswordUseCase } from "./application/use-cases/change-password.use-case";
 import { DeactivateAccountUseCase } from "./application/use-cases/deactivate-account.use-case";
@@ -122,3 +123,10 @@ export const createIdentityModule = (
     routes: createIdentityRoutes(useCases),
   };
 };
+
+/**
+ * Adapters that keep everything in memory, for running the app locally before the real ones
+ * exist. Data is lost on restart and access tokens can be forged: never use them in production.
+ */
+export const createInMemoryIdentityAdapters = (): IdentityModuleDeps =>
+  createIdentityContext();

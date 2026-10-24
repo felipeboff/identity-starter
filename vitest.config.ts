@@ -7,6 +7,7 @@ export default defineConfig({
     alias: {
       "@": path.resolve(import.meta.dirname, "src/modules"),
       "@shared": path.resolve(import.meta.dirname, "src/shared"),
+      "@app": path.resolve(import.meta.dirname, "src/app"),
     },
   },
   test: {
@@ -14,6 +15,8 @@ export default defineConfig({
       provider: "v8",
       // Measure every source file, not only the ones some test imports.
       include: ["src/**/*.ts"],
+      // Entry point: two lines of wiring; `start` holds the logic and is tested.
+      exclude: ["src/main.ts"],
       thresholds: { 100: true },
     },
   },
