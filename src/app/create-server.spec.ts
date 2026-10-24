@@ -61,7 +61,24 @@ describe("createServer", () => {
     expect(response.status).toBe(201);
     expect(response.body).toMatchObject({
       accessToken: expect.any(String) as unknown,
+      // 32 random bytes in base64url, from the real token issuer.
+      refreshToken: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/) as unknown,
     });
+  });
+
+  it("refreshes the session with the refresh token it issued", async () => {
+    const app = createApp();
+    const signedUp = await signUp(app);
+    const { refreshToken } = signedUp.body as { refreshToken: string };
+
+    const response = await request(app)
+      .post("/api/auth/refresh")
+      .send({ refreshToken });
+
+    expect(response.status).toBe(200);
+    expect((response.body as { refreshToken: string }).refreshToken).not.toBe(
+      refreshToken,
+    );
   });
 
   it("answers with security and CORS headers", async () => {

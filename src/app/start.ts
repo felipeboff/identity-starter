@@ -7,6 +7,8 @@ import { AppError } from "@shared/domain/errors/app-error";
 import { SharedError } from "@shared/domain/errors/shared.error";
 import { AsyncLocalLogContext } from "@shared/infrastructure/logging/async-local-log-context";
 import { PinoLogger } from "@shared/infrastructure/logging/pino-logger";
+import { ObjectIdGenerator } from "@shared/infrastructure/mongo/object-id-generator";
+import { SystemClock } from "@shared/infrastructure/time/system-clock";
 import type { DestinationStream } from "pino";
 
 import { type Env, NodeEnv } from "./config";
@@ -22,7 +24,6 @@ export type StartOptions = Readonly<{
   logDestination: DestinationStream;
 }>;
 
-/** Wires the app over the in-memory adapters and listens on `env.PORT`. */
 export const start = async ({
   env,
   logDestination,
@@ -44,6 +45,8 @@ export const start = async ({
     modules: {
       identity: createIdentityModule({
         ...createInMemoryIdentityAdapters(),
+        clock: new SystemClock(),
+        ids: new ObjectIdGenerator(),
         logContext,
       }),
     },

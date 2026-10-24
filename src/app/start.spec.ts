@@ -43,6 +43,7 @@ const createOutput = () => {
 const servers: Server[] = [];
 
 afterEach(async () => {
+  vi.useRealTimers();
   await Promise.all(
     servers.splice(0).map(
       (server) =>
@@ -93,6 +94,24 @@ describe("start", () => {
 
     expect(text()).toContain(SharedLogEvent.ServerStarted.name);
     expect(() => JSON.parse(text()) as unknown).toThrow();
+  });
+
+  it("dates what it stores with the system clock", async () => {
+    const { logDestination } = createOutput();
+    const now = faker.date.recent();
+    vi.useFakeTimers({ now, toFake: ["Date"] });
+
+    const server = await start({ env: buildEnv(), logDestination });
+    servers.push(server);
+    const response = await request(server).post("/api/auth/sign-up").send({
+      name: faker.person.fullName(),
+      email: faker.internet.email(),
+      password: faker.internet.password(),
+    });
+
+    expect(response.body).toMatchObject({
+      account: { createdAt: now.toISOString() },
+    });
   });
 
   it("refuses to run the in-memory adapters in production", async () => {
