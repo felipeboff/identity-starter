@@ -19,9 +19,11 @@ Freeze the obligations. Free the plan. Prove it with someone who did not build i
   `mongodb-memory-server` (persistence adapters) and `supertest` (Express edge); a `Surface`
   route's statuses are proven at the edge, its rules at the use-case layer.
 - **Tests** follow the project's test style: concrete example data, little abstraction, low repetition, 100% coverage.
-- **Commits**: Conventional Commits are already enforced by commitlint through the husky `commit-msg` hook, and the `pre-commit` hook runs lint-staged, typecheck and tests. Do not run `check_commit.py` and do not install its git hook.
+- **Never commit.** The build leaves every change uncommitted (`git status` shows the whole feature) so the user reviews the code first. Review feedback becomes more uncommitted changes; a commit happens only when the user asks for it after review, following the `git-workflow` skill. Where the generic text below says "commit", read "change in the working tree". Never `git commit`, `git push`, `git stash` or rewrite history on your own.
+- **Commit format** (only when the user asks): Conventional Commits are already enforced by commitlint through the husky `commit-msg` hook, and the `pre-commit` hook runs lint-staged, typecheck and tests. Do not run `check_commit.py` and do not install its git hook.
 - **Decisions**: architecture decisions go to `docs/adr/` through the `create-adr` skill. Keep `.specs/STATE.md` to the handoff section (see [memory.md](references/memory.md)).
-- **Language**: every artifact under `.specs/` is written in English, like the rest of the repo. Conversation with the user stays in Portuguese.
+- **Language**: every artifact under `.specs/` ends up in English, like the rest of the repo. Conversation with the user stays in Portuguese.
+- **Plan review in pt-BR first**: write the plan as `plan.pt-BR.md` (section headings stay in English because they are the schema; prose, table cells and EARS keywords in Portuguese — `QUANDO`/`SE`/`ENTÃO`/`DEVE`/`NÃO DEVE`; identifiers never translated) and stop for review. Only after the user approves it, write `plan.md` in English as a faithful translation (no new content), run `validate_plan.py`, then continue to checks and build. Once `plan.md` passes, delete `plan.pt-BR.md` — two copies drift, and `plan.md` is the only source for `checks.md`. A later change to the plan goes through the same order: write a new `plan.pt-BR.md` with the change, get approval, apply it to `plan.md`, delete the pt-BR copy.
 - **Architecture**: `Flow` hops name the real layers — `src/modules/<module>/application/use-cases`, `domain/`, `public.ts` for cross-module calls, `src/shared` for the shared kernel. Use persistence-neutral words (snapshot, entity) in `Relations`.
 
 ```
@@ -69,17 +71,18 @@ never scale down with the profile.
 4. Checks and `Test policy` rows are fixed once approved. In the design, `Landing`, `Relations`
    and `Surface` are additive - a door discovered while building gets a row before the code that
    closes it, and a row the user approved is never rewritten. `Flow` and `Impact` are neither:
-   they are **kept true**, so a different path changes the hop in that path's commit.
+   they are **kept true**, so a different path changes the hop in the same change that takes it.
 5. The **Verifier is a fresh sub-agent**, never the author, never optional, never waiting to
-   be asked. Whoever holds the whole feature dispatches it after the **last commit of the
-   feature** lands - over `<feature base>..HEAD`, with **every** check. Never by a builder,
-   and never as a child of one. A builder finishes, reports, and stops. The work is not done
-   at the last commit; it is done when the Verifier's report accounts for every check.
+   be asked. Whoever holds the whole feature dispatches it when the **build is done** (every proof green,
+   changes uncommitted) - over the working tree against the feature base (`git diff <base>` plus
+   untracked files), with **every** check. Never by a builder, and never as a child of one. A
+   builder finishes, reports, and stops. The work is not done when the code is written; it is
+   done when the Verifier's report accounts for every check.
 6. **The profile is a floor and it is not a secret.** The verification report names it, or "no
    faults injected" reads exactly like forgetting to inject them.
 7. The completion gate is a script, not a feeling: `validate_verification.py` must exit 0.
-8. **Blast radius:** an approved spec authorizes local edits and local commits. `git push`,
-   deploy, and production data changes need an explicit go-ahead for that action.
+8. **Blast radius:** an approved spec authorizes local edits only - no commits. A commit,
+   `git push`, deploy, and production data changes each need an explicit request for that action.
 
 ## Profile
 
@@ -204,10 +207,10 @@ everything downstream refers to by check number: [checks.md](references/checks.m
 
 **Build** - your call how, after the `## Handoff` arithmetic and, if the estimate exceeds the
 budget, the user's mechanism choice. Write the tests from the checks, implement, run each
-proof, commit in coherent pieces. No task list, no per-task review tables. Boundaries,
+proof, and leave every change uncommitted for the user's review. No task list, no per-task review tables. Boundaries,
 `Landing` timing, handoff and the scope guardrail: [build.md](references/build.md).
 
-**Verify** - when the last commit of the feature lands, dispatch a fresh Verifier in the
+**Verify** - when the build is done (all proofs green), dispatch a fresh Verifier in the
 same turn. Do not ask. Do not wait for "verify work". Procedure, report format and scoped
 re-verification: [verify.md](references/verify.md).
 
@@ -220,14 +223,14 @@ Resolve `<skill-dir>` as the directory containing this `SKILL.md` and invoke
 `python3 <skill-dir>/scripts/<name>.py`. Project data under `.specs/` stays relative to the
 project root; pass `--root` when cwd differs. A non-zero exit means STOP and fix.
 
-| When                                  | Command                                                        |
-| ------------------------------------- | -------------------------------------------------------------- |
-| Before presenting the plan            | `validate_plan.py <feature>`                                   |
-| Before starting to build              | `validate_checks.py <feature>`                                 |
-| Before each commit                    | not used here — commitlint runs in the husky `commit-msg` hook |
-| Before declaring done                 | `validate_verification.py <feature>`                           |
-| At distillation                       | `lessons.py add ...`                                           |
-| After editing a validator or template | `selftest.py`                                                  |
+| When                                  | Command                                                                                                     |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Before presenting the plan            | `validate_plan.py <feature>`                                                                                |
+| Before starting to build              | `validate_checks.py <feature>`                                                                              |
+| Before each commit                    | not used here — no commits during the build; commitlint runs in the husky hook when the user asks to commit |
+| Before declaring done                 | `validate_verification.py <feature>`                                                                        |
+| At distillation                       | `lessons.py add ...`                                                                                        |
+| After editing a validator or template | `selftest.py`                                                                                               |
 
 `validate_plan.py` runs the closure gate and guards the shape half against becoming what it
 replaced: it fails a criterion with no SHALL, an assumption with no chosen default, an `Observable`
@@ -326,10 +329,10 @@ Actions:
 1. Derive `.specs/features/lockfile-v2/checks.md` from the approved plan (claims + proofs, Coverage join, Test policy, Swept)
 2. Run `python3 <skill-dir>/scripts/validate_checks.py lockfile-v2`
 3. Write `## Handoff` with the arithmetic. Under the budget: one builder, no ask. Over: stop and ask (handoff vs one builder); record the choice before any code
-4. Write tests from the checks — never from the implementation — then implement, run each proof, and commit
-5. After the last commit of the feature, dispatch a fresh Verifier with [verify.md](references/verify.md) — same turn, no ask. A builder of one batch would have stopped after step 4 instead.
+4. Write tests from the checks — never from the implementation — then implement and run each proof; leave everything uncommitted
+5. When the build is done, dispatch a fresh Verifier with [verify.md](references/verify.md) — same turn, no ask. A builder of one batch would have stopped after step 4 instead.
 
-Result: Proof-backed checks, green proofs, coherent commits, and a Verifier report that accounts for every check. The author does not write `verification.md`.
+Result: Proof-backed checks, green proofs, uncommitted changes ready for the user's review, and a Verifier report that accounts for every check. The author does not write `verification.md`.
 
 ### Example 3: Verify a feature that already landed
 

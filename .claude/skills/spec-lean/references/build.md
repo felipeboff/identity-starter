@@ -26,7 +26,7 @@ splitting mid-outcome. That is not this ask.
 Fixed: the checks, the `Test policy` rows, and the proofs each check names. Lowering either is
 renegotiation with the user, visible in the diff.
 
-Yours: order, decomposition, how many commits, where files go, naming, error shapes, which
+Yours: order, decomposition, where files go, naming, error shapes, which
 helper gets extracted. The repo's conventions answer most of it and the rest is reversible and
 reviewed in the diff.
 
@@ -40,7 +40,7 @@ one that quietly changes shape is a renegotiation.
 
 **Kept true: `Flow` and `Impact`.** They are a map, not an obligation, so changing them is not
 renegotiation - but a map that no longer matches the road is worse than none, because the next
-reader trusts it. Take a different path and the hop changes, in the commit that takes it. The rule
+reader trusts it. Take a different path and the hop changes, in the same change that takes it. The rule
 is the same as `Landing`'s and for the same reason: written afterwards it describes what you
 happened to do, which is the failure mode of every architecture document that ever went stale.
 
@@ -73,7 +73,7 @@ clear error message at an edge the checks did not name: that is the work, not sc
 A door found mid-build did not exist when the design was confirmed, so it lands the same way that
 file's rows did. Decide it yourself - stopping to ask on every one defeats the point of getting out
 of your way. Then record it in `plan.md`: append the row with its literal shape and the
-alternative you rejected **before the code that closes it is written**, and in that code's commit.
+alternative you rejected **before the code that closes it is written**, in the same uncommitted change.
 
 The timing is the mechanism. An alternative is only knowable while you are still choosing between
 them; written at the end it becomes a justification of what you already wrote, which is the stale
@@ -82,30 +82,18 @@ the one thing that can expose a bad decision with nobody else in the loop.
 
 A new door that contradicts nothing already approved never stops the build.
 
-## Commit
+## No commits
 
-One coherent piece per commit, [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/):
-`<type>(<scope>): <description>`, types `feat` `fix` `refactor` `docs` `test` `style` `perf`
-`build` `ci` `chore`. Imperative mood, lowercase, no trailing period. A `!` marker requires a
-`BREAKING CHANGE:` footer.
+Never commit. Leave every change - code, tests, `plan.md`, `checks.md`, ADRs - uncommitted in the
+working tree, so the user reviews the whole feature in `git status` / `git diff` first. Review
+feedback becomes more uncommitted changes. A commit happens only when the user asks for one after
+review, and then follows the `git-workflow` skill (Conventional Commits, enforced by commitlint in
+the husky hooks). Never `git commit`, `git stash`, `git reset` or rewrite history on your own.
 
-Validate before committing:
-
-```bash
-python3 <skill-dir>/scripts/check_commit.py --message "feat(billing): suspend on failed charge"
-```
-
-Optional git-level guard, independent of any agent:
-
-```bash
-ln -sf <skill-dir>/scripts/check_commit.py .git/hooks/commit-msg && chmod +x .git/hooks/commit-msg
-```
-
-Skip the hook if the project manages hooks its own way. When a slice's proofs are all green, mark
-its checks complete in `checks.md` and commit that with the slice. The slice is the
+When a slice's proofs are all green, mark its checks complete in `checks.md`. The slice is the
 checkpoint: marking check by check adds bookkeeping the build does not need, and a resume reads
-the marks plus the diff to see which slices landed. A check whose proof spans several slices stays
-unmarked until the last one lands.
+the marks plus the working-tree diff to see which slices landed. A check whose proof spans several
+slices stays unmarked until the last one lands.
 
 Never add Co-Authored-By, Made-with, or any agent attribution trailer.
 
@@ -134,7 +122,7 @@ You will notice things that could be improved. Do not act on them. A bug gets su
 user; an improvement gets noted in chat or as a follow-up. The heuristic: is this in a check? If
 no, do not touch it.
 
-**Blast radius.** An approved spec authorizes local edits and local commits. `git push`,
+**Blast radius.** An approved spec authorizes local edits only - no commits. A commit, `git push`,
 force-push, deploy, production DB changes and any other remote or destructive operation need an
 explicit go-ahead for that action, even mid-build.
 
@@ -163,14 +151,14 @@ continuing. You cannot see the limit approaching, but you can see that a compact
 
 ## Then stop
 
-When the last check of **your batch** is committed, report and stop: checks closed, commit
-hashes, proof results, deviations. Do not dispatch the Verifier - that is the orchestrator's
+When the last check of **your batch** is green, report and stop: checks closed, files
+changed, proof results, deviations. Do not dispatch the Verifier - that is the orchestrator's
 step, after the last batch of the whole feature, over the full check set. A Verifier briefed by
 the builder that just closed the final batch inherits that builder's scope even though it
 inherits none of its tokens, and reports a pass over four checks that reads exactly like a pass
 over forty.
 
-If you hold the whole feature - you wrote every check's commit, or the last batch just returned
+If you hold the whole feature - you wrote every check's code, or the last batch just returned
 green to you - you are the orchestrator. Dispatch the Verifier in that same turn. Do not ask.
 Do not wait for "verify work". See [verify.md](verify.md).
 

@@ -98,6 +98,8 @@ There is no remote yet. When one exists, use `gh`.
 
 ## When `spec-lean` is active
 
-Commit per slice, as [`../spec-lean/references/build.md`](../spec-lean/references/build.md)
-describes; the commit that closes a slice also marks its checks complete in `checks.md`. The
-PR links `.specs/features/<feature>/plan.md`.
+The build never commits: [`../spec-lean/references/build.md`](../spec-lean/references/build.md)
+leaves every change uncommitted for the user to review. Only when the user asks for commits
+after that review, split the reviewed changes into coherent commits (code + tests + the
+`checks.md` marks of that slice together) and follow the rules above. The PR links
+`.specs/features/<feature>/plan.md`.

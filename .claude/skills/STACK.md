@@ -7,9 +7,11 @@ file deserve an ADR (`create-adr`).
 ## Runtime and HTTP
 
 - **Node.js**, TypeScript, pnpm, ESM.
-- **Express** behind a thin edge: routes call an HTTP adapter per module that maps request →
-  use-case input and result/error → response. Nothing below the adapter imports Express types,
-  so the framework can be swapped and the same use cases can be exposed through MCP later.
+- **HTTP edge** ([ADR-001](../../docs/adr/001-framework-neutral-http-handler-layer.md)): one
+  `HttpHandler` per route, with no framework types, declared in an `HttpRoute` and wrapped by
+  `HttpMiddleware`s (`src/shared/interfaces/http`). Express (or Fastify) and MCP are thin adapters
+  over the same routes; `HttpDispatcher` runs the chain and answers errors as RFC 9457 problem
+  details. Express is the first adapter. _planned_
 - **Dependency injection: manual.** One composition root per module instantiates adapters and
   use cases; no DI container, no decorators.
 - **Input validation:** the project's own validator in `src/shared/application/validator`.

@@ -120,7 +120,7 @@ at that level is precedent; one that does not is taste.
 
 State the cost. Then ask **one** narrow question: do these rows go into the repo's guidelines?
 Building under them is reversible and needs no permission; writing them reaches every future
-agent, so approved rows land in their own commit before the build. If the user does not answer,
+agent, so approved rows are written into the guidelines before the build, as their own reviewable change (uncommitted, like everything else). If the user does not answer,
 build under them and leave the files alone.
 
 ## Template: `.specs/features/<feature>/checks.md`
@@ -225,7 +225,7 @@ Over the budget — stop, ask (handoff vs one builder), then record the choice:
 
 <Appended by each builder as it finishes, three lines each:>
 
-- **Boundary:** C1-C7 closed at `<sha>`
+- **Boundary:** C1-C7 closed (uncommitted, awaiting the user's review)
 - **Settled mid-build:** <every clarification the user gave that did not become a Landing row or an edited check>
 - **Abandoned:** <tried, discarded, and why>
 ```

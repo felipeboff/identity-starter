@@ -6,9 +6,10 @@ than as an opinion.
 This is the only mechanism standing between "done" and a self-report, so it is never prompted,
 never optional, never waiting to be asked, and never skipped because the author feels confident.
 
-**When:** the last commit of the feature has landed. Dispatch in that turn. The work is not done
-at that commit; it is done when this report accounts for every check. "verify work" is recovery
-for a feature that already landed without a report, not the happy path.
+**When:** the build is done - every proof green, every change left uncommitted for the user's
+review (nothing is committed during a feature). Dispatch in that turn. The work is not done when
+the code is written; it is done when this report accounts for every check. "verify work" is
+recovery for a feature that already landed without a report, not the happy path.
 
 ## Author is not verifier
 
@@ -21,7 +22,7 @@ remembers.
 independence on its own: the parent writes the brief, so a Verifier spawned by the agent that
 just closed the last batch inherits that agent's _scope_. It gets pointed at the last batch, and
 a pass over four checks reads exactly like a pass over forty. The range is
-`<feature base>..HEAD` and the set is **every** check in `checks.md`, whoever wrote them.
+the uncommitted working tree against `<feature base>` (`git diff <feature base>` plus the untracked files in `git status --porcelain`), and the set is **every** check in `checks.md`, whoever wrote them.
 
 The verdict goes back to the orchestrator and the user, never to a builder. A FAIL returned to
 the author is the author deciding what to do about the author's own work.
@@ -32,8 +33,7 @@ half the enumerations it sweeps for - a route's statuses, an entity's constraint
 there and only _owe_ a row in the checks.
 
 **How to dispatch.** Launch a fresh sub-agent with no inherited conversation. Hand it this file,
-`plan.md`, `checks.md`, every source the plan marks binding, and the diff range
-`<feature base>..HEAD`. It writes `verification.md` and fixes nothing. You run
+`plan.md`, `checks.md`, every source the plan marks binding, and the range: the uncommitted working tree against `<feature base>` (`git diff <feature base>` plus the untracked files in `git status --porcelain`). It writes `verification.md` and fixes nothing. You run
 `validate_verification.py`. You do not write the report yourself.
 
 **No sub-agent mechanism available?** Then run this file as a fresh-eyes pass in a new session -
@@ -45,7 +45,7 @@ gate that is visible is worth more than one that pretends.
 
 `checks.md` carries a `Profile:` line, and `light` is the default. Step 1 runs under `ui`. The
 `Coverage` recompute, the `Test policy` verdicts and fault injection run under `standard` and
-`ui`. Everything else runs always: the proofs at `HEAD`, each named test shown to exist and have
+`ui`. Everything else runs always: the proofs on the current working tree, each named test shown to exist and have
 run, one located assertion per check, the level and sampling judgment, and the `Swept existing`
 re-read.
 
@@ -103,7 +103,7 @@ have reached. Treat a blanket clause as a finding, then enumerate what it was co
 
 ## 2. Run every proof
 
-Run them yourself at `HEAD`. Never trust a report that the author already ran them.
+Run them yourself on the current working tree. Never trust a report that the author already ran them.
 
 **One invocation for the whole target, not one per proof and not one per file.** Runners take many
 files and many name patterns in a single call - `bin/rails test a_test.rb b_test.rb -n
@@ -124,8 +124,8 @@ file. The same hit that proves the test exists yields the line numbers step 3 ha
 one search instead of two. One pass per file, not per check.
 
 Two more things while you are there. A proof that resolves only to a test the feature never touched
-proves nothing about the new behaviour - check the diff. And a proof that went green at an earlier
-commit says nothing about the current one.
+proves nothing about the new behaviour - check the diff. And a proof that went green on an earlier
+state of the tree says nothing about the current one.
 
 ## 3. Check the assertion, not its presence
 
@@ -192,7 +192,9 @@ A green suite proves the tests run. Fault injection proves they can catch a regr
 the only step that produces that information, and under `light` it does not run, which is what
 that row of the profile table means by "a test that would pass under a wrong implementation".
 
-1. **Isolate.** `git worktree add <scratch> HEAD`. Never mutate the real tree, and **never use
+1. **Isolate.** `git worktree add <scratch> HEAD`, then bring the uncommitted feature into it:
+   `git diff HEAD | git -C <scratch> apply` and copy every untracked file from
+   `git status --porcelain`. Never mutate the real tree, never commit, and **never use
    `git stash`**: it records state from _before_ the mutation, so popping it does not reverse a
    fault applied afterwards, and on a clean tree it creates no entry at all.
 2. **Baseline.** Record `git status --porcelain` of the real tree first.
@@ -229,7 +231,7 @@ Write `.specs/features/<feature>/verification.md`. Lead with the verdict.
 
 **Verdict**: PASS
 **Profile**: standard
-**Diff range**: <base>..<head>
+**Diff range**: <base>..working tree (uncommitted)
 **Round**: 1 - full
 **Verifier**: independent sub-agent (author != verifier)
 
@@ -318,9 +320,9 @@ A later round is scoped by two things: **the fix's diff, and every verdict that 
 Anything else carries forward. Re-running the whole review to reconfirm what a fix could not have
 touched is the cost the three-round bound multiplies by three.
 
-Two rules make that safe. **Proofs always re-run in full, at the new `HEAD`** - green is a property
-of a commit, and batched by target that is two invocations. And **everything carried forward says
-where it came from**: each section marks itself `verified at <sha>` or `carried from <sha>`, and the
+Two rules make that safe. **Proofs always re-run in full, on the current working tree** - green is a
+property of that exact state of the tree, and batched by target that is two invocations. And **everything carried forward says
+where it came from**: each section marks itself `verified in round <n>` or `carried from round <n>`, and the
 header reads `Round: 2 - scoped`. Silent inheritance is the self-report problem wearing a table
 again.
 
