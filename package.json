@@ -28,26 +28,33 @@
   "packageManager": "pnpm@12.9.1",
   "type": "module",
   "devDependencies": {
-    "@commitlint/cli": "^21.2.3",
-    "@commitlint/config-conventional": "^21.2.3",
+    "@commitlint/cli": "^21.2.4",
+    "@commitlint/config-conventional": "^21.2.4",
     "@commitlint/types": "^21.2.3",
     "@eslint/js": "^10.0.1",
     "@faker-js/faker": "^10.6.0",
-    "@types/node": "^26.6.4",
-    "@vitest/coverage-v8": "^5.0.3",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.5",
+    "@types/supertest": "^7.2.1",
+    "@vitest/coverage-v8": "^5.0.5",
     "eslint": "^10.12.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-import-resolver-typescript": "4.4.5",
-    "eslint-plugin-boundaries": "7.2.0",
+    "eslint-plugin-boundaries": "7.2.1",
     "eslint-plugin-import-x": "^4.17.1",
     "globals": "^17.13.0",
     "husky": "^9.1.7",
     "jiti": "^2.7.0",
     "lint-staged": "^17.6.0",
-    "prettier": "^3.9.9",
+    "mongodb-memory-server": "^11.3.0",
+    "pino-pretty": "^13.2.0",
+    "prettier": "^3.9.10",
+    "supertest": "^7.3.1",
+    "tsx": "^4.23.15",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.71.1",
-    "vitest": "^5.0.3"
+    "typescript-eslint": "^8.71.2",
+    "vitest": "^5.0.5"
   },
   "lint-staged": {
     "*.{json,md}": "prettier --write",
@@ -55,5 +62,15 @@
       "prettier --write",
       "eslint --fix --no-warn-ignored"
     ]
+  },
+  "dependencies": {
+    "argon2": "^0.45.1",
+    "cors": "^2.8.6",
+    "express": "^5.3.0",
+    "helmet": "^8.3.0",
+    "jose": "^6.2.13",
+    "mailersend": "^3.4.1",
+    "mongoose": "^9.11.4",
+    "pino": "^10.4.0"
   }
 }
