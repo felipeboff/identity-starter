@@ -88,6 +88,7 @@ run the spec three times.
 | `seedAccount(ctx, options?)`, `seedSession(ctx, seeded)`                         | persisted account, credential, membership and session                                        |
 | `expectAppError(promise, Definition, data?)`                                     | asserting a rejected `AppError` by definition                                                |
 | `new FakeLogger()` (`@shared/testing/fake-logger`)                               | any `Logger` dependency; assert on `logger.entries` (`{ level, event: Event.name, fields }`) |
+| `new FakeLogContext()` (`@shared/testing/fake-log-context`)                      | any `LogContext` dependency; assert on `logContext.added`                                    |
 | `createIdentityHttp()` (`presentation/testing/identity-http`)                    | route specs: `call(method, path, { params, body, token, ip })`, `signIn()`                   |
 | `vi.spyOn(UseCase.prototype, "execute")` + `vi.restoreAllMocks()` in `afterEach` | asserting a use case was not called when the module hides instances                          |
 
