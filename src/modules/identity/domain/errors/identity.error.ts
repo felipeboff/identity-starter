@@ -85,6 +85,10 @@ export const IdentityError = {
     "identity.invalid_membership_permissions",
     "invalid_input",
   ),
+  InvalidAccessToken: defineError(
+    "identity.invalid_access_token",
+    "unauthenticated",
+  ),
   PasswordHashRequired: defineError<{ passwordHash: string }>(
     "identity.password_hash_required",
     "invalid_input",
