@@ -4,7 +4,7 @@ The skills in this folder were copied from the Tech Leads Club agent-skills cata
 (https://github.com/tech-leads-club/agent-skills) and adapted to this project.
 
 - `security-threat-model`, `security-best-practices`, `gh-fix-ci`, `gh-address-comments`, `sentry`: originally from github.com/openai/skills, see each `LICENSE.txt`. Only the Express reference of `security-best-practices` was copied.
-- `STACK.md`, `git-workflow`, `writing-tests`: written for this project; not from the catalog.
+- `STACK.md`, `git-workflow`, `writing-tests`, `writing-code`: written for this project; not from the catalog.
 - `create-adr`: CC-BY-4.0, by Tech Leads Club.
 - `spec-lean`: CC-BY-4.0, by Tech Leads Club (originally `tlc-spec-lean`, renamed and adapted).
 - `integration-patterns`: CC-BY-4.0, by Felipe Rodrigues; three references extracted from `evolutionary-modular-architecture` 1.0.0.
