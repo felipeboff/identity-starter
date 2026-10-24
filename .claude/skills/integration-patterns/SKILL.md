@@ -31,8 +31,8 @@ Load only the reference the current question needs.
     in the same Mongoose session as the business change, relay as a BullMQ worker.
   - Retries and schedules: BullMQ (repeatable jobs instead of cron). Circuit breaker and
     backoff wrap outbound HTTP (MailerSend, OAuth, S3).
-  - HTTP edge: Express is itself an adapter; routes map request → use-case input and never leak
-    `Request`/`Response` below the adapter. The same use cases may later be exposed via MCP.
+  - Inbound edge: Express, MCP and RabbitMQ are adapters that build a transport-neutral `Inbound`
+    and run the same `Handler` (ADR-001); `Request`/`Response` never leak below the adapter.
   - Real-time: SSE, when the notifications module needs it.
 
 - A **port** is an interface under `src/modules/<module>/application/ports/`; the adapter lives
