@@ -18,7 +18,6 @@ const buildSource = (overrides: Record<string, string | undefined> = {}) => ({
   ...overrides,
 });
 
-// Importing the config reads process.env, so it must be valid before the import runs.
 const processEnv = buildSource();
 for (const [name, value] of Object.entries(processEnv)) vi.stubEnv(name, value);
 

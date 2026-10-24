@@ -13,7 +13,6 @@ const AccountSeen = defineLogEvent<Record<string, unknown>>(
 );
 const Tick = defineLogEvent(`${faker.lorem.word()}.${faker.lorem.word()}`);
 
-/** A stream that keeps every chunk Pino writes. */
 const createOutput = () => {
   const chunks: string[] = [];
   const destination = new Writable({

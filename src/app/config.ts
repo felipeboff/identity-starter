@@ -12,7 +12,6 @@ export type NodeEnv = (typeof NodeEnv)[keyof typeof NodeEnv];
 export type Env = {
   NODE_ENV: NodeEnv;
   PORT: number;
-  /** How many proxies in front of the app to trust for the client IP; 0 trusts none. */
   TRUST_PROXY: number;
   LOG_LEVEL: LogLevel;
   MONGO_URL: string;

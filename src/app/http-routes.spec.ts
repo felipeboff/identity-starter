@@ -42,7 +42,6 @@ describe("createHttpRoutes", () => {
         authenticate,
         publicRoutes: [signIn],
         routes: [getMe],
-        // Stand-ins: only the order and the middleware identity matter here.
       } as unknown as IdentityModule,
     });
 

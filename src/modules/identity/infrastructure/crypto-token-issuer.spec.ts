@@ -5,7 +5,6 @@ import { CryptoTokenIssuer } from "./crypto-token-issuer";
 
 import { TokenHash } from "@/identity/domain/value-objects/token-hash.value-object";
 
-/** 32 random bytes in base64url: 43 URL-safe characters, no padding. */
 const TOKEN = /^[A-Za-z0-9_-]{43}$/;
 
 describe("CryptoTokenIssuer", () => {

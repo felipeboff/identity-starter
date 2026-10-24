@@ -11,7 +11,6 @@ export type LogEntry = Readonly<{
   fields: LogFields | undefined;
 }>;
 
-/** Records every entry instead of writing it; assert on `entries`. */
 export class FakeLogger implements Logger {
   readonly entries: LogEntry[] = [];
 

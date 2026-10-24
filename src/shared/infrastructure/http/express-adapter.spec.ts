@@ -15,7 +15,6 @@ import { AsyncLocalLogContext } from "../logging/async-local-log-context";
 
 import { ExpressAdapter } from "./express-adapter";
 
-/** Answers with the inbound it received, so the test can read how the adapter built it. */
 class EchoHandler extends Handler<{ actor: unknown; output: unknown }> {
   handle(inbound: Inbound<unknown>): Promise<unknown> {
     return Promise.resolve(inbound);
@@ -42,7 +41,6 @@ const buildRoute = (
   ...overrides,
 });
 
-/** Answers with the log context it runs in. */
 class ContextHandler extends Handler<{
   deps: { logContext: AsyncLocalLogContext };
   actor: unknown;
@@ -135,7 +133,6 @@ describe("ExpressAdapter", () => {
   it("passes the headers as metadata, joining repeated ones", async () => {
     const route = buildRoute();
     const cookies = [faker.lorem.word(), faker.lorem.word()];
-    // Node only hands repeated `set-cookie` headers as an array.
     const repeatHeader: RequestHandler = (req, _res, next) => {
       req.headers["set-cookie"] = cookies;
       next();

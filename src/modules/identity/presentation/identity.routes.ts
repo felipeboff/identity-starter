@@ -45,7 +45,6 @@ import { UpdateMemberPermissionsUseCase } from "@/identity/application/use-cases
 import { UpdateMemberRoleUseCase } from "@/identity/application/use-cases/update-member-role.use-case";
 import { VerifyEmailUseCase } from "@/identity/application/use-cases/verify-email.use-case";
 
-/** The use cases behind the identity routes, built by the composition root. */
 export type IdentityHttpDeps = {
   signUpWithEmail: SignUpWithEmailUseCase;
   signInWithEmail: SignInWithEmailUseCase;
@@ -71,7 +70,6 @@ export type IdentityHttpDeps = {
   updateMemberPermissions: UpdateMemberPermissionsUseCase;
 };
 
-/** Routes reachable without a token. The application registers them before the authentication middleware. */
 export const createIdentityPublicRoutes = (
   deps: IdentityHttpDeps,
 ): readonly HttpRoute[] => [
@@ -119,7 +117,6 @@ export const createIdentityPublicRoutes = (
   },
 ];
 
-/** Routes that need the caller's `Actor`. The application registers them after the authentication middleware. */
 export const createIdentityRoutes = (
   deps: IdentityHttpDeps,
 ): readonly HttpRoute<Actor>[] => [

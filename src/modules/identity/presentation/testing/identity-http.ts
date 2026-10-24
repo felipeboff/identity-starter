@@ -19,21 +19,15 @@ export type CallOptions = {
   query?: Record<string, string>;
   body?: Record<string, unknown>;
   headers?: Record<string, string>;
-  /** Sent as `authorization: Bearer <token>`. */
   token?: string;
   ip?: string;
 };
 
 export type IdentityHttp = ReturnType<typeof createIdentityHttp>;
 
-/**
- * The identity module over the in-memory identity context, driven the way an
- * HTTP adapter would: merge the input, dispatch, answer the route's status or the mapped error.
- */
 export const createIdentityHttp = () => {
   const ctx = createIdentityContext();
   const identity = createIdentityModule(ctx);
-  // Same order the application registers: public routes, then authentication, then private routes.
   const routes = new HttpRouter()
     .add(identity.publicRoutes)
     .use(identity.authenticate)
@@ -44,7 +38,6 @@ export const createIdentityHttp = () => {
   const dispatcher = new Dispatcher();
   const errorMapper = new HttpErrorMapper({ logger });
 
-  /** Dispatches the route declared as `method` + `path` (the template, e.g. `/sessions/:sessionId`). */
   const call = async (
     method: HttpMethod,
     path: string,
@@ -75,7 +68,6 @@ export const createIdentityHttp = () => {
     }
   };
 
-  /** A seeded account with a persisted session and the access token for it. */
   const signIn = async (options?: SeedAccountOptions) => {
     const seeded = await seedAccount(ctx, options);
     const { session, refreshToken, actor } = await seedSession(ctx, seeded);

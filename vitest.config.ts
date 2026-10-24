@@ -15,7 +15,6 @@ export default defineConfig({
       provider: "v8",
       // Measure every source file, not only the ones some test imports.
       include: ["src/**/*.ts"],
-      // Entry point: two lines of wiring; `start` holds the logic and is tested.
       exclude: ["src/main.ts"],
       thresholds: { 100: true },
     },

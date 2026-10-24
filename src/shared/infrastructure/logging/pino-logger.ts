@@ -16,14 +16,11 @@ export type PinoLoggerOptions = Readonly<{
   service: string;
   environment: string;
   level: LogLevel;
-  /** `json` for collectors (Loki); `pretty` for a terminal. */
   format: LogFormat;
   destination: DestinationStream;
-  /** Request fields (request id, account...) added to every entry. */
   context: Pick<AsyncLocalLogContext, "get">;
 }>;
 
-/** Secrets that must never reach a log line, at the top level or one object deep. */
 const REDACTED_PATHS = [
   "password",
   "newPassword",
@@ -35,7 +32,6 @@ const REDACTED_PATHS = [
   "cookie",
 ].flatMap((field) => [field, `*.${field}`]);
 
-/** The `Logger` port over Pino: one JSON line per entry, `event` as the message key. */
 export class PinoLogger implements Logger {
   readonly debug = this.writer("debug");
   readonly info = this.writer("info");
@@ -67,7 +63,6 @@ export class PinoLogger implements Logger {
     );
   }
 
-  /** A logger whose every entry also carries `bindings`, e.g. `{ module: "identity" }`. */
   child(bindings: LogFields): PinoLogger {
     return new PinoLogger(this.pino.child(bindings));
   }

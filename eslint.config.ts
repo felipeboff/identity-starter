@@ -56,7 +56,6 @@ export default defineConfig(
       "boundaries/elements": [
         { type: "shared", pattern: "src/shared" },
         { type: "module", pattern: "src/modules/*", capture: ["moduleName"] },
-        // Anything else in src (main.ts, a future src/app) is the application.
         { type: "app", pattern: "src" },
       ],
     },
@@ -80,7 +79,6 @@ export default defineConfig(
               },
             },
             {
-              // The application wires each module through its composition root (`<module>.module.ts`).
               from: { element: { type: "app" } },
               allow: {
                 to: [
@@ -105,7 +103,6 @@ export default defineConfig(
     },
   },
   {
-    // Production code fails only with AppError; tests and test tooling may simulate unexpected errors.
     files: ["src/**/*.ts"],
     ignores: ["**/*.spec.ts", "**/testing/**"],
     rules: {

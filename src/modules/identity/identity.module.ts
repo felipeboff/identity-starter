@@ -50,7 +50,6 @@ import {
   createIdentityRoutes,
 } from "./presentation/identity.routes";
 
-/** The adapters identity runs on: persistence, crypto, mail, OAuth, time and ids. */
 export type IdentityModuleDeps = {
   accounts: AccountRepository;
   credentials: CredentialRepository;
@@ -71,15 +70,12 @@ export type IdentityModuleDeps = {
   logContext: LogContext;
 };
 
-/** What the application registers from identity. */
 export type IdentityModule = {
-  /** Turns the bearer token into the `Actor`; the application registers it before every private route. */
   authenticate: AuthenticateMiddleware;
   publicRoutes: readonly HttpRoute[];
   routes: readonly HttpRoute<Actor>[];
 };
 
-/** Composition root of identity: wires services, use cases and entry points over the given adapters. */
 export const createIdentityModule = (
   adapters: IdentityModuleDeps,
 ): IdentityModule => {
@@ -129,11 +125,6 @@ export const createIdentityModule = (
   };
 };
 
-/**
- * Fakes for whatever has no real adapter yet (persistence, hashing, access tokens, mail, OAuth),
- * plus the real ones that already exist. Data is lost on restart and access tokens can be forged:
- * never use them in production.
- */
 export const createInMemoryIdentityAdapters = (): IdentityModuleDeps => ({
   ...createIdentityContext(),
   tokens: new CryptoTokenIssuer(),

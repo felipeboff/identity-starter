@@ -4,10 +4,6 @@ import type { HttpRoute } from "./http-route";
 
 type RouteMiddleware = NonNullable<Entry["middlewares"]>[number];
 
-/**
- * Ordered route table. Registration order is the access rule: a middleware
- * passed to `use` runs on every route added after it, never on the ones before.
- */
 export class HttpRouter {
   private readonly middlewares: RouteMiddleware[] = [];
   private readonly table: HttpRoute<unknown>[] = [];

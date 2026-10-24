@@ -9,7 +9,6 @@ export const LogLevel = {
 
 export type LogLevel = (typeof LogLevel)[keyof typeof LogLevel];
 
-/** Fields are required when the event declares them and absent when it does not. */
 export type LogFieldsArg<Fields> = [Fields] extends [undefined]
   ? []
   : [fields: Fields];

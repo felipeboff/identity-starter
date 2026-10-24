@@ -25,16 +25,11 @@ export type ExpressAdapterDeps = {
   logContext: AsyncLocalLogContext;
 };
 
-/** A request id we accept from the client: short and free of anything that could forge a log line. */
 const REQUEST_ID = /^[\w.-]{1,128}$/;
 
 export class ExpressAdapter {
   constructor(private readonly deps: ExpressAdapterDeps) {}
 
-  /**
-   * Registered first: opens the request's log context (`requestId`, `method`), answers the id in
-   * `x-request-id` and logs `shared.request_completed` once the response is sent.
-   */
   requestContext(): RequestHandler {
     return (req, res, next) => {
       const startedAt = performance.now();
@@ -56,7 +51,6 @@ export class ExpressAdapter {
     };
   }
 
-  /** One Express route per HttpRoute, in the given order. */
   toRouter(routes: readonly HttpRoute<unknown>[]): Router {
     const router = Router();
     for (const route of routes) {
@@ -67,7 +61,6 @@ export class ExpressAdapter {
     return router;
   }
 
-  /** Registered after every route: answers an unknown method + path as `404` problem details. */
   notFound(): RequestHandler {
     return (req, res) => {
       this.answerError(
@@ -80,7 +73,6 @@ export class ExpressAdapter {
     };
   }
 
-  /** Registered last: answers what fails before a route runs, such as a malformed JSON body. */
   errorHandler(): ErrorRequestHandler {
     // Express treats a handler as an error handler only when it declares four parameters.
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -127,7 +119,6 @@ export class ExpressAdapter {
     res.status(response.status).set(response.headers).json(response.body);
   }
 
-  /** What `express.json()` throws for a body it cannot parse. */
   private isMalformedBody(error: unknown): boolean {
     return (
       error instanceof SyntaxError &&
@@ -144,7 +135,6 @@ export class ExpressAdapter {
     };
   }
 
-  /** Node gives some headers as arrays (set-cookie); Inbound takes one string per name. */
   private toMetadata(headers: Request["headers"]): Inbound["metadata"] {
     return Object.fromEntries(
       Object.entries(headers).map(([name, value]) => [

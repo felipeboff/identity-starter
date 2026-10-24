@@ -37,7 +37,6 @@ type UseCaseClass = {
   prototype: { execute: (...args: never[]) => Promise<unknown> };
 };
 
-/** Watches every instance's `execute` without changing what it does. */
 const spyOnUseCase = (useCase: UseCaseClass) =>
   vi.spyOn(useCase.prototype, "execute");
 
@@ -72,10 +71,8 @@ const PUBLIC_ROUTES: [HttpMethod, string][] = [
 
 const anyId = faker.database.mongodbObjectId();
 const notAnId = faker.string.alpha(5);
-// 12 letters can never be a valid role or permission.
 const unknownValue = faker.string.alpha(12);
 
-/** One input per route that its schema refuses. */
 const INVALID_INPUTS: [HttpMethod, string, UseCaseClass, CallOptions][] = [
   ["POST", "/auth/sign-up", SignUpWithEmailUseCase, { body: {} }],
   ["POST", "/auth/sign-in", SignInWithEmailUseCase, { body: {} }],

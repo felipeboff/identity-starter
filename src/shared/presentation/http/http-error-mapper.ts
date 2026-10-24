@@ -30,7 +30,6 @@ export type HttpErrorMapperDeps = {
   logger: Logger;
 };
 
-/** Turns anything thrown into an RFC 9457 response; anything not an `AppError` is logged. */
 export class HttpErrorMapper {
   constructor(private readonly deps: HttpErrorMapperDeps) {}
 
@@ -52,7 +51,6 @@ export class HttpErrorMapper {
       : { ...problem, data: error.data };
   }
 
-  /** `identity.session_expired` -> `Session expired`. */
   private titleOf(code: string): string {
     const name = code.slice(code.lastIndexOf(".") + 1).replaceAll("_", " ");
     return name.charAt(0).toUpperCase() + name.slice(1);
