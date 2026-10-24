@@ -82,13 +82,14 @@ run the spec three times.
 
 ## Helpers
 
-| Helper                                                                           | For                                                                        |
-| -------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `createIdentityContext()`                                                        | every identity dependency as in-memory fakes; pass it as `deps`            |
-| `seedAccount(ctx, options?)`, `seedSession(ctx, seeded)`                         | persisted account, credential, membership and session                      |
-| `expectAppError(promise, Definition, data?)`                                     | asserting a rejected `AppError` by definition                              |
-| `createIdentityHttp()` (`presentation/testing/identity-http`)                    | route specs: `call(method, path, { params, body, token, ip })`, `signIn()` |
-| `vi.spyOn(UseCase.prototype, "execute")` + `vi.restoreAllMocks()` in `afterEach` | asserting a use case was not called when the module hides instances        |
+| Helper                                                                           | For                                                                                          |
+| -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `createIdentityContext()`                                                        | every identity dependency as in-memory fakes; pass it as `deps`                              |
+| `seedAccount(ctx, options?)`, `seedSession(ctx, seeded)`                         | persisted account, credential, membership and session                                        |
+| `expectAppError(promise, Definition, data?)`                                     | asserting a rejected `AppError` by definition                                                |
+| `new FakeLogger()` (`@shared/testing/fake-logger`)                               | any `Logger` dependency; assert on `logger.entries` (`{ level, event: Event.name, fields }`) |
+| `createIdentityHttp()` (`presentation/testing/identity-http`)                    | route specs: `call(method, path, { params, body, token, ip })`, `signIn()`                   |
+| `vi.spyOn(UseCase.prototype, "execute")` + `vi.restoreAllMocks()` in `afterEach` | asserting a use case was not called when the module hides instances                          |
 
 ## Special cases
 
