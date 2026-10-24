@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "promote_threshold": 2,
+  "window_days": 45,
+  "quarantine_threshold": 2,
+  "next_id": 4,
+  "lessons": [
+    {
+      "id": "L-001",
+      "key": "spec_precision_gap::a check that promises an outcome within a timeout must assert the elapsed time and every default timeout needs its own check not only the ones that happen to be easy to name",
+      "text": "A check that promises an outcome within a timeout must assert the elapsed time, and every default timeout needs its own check, not only the ones that happen to be easy to name.",
+      "signal": "spec_precision_gap",
+      "scope": "timeouts",
+      "status": "candidate",
+      "features": ["mongo-connection"],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": ["checks.md C18 (round 1) (timeouts)"],
+      "created": "2026-10-24T23:31:51Z",
+      "last_seen": "2026-10-24T23:31:51Z"
+    },
+    {
+      "id": "L-002",
+      "key": "spec_precision_gap::write the status in a check from the route the proof actually calls sign up answers 201 not from a generic success code",
+      "text": "Write the status in a check from the route the proof actually calls (sign-up answers 201), not from a generic success code.",
+      "signal": "spec_precision_gap",
+      "scope": "http-edge",
+      "status": "candidate",
+      "features": ["mongo-connection"],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": ["checks.md C11 (round 1) (http-edge)"],
+      "created": "2026-10-24T23:31:51Z",
+      "last_seen": "2026-10-24T23:31:51Z"
+    },
+    {
+      "id": "L-003",
+      "key": "gate_fail::server close only closes connections idle at that moment a graceful shutdown must close keep alive connections as each in flight response finishes and its test must bound the drain well under node s 5 s keep alive timeout",
+      "text": "server.close() only closes connections idle at that moment; a graceful shutdown must close keep-alive connections as each in-flight response finishes, and its test must bound the drain well under Node's 5 s keep-alive timeout.",
+      "signal": "gate_fail",
+      "scope": "http-shutdown",
+      "status": "candidate",
+      "features": ["mongo-connection"],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "src/shared/infrastructure/http/http-server-shutdown.ts (http-shutdown)"
+      ],
+      "created": "2026-10-24T23:31:51Z",
+      "last_seen": "2026-10-24T23:31:51Z"
+    }
+  ]
+}
