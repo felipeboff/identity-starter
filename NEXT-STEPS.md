@@ -93,7 +93,7 @@ coloca algo rodando o quanto antes e troca os fakes por implementações reais a
 
 ## 4. Persistência com Mongoose
 
-- [ ] `src/shared/infrastructure/mongo/connect-mongo.ts` — conecta, desconecta, falha rápido
+- [x] `src/shared/infrastructure/mongo/mongo-database.ts` — `MongoDatabase`: conecta antes do `listen` (10 s, senão sai 1), loga queda e volta, `isReady()` para o `GET /health`, encerramento limpo com `SIGTERM`/`SIGINT` (spec: `.specs/features/mongo-connection/`)
 - [ ] Um repositório por porta em `src/modules/identity/infrastructure/persistence/`:
   - [ ] `mongo-account.repository.ts` — índice único em `email`
   - [ ] `mongo-credential.repository.ts` — índice único em `(provider, subject)`; índice em
@@ -111,7 +111,7 @@ coloca algo rodando o quanto antes e troca os fakes por implementações reais a
 - [ ] Testes de integração com `mongodb-memory-server`, um por repositório (salva, busca,
       índice único recusa duplicado)
   - [ ] Separar a config se ficarem lentos (`vitest.integration.config.ts`), sem perder os 100%
-- [ ] `docker-compose.yml` com o Mongo para rodar localmente
+- [x] `docker-compose.yml` com o Mongo 8 e healthcheck, dados em `.data/mongo` (no `.gitignore`): `docker compose up -d`
 
 ## 5. Segurança: hash e JWT
 
