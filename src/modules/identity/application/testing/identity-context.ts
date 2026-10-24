@@ -1,4 +1,5 @@
 import { faker } from "@faker-js/faker";
+import { FakeLogContext } from "@shared/testing/fake-log-context";
 
 import { Actor } from "../actor";
 import { AccessPolicy } from "../policies/access.policy";
@@ -52,6 +53,7 @@ export const createIdentityContext = () => {
   const accessToken = new FakeAccessToken();
   const mailer = new FakeIdentityMailer();
   const oauth = new FakeOAuthGateway();
+  const logContext = new FakeLogContext();
 
   const sessionIssuer = new SessionIssuer({
     sessions,
@@ -78,6 +80,7 @@ export const createIdentityContext = () => {
     accessToken,
     mailer,
     oauth,
+    logContext,
     sessionIssuer,
     sessionRevoker,
     accountResolver,

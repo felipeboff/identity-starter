@@ -1,5 +1,6 @@
 import { Clock } from "@shared/application/ports/clock";
 import { IdGenerator } from "@shared/application/ports/id-generator";
+import type { LogContext } from "@shared/application/ports/log-context";
 import { HttpRoute } from "@shared/presentation/http/http-route";
 
 import { Actor } from "./application/actor";
@@ -65,6 +66,8 @@ export type IdentityModuleDeps = {
 
   clock: Clock;
   ids: IdGenerator;
+
+  logContext: LogContext;
 };
 
 /** What the application registers from identity. */
@@ -90,6 +93,7 @@ export const createIdentityModule = (
 
   const authenticate = new AuthenticateMiddleware({
     authenticate: new AuthenticateUseCase(deps),
+    logContext: adapters.logContext,
   });
 
   const useCases = {

@@ -1,3 +1,4 @@
+import type { LogContext } from "@shared/application/ports/log-context";
 import { AppError } from "@shared/domain/errors/app-error";
 import { Inbound, Middleware, Next } from "@shared/presentation/handler";
 
@@ -9,6 +10,7 @@ const BEARER = "Bearer ";
 
 export type AuthenticateMiddlewareDeps = {
   authenticate: AuthenticateUseCase;
+  logContext: LogContext;
 };
 
 export class AuthenticateMiddleware extends Middleware<{
@@ -24,6 +26,7 @@ export class AuthenticateMiddleware extends Middleware<{
     const actor = await this.deps.authenticate.execute({
       accessToken: header.slice(BEARER.length),
     });
+    this.deps.logContext.add({ accountId: actor.accountId });
     return next({ ...inbound, actor });
   }
 }

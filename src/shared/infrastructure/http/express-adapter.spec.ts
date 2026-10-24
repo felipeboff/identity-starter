@@ -9,7 +9,9 @@ import { HttpMethod, HttpRoute } from "@shared/presentation/http/http-route";
 import { FakeLogger } from "@shared/testing/fake-logger";
 import express, { RequestHandler } from "express";
 import request from "supertest";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+import { AsyncLocalLogContext } from "../logging/async-local-log-context";
 
 import { ExpressAdapter } from "./express-adapter";
 
@@ -40,22 +42,40 @@ const buildRoute = (
   ...overrides,
 });
 
+/** Answers with the log context it runs in. */
+class ContextHandler extends Handler<{
+  deps: { logContext: AsyncLocalLogContext };
+  actor: unknown;
+  output: unknown;
+}> {
+  handle(): Promise<unknown> {
+    return Promise.resolve(this.deps.logContext.get());
+  }
+}
+
 const createApp = (
   routes: readonly HttpRoute<unknown>[],
   before: RequestHandler[] = [],
+  logContext = new AsyncLocalLogContext(),
 ) => {
   const logger = new FakeLogger();
   const adapter = new ExpressAdapter({
     dispatcher: new Dispatcher(),
     errorMapper: new HttpErrorMapper({ logger }),
+    logger,
+    logContext,
   });
   const app = express()
+    .use(adapter.requestContext())
     .use(express.json())
     .use(...before, adapter.toRouter(routes))
     .use(adapter.notFound())
     .use(adapter.errorHandler());
   return { app, logger };
 };
+
+const errorsOf = (logger: FakeLogger) =>
+  logger.entries.filter((entry) => entry.level === "error");
 
 describe("ExpressAdapter", () => {
   it.each<HttpMethod>(["GET", "POST", "PUT", "PATCH", "DELETE"])(
@@ -174,7 +194,7 @@ describe("ExpressAdapter", () => {
       /^application\/problem\+json/,
     );
     expect(response.body).toMatchObject({ status: 404, code: NotFound.code });
-    expect(logger.entries).toStrictEqual([]);
+    expect(errorsOf(logger)).toStrictEqual([]);
   });
 
   it("answers 500 and logs an unexpected error", async () => {
@@ -186,7 +206,7 @@ describe("ExpressAdapter", () => {
 
     expect(response.status).toBe(500);
     expect(response.body).toMatchObject({ code: "shared.internal" });
-    expect(logger.entries).toStrictEqual([
+    expect(errorsOf(logger)).toStrictEqual([
       {
         level: "error",
         event: SharedLogEvent.UnexpectedError.name,
@@ -224,7 +244,7 @@ describe("ExpressAdapter", () => {
     expect(response.body).toMatchObject({
       code: SharedError.BodyMalformed.code,
     });
-    expect(logger.entries).toStrictEqual([]);
+    expect(errorsOf(logger)).toStrictEqual([]);
   });
 
   it("answers 500 and logs an unexpected error raised before the route", async () => {
@@ -238,12 +258,92 @@ describe("ExpressAdapter", () => {
     const response = await request(app).post(route.path);
 
     expect(response.status).toBe(500);
-    expect(logger.entries).toStrictEqual([
+    expect(errorsOf(logger)).toStrictEqual([
       {
         level: "error",
         event: SharedLogEvent.UnexpectedError.name,
         fields: { error },
       },
     ]);
+  });
+
+  describe("request context", () => {
+    const UUID =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+    it("answers a new request id when the client sends none", async () => {
+      const route = buildRoute();
+      const { app } = createApp([route]);
+
+      const response = await request(app).post(route.path);
+
+      expect(response.headers["x-request-id"]).toMatch(UUID);
+    });
+
+    it("keeps the client's request id when it is safe", async () => {
+      const route = buildRoute();
+      const { app } = createApp([route]);
+      const requestId = faker.string.alphanumeric(24);
+
+      const response = await request(app)
+        .post(route.path)
+        .set("x-request-id", requestId);
+
+      expect(response.headers["x-request-id"]).toBe(requestId);
+    });
+
+    it("replaces a request id that could forge a log line", async () => {
+      const route = buildRoute();
+      const { app } = createApp([route]);
+
+      const response = await request(app)
+        .post(route.path)
+        .set("x-request-id", `${faker.lorem.word()} ${faker.lorem.word()}`);
+
+      expect(response.headers["x-request-id"]).toMatch(UUID);
+    });
+
+    it("runs the handler with the request id, method and route template", async () => {
+      const logContext = new AsyncLocalLogContext();
+      const route = buildRoute({
+        path: "/things/:thingId",
+        handler: new ContextHandler({ logContext }),
+      });
+      const { app } = createApp([route], [], logContext);
+
+      const response = await request(app).post(
+        `/things/${faker.database.mongodbObjectId()}`,
+      );
+
+      expect(response.body).toStrictEqual({
+        requestId: response.headers["x-request-id"],
+        method: "POST",
+        route: "/things/:thingId",
+      });
+    });
+
+    it("logs the completed request with its status and duration, in its context", async () => {
+      const logContext = new AsyncLocalLogContext();
+      const route = buildRoute({ status: 201 });
+      const { app, logger } = createApp([route], [], logContext);
+      const contexts: unknown[] = [];
+      const info = vi.spyOn(logger, "info").mockImplementation(() => {
+        contexts.push(logContext.get());
+      });
+
+      const response = await request(app).post(route.path);
+
+      expect(info).toHaveBeenCalledExactlyOnceWith(
+        SharedLogEvent.RequestCompleted,
+        { status: 201, durationMs: expect.any(Number) as unknown },
+      );
+      expect(contexts).toStrictEqual([
+        {
+          requestId: response.headers["x-request-id"],
+          method: "POST",
+          route: route.path,
+        },
+      ]);
+    });
   });
 });

@@ -5,6 +5,7 @@ import type { AddressInfo } from "node:net";
 import { SharedLogEvent } from "@shared/application/logging/shared.log-event";
 import { AppError } from "@shared/domain/errors/app-error";
 import { SharedError } from "@shared/domain/errors/shared.error";
+import { AsyncLocalLogContext } from "@shared/infrastructure/logging/async-local-log-context";
 import { PinoLogger } from "@shared/infrastructure/logging/pino-logger";
 import type { DestinationStream } from "pino";
 
@@ -30,18 +31,24 @@ export const start = async ({
     throw new AppError(SharedError.InMemoryAdaptersInProduction);
   }
 
+  const logContext = new AsyncLocalLogContext();
   const logger = PinoLogger.create({
     service: "resolve-hub",
     environment: env.NODE_ENV,
     level: env.LOG_LEVEL,
     format: env.NODE_ENV === NodeEnv.DEVELOP ? "pretty" : "json",
     destination: logDestination,
+    context: logContext,
   });
   const app = createServer({
     modules: {
-      identity: createIdentityModule(createInMemoryIdentityAdapters()),
+      identity: createIdentityModule({
+        ...createInMemoryIdentityAdapters(),
+        logContext,
+      }),
     },
     logger,
+    logContext,
     trustProxy: env.TRUST_PROXY,
   });
 

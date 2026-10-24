@@ -8,6 +8,8 @@ import type {
   Logger,
 } from "../../application/ports/logger";
 
+import type { AsyncLocalLogContext } from "./async-local-log-context";
+
 export type LogFormat = "json" | "pretty";
 
 export type PinoLoggerOptions = Readonly<{
@@ -17,6 +19,8 @@ export type PinoLoggerOptions = Readonly<{
   /** `json` for collectors (Loki); `pretty` for a terminal. */
   format: LogFormat;
   destination: DestinationStream;
+  /** Request fields (request id, account...) added to every entry. */
+  context: Pick<AsyncLocalLogContext, "get">;
 }>;
 
 /** Secrets that must never reach a log line, at the top level or one object deep. */
@@ -52,6 +56,7 @@ export class PinoLogger implements Logger {
           level: options.level,
           base: { service: options.service, environment: options.environment },
           messageKey: "event",
+          mixin: () => ({ ...options.context.get() }),
           timestamp: pino.stdTimeFunctions.isoTime,
           formatters: { level: (label) => ({ level: label }) },
           redact: { paths: REDACTED_PATHS, censor: "[redacted]" },

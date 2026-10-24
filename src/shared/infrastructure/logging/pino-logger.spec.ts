@@ -5,6 +5,7 @@ import { defineLogEvent } from "@shared/application/logging/log-event";
 import { LogLevel } from "@shared/application/ports/logger";
 import { describe, expect, it } from "vitest";
 
+import { AsyncLocalLogContext } from "./async-local-log-context";
 import { PinoLogger, PinoLoggerOptions } from "./pino-logger";
 
 const AccountSeen = defineLogEvent<Record<string, unknown>>(
@@ -38,6 +39,7 @@ const createLogger = (overrides: Partial<PinoLoggerOptions> = {}) => {
     level: LogLevel.DEBUG,
     format: "json",
     destination: output.destination,
+    context: new AsyncLocalLogContext(),
     ...overrides,
   };
   return { logger: PinoLogger.create(options), options, ...output };
@@ -130,5 +132,21 @@ describe("PinoLogger", () => {
     const output = chunks.join("");
     expect(output).toContain(Tick.name);
     expect(() => JSON.parse(output) as unknown).toThrow();
+  });
+
+  it("adds the fields of the current log context to every entry", () => {
+    const context = new AsyncLocalLogContext();
+    const { logger, lines } = createLogger({ context });
+    const requestId = faker.string.uuid();
+    const accountId = faker.database.mongodbObjectId();
+
+    context.run({ requestId }, () => {
+      context.add({ accountId });
+      logger.info(Tick);
+    });
+
+    expect(lines()).toStrictEqual([
+      expect.objectContaining({ event: Tick.name, requestId, accountId }),
+    ]);
   });
 });

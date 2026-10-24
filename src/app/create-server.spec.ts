@@ -1,5 +1,11 @@
+import { Writable } from "node:stream";
+
 import { faker } from "@faker-js/faker";
+import { SharedLogEvent } from "@shared/application/logging/shared.log-event";
+import { LogLevel, type Logger } from "@shared/application/ports/logger";
 import { SharedError } from "@shared/domain/errors/shared.error";
+import { AsyncLocalLogContext } from "@shared/infrastructure/logging/async-local-log-context";
+import { PinoLogger } from "@shared/infrastructure/logging/pino-logger";
 import { FakeLogger } from "@shared/testing/fake-logger";
 import request from "supertest";
 import { describe, expect, it } from "vitest";
@@ -11,12 +17,20 @@ import {
   createInMemoryIdentityAdapters,
 } from "@/identity/identity.module";
 
-const createApp = (trustProxy = 0) =>
+const createApp = (
+  trustProxy = 0,
+  logContext = new AsyncLocalLogContext(),
+  logger: Logger = new FakeLogger(),
+) =>
   createServer({
     modules: {
-      identity: createIdentityModule(createInMemoryIdentityAdapters()),
+      identity: createIdentityModule({
+        ...createInMemoryIdentityAdapters(),
+        logContext,
+      }),
     },
-    logger: new FakeLogger(),
+    logger,
+    logContext,
     trustProxy,
   });
 
@@ -58,6 +72,7 @@ describe("createServer", () => {
     expect(response.headers).toMatchObject({
       "x-content-type-options": "nosniff",
       "access-control-allow-origin": "*",
+      "access-control-expose-headers": "x-request-id",
     });
     expect(response.headers).not.toHaveProperty("x-powered-by");
   });
@@ -104,6 +119,48 @@ describe("createServer", () => {
     expect(response.status).toBe(400);
     expect(response.body).toMatchObject({
       code: SharedError.BodyMalformed.code,
+    });
+  });
+
+  it("logs each request with its id, route and the signed-in account", async () => {
+    const chunks: string[] = [];
+    const logContext = new AsyncLocalLogContext();
+    const logger = PinoLogger.create({
+      service: faker.lorem.slug(),
+      environment: faker.lorem.word(),
+      level: LogLevel.INFO,
+      format: "json",
+      destination: new Writable({
+        write(chunk: Buffer, _encoding, done) {
+          chunks.push(chunk.toString());
+          done();
+        },
+      }),
+      context: logContext,
+    });
+    const app = createApp(0, logContext, logger);
+    const signedUp = await signUp(app);
+    const { account, accessToken } = signedUp.body as {
+      account: { id: string };
+      accessToken: string;
+    };
+
+    const response = await request(app)
+      .get("/api/me")
+      .set("authorization", `Bearer ${accessToken}`);
+
+    const completed = chunks
+      .join("")
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line) as Record<string, unknown>)
+      .filter((line) => line.event === SharedLogEvent.RequestCompleted.name);
+    expect(completed.at(-1)).toMatchObject({
+      requestId: response.headers["x-request-id"],
+      method: "GET",
+      route: "/me",
+      accountId: account.id,
+      status: 200,
     });
   });
 });

@@ -1,6 +1,7 @@
 import { faker } from "@faker-js/faker";
 import { Inbound, Next } from "@shared/presentation/handler";
 import { expectAppError } from "@shared/testing/expect-app-error";
+import { FakeLogContext } from "@shared/testing/fake-log-context";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AuthenticateMiddleware } from "./authenticate.middleware";
@@ -19,11 +20,13 @@ describe("AuthenticateMiddleware", () => {
   let ctx: IdentityContext;
   let authenticate: AuthenticateUseCase;
   let middleware: AuthenticateMiddleware;
+  let logContext: FakeLogContext;
 
   beforeEach(() => {
     ctx = createIdentityContext();
     authenticate = new AuthenticateUseCase(ctx);
-    middleware = new AuthenticateMiddleware({ authenticate });
+    logContext = new FakeLogContext();
+    middleware = new AuthenticateMiddleware({ authenticate, logContext });
   });
 
   const buildInbound = (metadata: Inbound["metadata"]): Inbound => ({
@@ -48,6 +51,7 @@ describe("AuthenticateMiddleware", () => {
 
     expect(out).toBe(answer);
     expect(next).toHaveBeenCalledExactlyOnceWith({ ...inbound, actor });
+    expect(logContext.added).toStrictEqual([{ accountId: ana.accountId }]);
   });
 
   it.each([
@@ -69,6 +73,7 @@ describe("AuthenticateMiddleware", () => {
 
       expect(execute).not.toHaveBeenCalled();
       expect(next).not.toHaveBeenCalled();
+      expect(logContext.added).toStrictEqual([]);
     },
   );
 

@@ -1,3 +1,7 @@
+import { randomUUID } from "node:crypto";
+
+import { SharedLogEvent } from "@shared/application/logging/shared.log-event";
+import type { Logger } from "@shared/application/ports/logger";
 import { AppError } from "@shared/domain/errors/app-error";
 import { SharedError } from "@shared/domain/errors/shared.error";
 import { Dispatcher } from "@shared/presentation/dispatcher";
@@ -12,13 +16,45 @@ import {
   Router,
 } from "express";
 
+import type { AsyncLocalLogContext } from "../logging/async-local-log-context";
+
 export type ExpressAdapterDeps = {
   dispatcher: Dispatcher;
   errorMapper: HttpErrorMapper;
+  logger: Logger;
+  logContext: AsyncLocalLogContext;
 };
+
+/** A request id we accept from the client: short and free of anything that could forge a log line. */
+const REQUEST_ID = /^[\w.-]{1,128}$/;
 
 export class ExpressAdapter {
   constructor(private readonly deps: ExpressAdapterDeps) {}
+
+  /**
+   * Registered first: opens the request's log context (`requestId`, `method`), answers the id in
+   * `x-request-id` and logs `shared.request_completed` once the response is sent.
+   */
+  requestContext(): RequestHandler {
+    return (req, res, next) => {
+      const startedAt = performance.now();
+      const requestId = this.requestIdOf(req);
+      res.setHeader("x-request-id", requestId);
+
+      this.deps.logContext.run({ requestId, method: req.method }, () => {
+        res.on(
+          "finish",
+          this.deps.logContext.bind(() => {
+            this.deps.logger.info(SharedLogEvent.RequestCompleted, {
+              status: res.statusCode,
+              durationMs: Math.round(performance.now() - startedAt),
+            });
+          }),
+        );
+        next();
+      });
+    };
+  }
 
   /** One Express route per HttpRoute, in the given order. */
   toRouter(routes: readonly HttpRoute<unknown>[]): Router {
@@ -63,6 +99,7 @@ export class ExpressAdapter {
     req: Request,
     res: Response,
   ): Promise<void> {
+    this.deps.logContext.add({ route: route.path });
     try {
       const output = await this.deps.dispatcher.dispatch(
         route,
@@ -76,6 +113,13 @@ export class ExpressAdapter {
     } catch (error) {
       this.answerError(res, error);
     }
+  }
+
+  private requestIdOf(req: Request): string {
+    const incoming = req.get("x-request-id");
+    return incoming !== undefined && REQUEST_ID.test(incoming)
+      ? incoming
+      : randomUUID();
   }
 
   private answerError(res: Response, error: unknown): void {
