@@ -1,0 +1,249 @@
+import { faker } from "@faker-js/faker";
+import { SharedLogEvent } from "@shared/application/logging/shared.log-event";
+import { AppError, defineError } from "@shared/domain/errors/app-error";
+import { SharedError } from "@shared/domain/errors/shared.error";
+import { Dispatcher } from "@shared/presentation/dispatcher";
+import { Handler, Inbound } from "@shared/presentation/handler";
+import { HttpErrorMapper } from "@shared/presentation/http/http-error-mapper";
+import { HttpMethod, HttpRoute } from "@shared/presentation/http/http-route";
+import { FakeLogger } from "@shared/testing/fake-logger";
+import express, { RequestHandler } from "express";
+import request from "supertest";
+import { describe, expect, it } from "vitest";
+
+import { ExpressAdapter } from "./express-adapter";
+
+/** Answers with the inbound it received, so the test can read how the adapter built it. */
+class EchoHandler extends Handler<{ actor: unknown; output: unknown }> {
+  handle(inbound: Inbound<unknown>): Promise<unknown> {
+    return Promise.resolve(inbound);
+  }
+}
+
+class FailingHandler extends Handler<{
+  deps: { error: Error };
+  actor: unknown;
+  output: unknown;
+}> {
+  handle(): Promise<unknown> {
+    return Promise.reject(this.deps.error);
+  }
+}
+
+const buildRoute = (
+  overrides: Partial<HttpRoute<unknown>> = {},
+): HttpRoute<unknown> => ({
+  method: "POST",
+  path: `/${faker.lorem.slug()}`,
+  status: 200,
+  handler: new EchoHandler(),
+  ...overrides,
+});
+
+const createApp = (
+  routes: readonly HttpRoute<unknown>[],
+  before: RequestHandler[] = [],
+) => {
+  const logger = new FakeLogger();
+  const adapter = new ExpressAdapter({
+    dispatcher: new Dispatcher(),
+    errorMapper: new HttpErrorMapper({ logger }),
+  });
+  const app = express()
+    .use(express.json())
+    .use(...before, adapter.toRouter(routes))
+    .use(adapter.notFound())
+    .use(adapter.errorHandler());
+  return { app, logger };
+};
+
+describe("ExpressAdapter", () => {
+  it.each<HttpMethod>(["GET", "POST", "PUT", "PATCH", "DELETE"])(
+    "registers a %s route at its path",
+    async (method) => {
+      const route = buildRoute({ method });
+      const { app } = createApp([route]);
+
+      const response = await request(app)[
+        method.toLowerCase() as Lowercase<HttpMethod>
+      ](route.path);
+
+      expect(response.status).toBe(200);
+    },
+  );
+
+  it("answers the route's status with the handler output as JSON", async () => {
+    const status = faker.helpers.arrayElement([200, 201, 202] as const);
+    const route = buildRoute({ status });
+    const { app } = createApp([route]);
+
+    const response = await request(app).post(route.path);
+
+    expect(response.status).toBe(status);
+    expect(response.headers["content-type"]).toMatch(/^application\/json/);
+  });
+
+  it("answers 204 with no body", async () => {
+    const route = buildRoute({ status: 204 });
+    const { app } = createApp([route]);
+
+    const response = await request(app).post(route.path).send({});
+
+    expect(response.status).toBe(204);
+    expect(response.text).toBe("");
+  });
+
+  it("merges query, body and params into the input, params last", async () => {
+    const route = buildRoute({ path: "/things/:thingId" });
+    const { app } = createApp([route]);
+    const thingId = faker.database.mongodbObjectId();
+    const page = String(faker.number.int({ min: 1, max: 9 }));
+    const name = faker.person.fullName();
+
+    const response = await request(app)
+      .post(`/things/${thingId}`)
+      .query({ page })
+      .send({ name, thingId: faker.database.mongodbObjectId() });
+
+    expect((response.body as Inbound<unknown>).input).toStrictEqual({
+      page,
+      name,
+      thingId,
+    });
+  });
+
+  it("passes the headers as metadata, joining repeated ones", async () => {
+    const route = buildRoute();
+    const cookies = [faker.lorem.word(), faker.lorem.word()];
+    // Node only hands repeated `set-cookie` headers as an array.
+    const repeatHeader: RequestHandler = (req, _res, next) => {
+      req.headers["set-cookie"] = cookies;
+      next();
+    };
+    const { app } = createApp([route], [repeatHeader]);
+    const userAgent = faker.internet.userAgent();
+
+    const response = await request(app)
+      .post(route.path)
+      .set("user-agent", userAgent);
+
+    expect((response.body as Inbound<unknown>).metadata).toMatchObject({
+      "user-agent": userAgent,
+      "set-cookie": cookies.join(", "),
+    });
+  });
+
+  it("passes the ip Express resolves, with no actor yet", async () => {
+    const route = buildRoute();
+    const { app } = createApp([route]);
+
+    const response = await request(app).post(route.path);
+
+    const inbound = response.body as Inbound<unknown>;
+    expect(inbound.ip).toMatch(/127\.0\.0\.1|::1/);
+    expect(inbound).not.toHaveProperty("actor");
+  });
+
+  it("passes an empty ip when Express cannot resolve one", async () => {
+    const route = buildRoute();
+    const hideIp: RequestHandler = (req, _res, next) => {
+      Object.defineProperty(req, "ip", { value: undefined });
+      next();
+    };
+    const { app } = createApp([route], [hideIp]);
+
+    const response = await request(app).post(route.path);
+
+    expect((response.body as Inbound<unknown>).ip).toBe("");
+  });
+
+  it("answers an AppError with its problem details", async () => {
+    const NotFound = defineError(
+      `${faker.lorem.word()}.${faker.lorem.word()}`,
+      "not_found",
+    );
+    const route = buildRoute({
+      handler: new FailingHandler({ error: new AppError(NotFound) }),
+    });
+    const { app, logger } = createApp([route]);
+
+    const response = await request(app).post(route.path);
+
+    expect(response.status).toBe(404);
+    expect(response.headers["content-type"]).toMatch(
+      /^application\/problem\+json/,
+    );
+    expect(response.body).toMatchObject({ status: 404, code: NotFound.code });
+    expect(logger.entries).toStrictEqual([]);
+  });
+
+  it("answers 500 and logs an unexpected error", async () => {
+    const error = new Error(faker.lorem.sentence());
+    const route = buildRoute({ handler: new FailingHandler({ error }) });
+    const { app, logger } = createApp([route]);
+
+    const response = await request(app).post(route.path);
+
+    expect(response.status).toBe(500);
+    expect(response.body).toMatchObject({ code: "shared.internal" });
+    expect(logger.entries).toStrictEqual([
+      {
+        level: "error",
+        event: SharedLogEvent.UnexpectedError.name,
+        fields: { error },
+      },
+    ]);
+  });
+
+  it("answers an unknown route with 404 problem details", async () => {
+    const { app } = createApp([buildRoute()]);
+    const path = `/${faker.lorem.slug()}`;
+
+    const response = await request(app).get(path);
+
+    expect(response.status).toBe(404);
+    expect(response.headers["content-type"]).toMatch(
+      /^application\/problem\+json/,
+    );
+    expect(response.body).toMatchObject({
+      code: SharedError.RouteNotFound.code,
+      data: { method: "GET", path },
+    });
+  });
+
+  it("answers a malformed JSON body with 400 problem details", async () => {
+    const route = buildRoute();
+    const { app, logger } = createApp([route]);
+
+    const response = await request(app)
+      .post(route.path)
+      .set("content-type", "application/json")
+      .send(`{${faker.lorem.word()}`);
+
+    expect(response.status).toBe(400);
+    expect(response.body).toMatchObject({
+      code: SharedError.BodyMalformed.code,
+    });
+    expect(logger.entries).toStrictEqual([]);
+  });
+
+  it("answers 500 and logs an unexpected error raised before the route", async () => {
+    const route = buildRoute();
+    const error = new Error(faker.lorem.sentence());
+    const failBefore: RequestHandler = (_req, _res, next) => {
+      next(error);
+    };
+    const { app, logger } = createApp([route], [failBefore]);
+
+    const response = await request(app).post(route.path);
+
+    expect(response.status).toBe(500);
+    expect(logger.entries).toStrictEqual([
+      {
+        level: "error",
+        event: SharedLogEvent.UnexpectedError.name,
+        fields: { error },
+      },
+    ]);
+  });
+});

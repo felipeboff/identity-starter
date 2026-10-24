@@ -26,4 +26,11 @@ export const SharedError = {
     "invalid_input",
   ),
   IdInvalid: defineError<{ id: string }>("shared.id_invalid", "invalid_input"),
+
+  RouteNotFound: defineError<{ method: string; path: string }>(
+    "shared.route_not_found",
+    "not_found",
+  ),
+  /** The request body is not valid JSON. */
+  BodyMalformed: defineError("shared.body_malformed", "invalid_input"),
 };
