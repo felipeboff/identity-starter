@@ -53,8 +53,10 @@ coloca algo rodando o quanto antes e troca os fakes por implementações reais a
 - [x] Logger: porta `Logger` + eventos `defineLogEvent` + `PinoLogger`
       (`src/shared/infrastructure/logging/pino-logger.ts`) + `FakeLogger` para testes. Substitui o
       `ErrorReporter`.
-  - [ ] Contexto por requisição (`requestId`, `accountId`) com `AsyncLocalStorage` + `mixin`
-  - [ ] Log `http.request_completed` (método, rota-template, status, duração)
+  - [x] Contexto por requisição com `AsyncLocalStorage` (`AsyncLocalLogContext`) + `mixin` do
+        Pino: `requestId` (aceita `x-request-id` seguro ou gera UUID, devolvido no header),
+        `method`, `route` (template) e `accountId` (posto pelo `AuthenticateMiddleware`)
+  - [x] Log `shared.request_completed` com `status` e `durationMs`, um por requisição
 
 ### 2.3 Bootstrap
 
