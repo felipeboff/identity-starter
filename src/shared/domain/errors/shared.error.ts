@@ -31,9 +31,11 @@ export const SharedError = {
     "shared.route_not_found",
     "not_found",
   ),
-  /** The request body is not valid JSON. */
   BodyMalformed: defineError("shared.body_malformed", "invalid_input"),
-  /** The in-memory adapters keep no data and forge-able tokens; never in production. */
+  DatabaseUnavailable: defineError(
+    "shared.database_unavailable",
+    "precondition_failed",
+  ),
   InMemoryAdaptersInProduction: defineError(
     "shared.in_memory_adapters_in_production",
     "precondition_failed",
