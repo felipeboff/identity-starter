@@ -1,4 +1,5 @@
 import { faker } from "@faker-js/faker";
+import { SharedLogEvent } from "@shared/application/logging/shared.log-event";
 import { describe, expect, it } from "vitest";
 
 import { createIdentityHttp } from "./identity-http";
@@ -16,7 +17,7 @@ describe("createIdentityHttp", () => {
     );
   });
 
-  it("answers 500 and reports an unexpected error", async () => {
+  it("answers 500 and logs an unexpected error", async () => {
     const http = createIdentityHttp();
 
     // The fake gateway rejects an unregistered code with a plain Error.
@@ -26,7 +27,13 @@ describe("createIdentityHttp", () => {
     });
 
     expect(out.status).toBe(500);
-    expect(http.reported).toStrictEqual([expect.any(Error)]);
+    expect(http.logger.entries).toStrictEqual([
+      {
+        level: "error",
+        event: SharedLogEvent.UnexpectedError.name,
+        fields: { error: expect.any(Error) as unknown },
+      },
+    ]);
   });
 
   it("signs in a seeded account with a token the routes accept", async () => {

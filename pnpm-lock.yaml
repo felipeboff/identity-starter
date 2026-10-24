@@ -190,6 +190,9 @@ importers:
       pino:
         specifier: ^10.4.0
         version: 10.4.0
+      pino-pretty:
+        specifier: ^13.2.0
+        version: 13.2.0
     devDependencies:
       '@commitlint/cli':
         specifier: ^21.2.4
@@ -251,9 +254,6 @@ importers:
       mongodb-memory-server:
         specifier: ^11.3.0
         version: 11.3.0(supports-color@7.2.0)
-      pino-pretty:
-        specifier: ^13.2.0
-        version: 13.2.0
       prettier:
         specifier: ^3.9.10
         version: 3.9.10

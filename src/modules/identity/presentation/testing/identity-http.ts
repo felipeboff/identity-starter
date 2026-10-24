@@ -4,6 +4,7 @@ import { HttpErrorMapper } from "@shared/presentation/http/http-error-mapper";
 import { HttpResponse } from "@shared/presentation/http/http-response";
 import { HttpMethod } from "@shared/presentation/http/http-route";
 import { HttpRouter } from "@shared/presentation/http/http-router";
+import { FakeLogger } from "@shared/testing/fake-logger";
 
 import {
   SeedAccountOptions,
@@ -39,11 +40,9 @@ export const createIdentityHttp = () => {
     .add(identity.routes)
     .routes();
 
-  const reported: unknown[] = [];
+  const logger = new FakeLogger();
   const dispatcher = new Dispatcher();
-  const errorMapper = new HttpErrorMapper({
-    errorReporter: { report: (error) => reported.push(error) },
-  });
+  const errorMapper = new HttpErrorMapper({ logger });
 
   /** Dispatches the route declared as `method` + `path` (the template, e.g. `/sessions/:sessionId`). */
   const call = async (
@@ -87,5 +86,5 @@ export const createIdentityHttp = () => {
     return { ...seeded, actor, session, refreshToken, token };
   };
 
-  return { ctx, routes, call, signIn, reported };
+  return { ctx, routes, call, signIn, logger };
 };

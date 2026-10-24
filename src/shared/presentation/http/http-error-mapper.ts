@@ -1,4 +1,5 @@
-import type { ErrorReporter } from "../../application/ports/error-reporter";
+import { SharedLogEvent } from "../../application/logging/shared.log-event";
+import type { Logger } from "../../application/ports/logger";
 import { isAppError } from "../../domain/errors/app-error";
 import type { AppError, ErrorKind } from "../../domain/errors/app-error";
 
@@ -26,10 +27,10 @@ const INTERNAL_ERROR: ProblemDetails = {
 };
 
 export type HttpErrorMapperDeps = {
-  errorReporter: ErrorReporter;
+  logger: Logger;
 };
 
-/** Turns anything thrown into an RFC 9457 response; anything not an `AppError` is reported. */
+/** Turns anything thrown into an RFC 9457 response; anything not an `AppError` is logged. */
 export class HttpErrorMapper {
   constructor(private readonly deps: HttpErrorMapperDeps) {}
 
@@ -59,9 +60,9 @@ export class HttpErrorMapper {
 
   private report(error: unknown): void {
     try {
-      this.deps.errorReporter.report(error);
+      this.deps.logger.error(SharedLogEvent.UnexpectedError, { error });
     } catch {
-      // A broken reporter must not change the answer.
+      // A broken logger must not change the answer.
     }
   }
 }
