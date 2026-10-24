@@ -43,6 +43,7 @@ import { UpdateAccountNameUseCase } from "./application/use-cases/update-account
 import { UpdateMemberPermissionsUseCase } from "./application/use-cases/update-member-permissions.use-case";
 import { UpdateMemberRoleUseCase } from "./application/use-cases/update-member-role.use-case";
 import { VerifyEmailUseCase } from "./application/use-cases/verify-email.use-case";
+import { CryptoTokenIssuer } from "./infrastructure/crypto-token-issuer";
 import { AuthenticateMiddleware } from "./presentation/authenticate.middleware";
 import {
   createIdentityPublicRoutes,
@@ -129,8 +130,11 @@ export const createIdentityModule = (
 };
 
 /**
- * Adapters that keep everything in memory, for running the app locally before the real ones
- * exist. Data is lost on restart and access tokens can be forged: never use them in production.
+ * Fakes for whatever has no real adapter yet (persistence, hashing, access tokens, mail, OAuth),
+ * plus the real ones that already exist. Data is lost on restart and access tokens can be forged:
+ * never use them in production.
  */
-export const createInMemoryIdentityAdapters = (): IdentityModuleDeps =>
-  createIdentityContext();
+export const createInMemoryIdentityAdapters = (): IdentityModuleDeps => ({
+  ...createIdentityContext(),
+  tokens: new CryptoTokenIssuer(),
+});
