@@ -1,4 +1,10 @@
-import type { Server } from "node:http";
+import { once } from "node:events";
+import {
+  createServer as createHttpServer,
+  request as httpRequest,
+} from "node:http";
+import { createServer as createNetServer } from "node:net";
+import type { AddressInfo } from "node:net";
 import { Writable } from "node:stream";
 
 import { faker } from "@faker-js/faker";
@@ -6,14 +12,23 @@ import { SharedLogEvent } from "@shared/application/logging/shared.log-event";
 import { LogLevel } from "@shared/application/ports/logger";
 import { SharedError } from "@shared/domain/errors/shared.error";
 import { expectAppError } from "@shared/testing/expect-app-error";
+import { MongoMemoryServer } from "mongodb-memory-server";
+import mongoose from "mongoose";
 import request from "supertest";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 import type { Env } from "./config";
 
 const buildEnv = (overrides: Partial<Env> = {}): Env => ({
   NODE_ENV: "test",
-  // 0 lets the OS pick a free port.
   PORT: 0,
   TRUST_PROXY: 0,
   LOG_LEVEL: LogLevel.INFO,
@@ -23,11 +38,12 @@ const buildEnv = (overrides: Partial<Env> = {}): Env => ({
   ...overrides,
 });
 
-// `start` imports the config, which reads process.env at import.
 for (const [name, value] of Object.entries(buildEnv({ PORT: 3000 }))) {
   vi.stubEnv(name, String(value));
 }
 const { start } = await import("./start");
+
+type RunningApp = Awaited<ReturnType<typeof start>>;
 
 const createOutput = () => {
   const chunks: string[] = [];
@@ -37,77 +53,175 @@ const createOutput = () => {
       done();
     },
   });
-  return { logDestination, text: () => chunks.join("") };
+  const text = () => chunks.join("");
+  const events = () =>
+    text()
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => (JSON.parse(line) as { event: string }).event);
+  return { logDestination, text, events };
 };
 
-const servers: Server[] = [];
+const freePort = async () => {
+  const server = createNetServer().listen(0);
+  await once(server, "listening");
+  const { port } = server.address() as AddressInfo;
+  await new Promise((resolve) => server.close(resolve));
+  return port;
+};
 
-afterEach(async () => {
-  vi.useRealTimers();
-  await Promise.all(
-    servers.splice(0).map(
-      (server) =>
-        new Promise((resolve) => {
-          server.close(resolve);
-        }),
-    ),
+const connectionNamed = (database: string) =>
+  mongoose.connections.find((connection) => connection.name === database);
+
+const signUpBody = () =>
+  JSON.stringify({
+    name: faker.person.fullName(),
+    email: faker.internet.email(),
+    password: faker.internet.password(),
+  });
+
+const signUpInFlight = async (port: number) => {
+  const body = signUpBody();
+  const half = Math.floor(body.length / 2);
+  const req = httpRequest({
+    host: "127.0.0.1",
+    port,
+    method: "POST",
+    path: "/api/auth/sign-up",
+    headers: {
+      "content-type": "application/json",
+      "content-length": Buffer.byteLength(body),
+    },
+  });
+  const response = new Promise<{ status?: number; error?: Error }>(
+    (resolve) => {
+      req.on("response", (res) => {
+        res.resume();
+        res.on("end", () => resolve({ status: res.statusCode }));
+      });
+      req.on("error", (error) => resolve({ error }));
+    },
   );
-});
+  req.write(body.slice(0, half));
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  return { response, finish: () => req.end(body.slice(half)) };
+};
 
 describe("start", () => {
-  it("listens and serves the API", async () => {
-    const { logDestination } = createOutput();
+  let database: MongoMemoryServer;
+  const running: RunningApp[] = [];
 
-    const server = await start({ env: buildEnv(), logDestination });
-    servers.push(server);
+  beforeAll(async () => {
+    database = await MongoMemoryServer.create();
+  });
 
-    const response = await request(server).post("/api/auth/sign-up").send({
-      name: faker.person.fullName(),
-      email: faker.internet.email(),
-      password: faker.internet.password(),
+  afterAll(async () => {
+    await database.stop();
+  });
+
+  afterEach(async () => {
+    vi.useRealTimers();
+    await Promise.all(running.splice(0).map((app) => app.stop()));
+  });
+
+  const databaseName = () =>
+    faker.string.alpha({ length: 12, casing: "lower" });
+
+  const startApp = async (
+    overrides: Partial<Env> = {},
+    name = databaseName(),
+  ) => {
+    const output = createOutput();
+    const app = await start({
+      env: buildEnv({ MONGO_URL: `${database.getUri()}${name}`, ...overrides }),
+      logDestination: output.logDestination,
+      timeouts: { shutdownMs: 2_000 },
     });
+    running.push(app);
+    return { app, output, url: `http://127.0.0.1:${app.port}`, name };
+  };
+
+  it("connects to the database before listening", async () => {
+    const { output, url } = await startApp();
+
+    const health = await request(url).get("/health");
+
+    const events = output.events();
+    expect(events.indexOf(SharedLogEvent.DatabaseConnected.name)).toBeLessThan(
+      events.indexOf(SharedLogEvent.ServerStarted.name),
+    );
+    expect(events.indexOf(SharedLogEvent.DatabaseConnected.name)).not.toBe(-1);
+    expect(health.status).toBe(200);
+  });
+
+  it("does not listen when the database is unavailable", async () => {
+    const output = createOutput();
+    const port = await freePort();
+
+    await expectAppError(
+      start({
+        env: buildEnv({
+          MONGO_URL: `mongodb://127.0.0.1:${port}/${databaseName()}`,
+        }),
+        logDestination: output.logDestination,
+        timeouts: { databaseSelectionMs: 300 },
+      }),
+      SharedError.DatabaseUnavailable,
+    );
+
+    expect(output.events()).toContain(
+      SharedLogEvent.DatabaseConnectionFailed.name,
+    );
+    expect(output.events()).not.toContain(SharedLogEvent.ServerStarted.name);
+  });
+
+  it("keeps the global mongoose connection unused", async () => {
+    const { name } = await startApp();
+
+    expect(mongoose.connection.readyState).toBe(0);
+    expect(connectionNamed(name)?.readyState).toBe(1);
+  });
+
+  it("listens and serves the API", async () => {
+    const { url } = await startApp();
+
+    const response = await request(url)
+      .post("/api/auth/sign-up")
+      .set("content-type", "application/json")
+      .send(signUpBody());
+
     expect(response.status).toBe(201);
   });
 
   it("logs the port it listens on as JSON outside develop", async () => {
-    const { logDestination, text } = createOutput();
+    const { app, output } = await startApp();
 
-    const server = await start({ env: buildEnv(), logDestination });
-    servers.push(server);
-
-    const [line] = text().trim().split("\n");
-    expect(JSON.parse(line ?? "")).toMatchObject({
-      level: "info",
-      event: SharedLogEvent.ServerStarted.name,
-      port: (server.address() as { port: number }).port,
-    });
+    const started = output
+      .text()
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line) as Record<string, unknown>)
+      .find((line) => line.event === SharedLogEvent.ServerStarted.name);
+    expect(started).toMatchObject({ level: "info", port: app.port });
   });
 
   it("logs in the pretty format in develop", async () => {
-    const { logDestination, text } = createOutput();
+    const { output } = await startApp({ NODE_ENV: "develop" });
 
-    const server = await start({
-      env: buildEnv({ NODE_ENV: "develop" }),
-      logDestination,
-    });
-    servers.push(server);
-
-    expect(text()).toContain(SharedLogEvent.ServerStarted.name);
-    expect(() => JSON.parse(text()) as unknown).toThrow();
+    expect(output.text()).toContain(SharedLogEvent.ServerStarted.name);
+    expect(() => JSON.parse(output.text()) as unknown).toThrow();
   });
 
   it("dates what it stores with the system clock", async () => {
-    const { logDestination } = createOutput();
+    const { url } = await startApp();
     const now = faker.date.recent();
     vi.useFakeTimers({ now, toFake: ["Date"] });
 
-    const server = await start({ env: buildEnv(), logDestination });
-    servers.push(server);
-    const response = await request(server).post("/api/auth/sign-up").send({
-      name: faker.person.fullName(),
-      email: faker.internet.email(),
-      password: faker.internet.password(),
-    });
+    const response = await request(url)
+      .post("/api/auth/sign-up")
+      .set("content-type", "application/json")
+      .send(signUpBody());
 
     expect(response.body).toMatchObject({
       account: { createdAt: now.toISOString() },
@@ -121,5 +235,90 @@ describe("start", () => {
       start({ env: buildEnv({ NODE_ENV: "prod" }), logDestination }),
       SharedError.InMemoryAdaptersInProduction,
     );
+  });
+
+  it("closes the database when the port is taken", async () => {
+    const taken = createHttpServer().listen(0);
+    await once(taken, "listening");
+    const { port } = taken.address() as AddressInfo;
+    const name = databaseName();
+
+    await expect(
+      start({
+        env: buildEnv({ PORT: port, MONGO_URL: `${database.getUri()}${name}` }),
+        logDestination: createOutput().logDestination,
+      }),
+    ).rejects.toMatchObject({ code: "EADDRINUSE" });
+
+    await new Promise((resolve) => taken.close(resolve));
+    expect(connectionNamed(name)?.readyState).toBe(0);
+  });
+
+  describe("stop", () => {
+    it("finishes in-flight requests before closing the database", async () => {
+      const { app, output, name } = await startApp();
+      const signUp = await signUpInFlight(app.port);
+
+      const stopped = app.stop();
+      signUp.finish();
+
+      expect(await signUp.response).toStrictEqual({ status: 201 });
+      expect(await stopped).toBe(0);
+      expect(connectionNamed(name)?.readyState).toBe(0);
+      const events = output.events();
+      expect(events.at(-1)).toBe(SharedLogEvent.ServerStopped.name);
+      expect(
+        events.lastIndexOf(SharedLogEvent.RequestCompleted.name),
+      ).toBeLessThan(events.indexOf(SharedLogEvent.ServerStopped.name));
+    });
+
+    it("refuses new connections once stopping", async () => {
+      const { app } = await startApp();
+      const signUp = await signUpInFlight(app.port);
+
+      const stopped = app.stop();
+      const fresh = await fetch(`http://127.0.0.1:${app.port}/health`).then(
+        () => "accepted",
+        (error: unknown) => error,
+      );
+      signUp.finish();
+      await signUp.response;
+      await stopped;
+
+      expect(fresh).toMatchObject({ cause: { code: "ECONNREFUSED" } });
+    });
+
+    it("forces the shutdown after the timeout", async () => {
+      const output = createOutput();
+      const name = databaseName();
+      const app = await start({
+        env: buildEnv({ MONGO_URL: `${database.getUri()}${name}` }),
+        logDestination: output.logDestination,
+        timeouts: { shutdownMs: 200 },
+      });
+      const signUp = await signUpInFlight(app.port);
+
+      const code = await app.stop();
+
+      expect(code).toBe(1);
+      expect(await signUp.response).toMatchObject({
+        error: expect.any(Error) as unknown,
+      });
+      expect(connectionNamed(name)?.readyState).toBe(0);
+      expect(output.events()).toContain(SharedLogEvent.ServerStopped.name);
+    });
+
+    it("shuts down once when called twice", async () => {
+      const { app, output } = await startApp();
+
+      const [first, second] = await Promise.all([app.stop(), app.stop()]);
+
+      expect([first, second]).toStrictEqual([0, 0]);
+      expect(
+        output
+          .events()
+          .filter((event) => event === SharedLogEvent.ServerStopped.name),
+      ).toHaveLength(1);
+    });
   });
 });

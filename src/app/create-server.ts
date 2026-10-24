@@ -13,15 +13,15 @@ export type CreateServerOptions = Readonly<{
   modules: ApplicationModules;
   logger: Logger;
   logContext: AsyncLocalLogContext;
-  /** Proxies in front of the app to trust for `req.ip`; 0 trusts none. */
+  readiness: Readonly<{ isReady(): Promise<boolean> }>;
   trustProxy: number;
 }>;
 
-/** The Express app: security headers, CORS, JSON bodies, the API under `/api`, problem details for every failure. */
 export const createServer = ({
   modules,
   logger,
   logContext,
+  readiness,
   trustProxy,
 }: CreateServerOptions): Express => {
   const adapter = new ExpressAdapter({
@@ -37,6 +37,12 @@ export const createServer = ({
     .use(helmet())
     .use(cors({ exposedHeaders: ["x-request-id"] }))
     .use(express.json())
+    .get("/health", async (_req, res) => {
+      const ready = await readiness.isReady();
+      res
+        .status(ready ? 200 : 503)
+        .json({ status: ready ? "ok" : "unavailable" });
+    })
     .use("/api", adapter.toRouter(createHttpRoutes(modules)))
     .use(adapter.notFound())
     .use(adapter.errorHandler());

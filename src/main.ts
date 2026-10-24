@@ -1,4 +1,8 @@
 import { env } from "@app/config";
+import { handleShutdownSignals } from "@app/shutdown";
 import { start } from "@app/start";
 
-await start({ env, logDestination: process.stdout });
+handleShutdownSignals(
+  await start({ env, logDestination: process.stdout }),
+  process,
+);

@@ -21,6 +21,7 @@ const createApp = (
   trustProxy = 0,
   logContext = new AsyncLocalLogContext(),
   logger: Logger = new FakeLogger(),
+  ready = true,
 ) =>
   createServer({
     modules: {
@@ -31,6 +32,7 @@ const createApp = (
     },
     logger,
     logContext,
+    readiness: { isReady: () => Promise.resolve(ready) },
     trustProxy,
   });
 
@@ -61,7 +63,6 @@ describe("createServer", () => {
     expect(response.status).toBe(201);
     expect(response.body).toMatchObject({
       accessToken: expect.any(String) as unknown,
-      // 32 random bytes in base64url, from the real token issuer.
       refreshToken: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/) as unknown,
     });
   });
@@ -178,6 +179,28 @@ describe("createServer", () => {
       route: "/me",
       accountId: account.id,
       status: 200,
+    });
+  });
+
+  describe("GET /health", () => {
+    it("answers ready when the database answers", async () => {
+      const app = createApp();
+
+      const health = await request(app).get("/health");
+      const insideApi = await request(app).get("/api/health");
+
+      expect(health.status).toBe(200);
+      expect(health.body).toStrictEqual({ status: "ok" });
+      expect(insideApi.status).toBe(404);
+    });
+
+    it("answers unavailable when the database does not", async () => {
+      const app = createApp(0, undefined, undefined, false);
+
+      const response = await request(app).get("/health");
+
+      expect(response.status).toBe(503);
+      expect(response.body).toStrictEqual({ status: "unavailable" });
     });
   });
 });
