@@ -79,12 +79,17 @@ coloca algo rodando o quanto antes e troca os fakes por implementações reais a
 
 ## 3. Adapters triviais (sem pacote)
 
-- [ ] `src/shared/infrastructure/system-clock.ts` — `Clock` com `new Date()`
-- [ ] `src/shared/infrastructure/object-id-generator.ts` — `IdGenerator` com
-      `new Types.ObjectId().toHexString()`
-- [ ] `src/modules/identity/infrastructure/crypto-token-issuer.ts` — `TokenIssuer`:
-      `randomBytes(32).toString("base64url")` + hash `sha256`
-- [ ] specs dos três
+- [x] `src/shared/infrastructure/time/system-clock.ts` — `SystemClock`: `Clock` com `new Date()`
+  - [x] spec
+- [x] `src/shared/infrastructure/mongo/object-id-generator.ts` — `ObjectIdGenerator`:
+      `IdGenerator` com `new Types.ObjectId().toHexString()`
+  - [x] spec
+- [x] `src/modules/identity/infrastructure/crypto-token-issuer.ts` — `CryptoTokenIssuer`:
+      `randomBytes(32).toString("base64url")` + hash `sha256` em hex
+  - [x] spec
+  - [x] Usado pelo `createInMemoryIdentityAdapters()` (o app não pode importar a infraestrutura
+        do identity, então a troca fica dentro do módulo)
+- [x] Usar `SystemClock` e `ObjectIdGenerator` na `start` no lugar dos fakes
 
 ## 4. Persistência com Mongoose
 
