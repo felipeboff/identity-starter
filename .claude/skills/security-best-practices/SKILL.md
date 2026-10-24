@@ -80,7 +80,7 @@ If you produced a report, let the user read the report and ask to begin performi
 
 If you passively found a critical finding, notify the user and ask if they would like you to fix this finding.
 
-When producing fixes, focus on fixing a single finding at a time. The fixes should have concise clear comments explaining that the new code is based on the specific security best practice, and perhaps a very short reason why it would be dangerous to not do it in this way.
+When producing fixes, focus on fixing a single finding at a time. Explain which security best practice each fix follows, and why the old code was dangerous, in your message to the user, not in code comments. Add a code comment only when, without it, a future change could plausibly undo the protection.
 
 Always consider if the changes you want to make will impact the functionality of the user's code. Consider if the changes may cause regressions with how the project works currently. It is often the case that insecure code is relied on for other reasons (and this is why insecure code lives on for so long). Avoid breaking the user's project as this may make them not want to apply security fixes in the future. It is better to write a well thought out, well informed by the rest of the project, fix, then a quick slapdash change.
 
