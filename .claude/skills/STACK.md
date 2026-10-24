@@ -58,6 +58,7 @@ file deserve an ADR (`create-adr`).
 
 ## Testing
 
-- Vitest; unit tests next to the code (`*.spec.ts`), 100% coverage target.
+- Vitest; unit tests next to the code (`*.spec.ts`), 100% coverage target. How to write them:
+  [`writing-tests`](writing-tests/SKILL.md) (faker-first data, deterministic branches, helpers).
 - Integration tests with `mongodb-memory-server` and `supertest` for the HTTP edge. _planned_
 - Mutation testing with Stryker is an option when `spec-lean` runs at profile `standard`.
