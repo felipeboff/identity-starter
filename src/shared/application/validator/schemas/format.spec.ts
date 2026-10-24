@@ -55,9 +55,10 @@ describe("email", () => {
   });
 
   it("applies transform to the formatted value", () => {
-    const schema = email({ transform: (value) => `x${value}` });
+    const prefix = faker.string.alpha({ length: 8 });
+    const schema = email({ transform: (value) => `${prefix}${value}` });
 
-    expect(schema.parse(address)).toEqual(ok(`x${address}`));
+    expect(schema.parse(address)).toEqual(ok(`${prefix}${address}`));
   });
 
   it("reports refine violations after a successful parse", () => {

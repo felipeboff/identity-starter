@@ -1,4 +1,5 @@
 import { faker } from "@faker-js/faker";
+import { SharedError } from "@shared/domain/errors/shared.error";
 import { HttpMethod } from "@shared/presentation/http/http-route";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -27,6 +28,8 @@ import { UpdateAccountNameUseCase } from "@/identity/application/use-cases/updat
 import { UpdateMemberPermissionsUseCase } from "@/identity/application/use-cases/update-member-permissions.use-case";
 import { UpdateMemberRoleUseCase } from "@/identity/application/use-cases/update-member-role.use-case";
 import { VerifyEmailUseCase } from "@/identity/application/use-cases/verify-email.use-case";
+import { AuthProvider } from "@/identity/domain/credential.entity";
+import { IdentityError } from "@/identity/domain/errors/identity.error";
 import { MembershipRole } from "@/identity/domain/membership.entity";
 import { SessionRevocationReason } from "@/identity/domain/session.entity";
 
@@ -68,6 +71,9 @@ const PUBLIC_ROUTES: [HttpMethod, string][] = [
 ];
 
 const anyId = faker.database.mongodbObjectId();
+const notAnId = faker.string.alpha(5);
+// 12 letters can never be a valid role or permission.
+const unknownValue = faker.string.alpha(12);
 
 /** One input per route that its schema refuses. */
 const INVALID_INPUTS: [HttpMethod, string, UseCaseClass, CallOptions][] = [
@@ -77,14 +83,14 @@ const INVALID_INPUTS: [HttpMethod, string, UseCaseClass, CallOptions][] = [
     "POST",
     "/auth/oauth/:provider",
     SignInWithOAuthUseCase,
-    { params: { provider: "google" }, body: {} },
+    { params: { provider: AuthProvider.GOOGLE }, body: {} },
   ],
   ["POST", "/auth/refresh", RefreshSessionUseCase, { body: {} }],
   [
     "POST",
     "/auth/password-reset/request",
     RequestPasswordResetUseCase,
-    { body: { email: "not-an-email" } },
+    { body: { email: faker.lorem.word() } },
   ],
   ["POST", "/auth/password-reset", ResetPasswordUseCase, { body: {} }],
   ["POST", "/auth/email-verification", VerifyEmailUseCase, { body: {} }],
@@ -94,44 +100,44 @@ const INVALID_INPUTS: [HttpMethod, string, UseCaseClass, CallOptions][] = [
     "POST",
     "/me/oauth/:provider",
     LinkOAuthUseCase,
-    { params: { provider: "google" }, body: {} },
+    { params: { provider: AuthProvider.GOOGLE }, body: {} },
   ],
   ["DELETE", "/me/oauth/:provider", UnlinkOAuthUseCase, { params: {} }],
   [
     "DELETE",
     "/sessions/:sessionId",
     RevokeSessionUseCase,
-    { params: { sessionId: "abc" } },
+    { params: { sessionId: notAnId } },
   ],
   [
     "DELETE",
     "/accounts/:accountId/sessions",
     RevokeAllSessionsUseCase,
-    { params: { accountId: "abc" } },
+    { params: { accountId: notAnId } },
   ],
   [
     "POST",
     "/accounts/:accountId/deactivate",
     DeactivateAccountUseCase,
-    { params: { accountId: "abc" } },
+    { params: { accountId: notAnId } },
   ],
   [
     "POST",
     "/accounts/:accountId/reactivate",
     ReactivateAccountUseCase,
-    { params: { accountId: "abc" } },
+    { params: { accountId: notAnId } },
   ],
   [
     "PUT",
     "/members/:accountId/role",
     UpdateMemberRoleUseCase,
-    { params: { accountId: anyId }, body: { role: "owner" } },
+    { params: { accountId: anyId }, body: { role: unknownValue } },
   ],
   [
     "PUT",
     "/members/:accountId/permissions",
     UpdateMemberPermissionsUseCase,
-    { params: { accountId: anyId }, body: { permissions: ["fly"] } },
+    { params: { accountId: anyId }, body: { permissions: [unknownValue] } },
   ],
 ];
 
@@ -205,10 +211,10 @@ describe("identity routes", () => {
       status: 401,
       headers: PROBLEM_HEADERS,
       body: {
-        type: "tag:resolve-hub,2026:identity.invalid_access_token",
+        type: `tag:resolve-hub,2026:${IdentityError.InvalidAccessToken.code}`,
         title: "Invalid access token",
         status: 401,
-        code: "identity.invalid_access_token",
+        code: IdentityError.InvalidAccessToken.code,
       },
     });
   });
@@ -220,7 +226,11 @@ describe("identity routes", () => {
       const execute = spyOnUseCase(useCase);
 
       const out = await http.call(method, path, {
-        params: { provider: "google", sessionId: anyId, accountId: anyId },
+        params: {
+          provider: AuthProvider.GOOGLE,
+          sessionId: anyId,
+          accountId: anyId,
+        },
       });
 
       expect(out.status).toBe(401);
@@ -239,7 +249,7 @@ describe("identity routes", () => {
 
       expect(out.status).toBe(400);
       expect(out.body).toMatchObject({
-        code: "shared.input_invalid",
+        code: SharedError.InputInvalid.code,
         data: {
           violations: expect.arrayContaining([
             expect.objectContaining({ field: expect.any(String) as unknown }),

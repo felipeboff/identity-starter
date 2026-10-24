@@ -5,10 +5,13 @@ import { describe, expect, it } from "vitest";
 import { expectAppError } from "./expect-app-error";
 
 const TicketNotFound = defineError<{ ticketId: string }>(
-  "test.ticket_not_found",
+  `${faker.lorem.word()}.${faker.lorem.word()}`,
   "not_found",
 );
-const Unauthenticated = defineError("test.unauthenticated", "unauthenticated");
+const Unauthenticated = defineError(
+  `${faker.lorem.word()}.${faker.lorem.word()}`,
+  "unauthenticated",
+);
 
 const ticketNotFound = (ticketId: string) =>
   Promise.reject(new AppError(TicketNotFound, { ticketId }));
@@ -34,7 +37,7 @@ describe("expectAppError", () => {
 
     await expect(
       expectAppError(ticketNotFound(ticketId), TicketNotFound, {
-        ticketId: `${ticketId}-other`,
+        ticketId: faker.database.mongodbObjectId(),
       }),
     ).rejects.toThrow();
   });

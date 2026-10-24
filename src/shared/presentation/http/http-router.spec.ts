@@ -26,7 +26,7 @@ const buildRoute = (overrides: Partial<HttpRoute> = {}): HttpRoute => ({
   ...overrides,
 });
 
-const middlewareOf = (name: string) => new NamedMiddleware({ name });
+const buildMiddleware = () => new NamedMiddleware({ name: faker.lorem.word() });
 
 describe("HttpRouter", () => {
   it("keeps the routes in the order they were added", () => {
@@ -42,7 +42,7 @@ describe("HttpRouter", () => {
   });
 
   it("runs a middleware only on the routes added after it", () => {
-    const authenticate = middlewareOf("authenticate");
+    const authenticate = buildMiddleware();
     const signIn = buildRoute();
     const me = buildRoute();
 
@@ -59,9 +59,9 @@ describe("HttpRouter", () => {
   });
 
   it("stacks middlewares in order, before the route's own", () => {
-    const language = middlewareOf("language");
-    const authenticate = middlewareOf("authenticate");
-    const audit = middlewareOf("audit");
+    const language = buildMiddleware();
+    const authenticate = buildMiddleware();
+    const audit = buildMiddleware();
     const route = buildRoute({ middlewares: [audit] });
 
     const [registered] = new HttpRouter()

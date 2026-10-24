@@ -47,7 +47,7 @@ describe("schema", () => {
 
     it("throws the given error definition when one is passed", () => {
       const CreateInputInvalid = defineError<InputInvalidData>(
-        "resource.create_input_invalid",
+        faker.lorem.slug(),
         "invalid_input",
       );
 

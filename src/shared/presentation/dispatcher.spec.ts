@@ -15,13 +15,13 @@ const buildInbound = (overrides: Partial<Inbound> = {}): Inbound => ({
 });
 
 class EchoHandler extends Handler<{
-  deps: { received: Inbound<unknown>[] };
+  deps: { received: Inbound<unknown>[]; output?: string };
   actor: unknown;
-  output: string;
+  output: string | undefined;
 }> {
-  handle(inbound: Inbound<unknown>): Promise<string> {
+  handle(inbound: Inbound<unknown>): Promise<string | undefined> {
     this.deps.received.push(inbound);
-    return Promise.resolve("handled");
+    return Promise.resolve(this.deps.output);
   }
 }
 
@@ -60,31 +60,34 @@ describe("Dispatcher", () => {
 
   it("passes the inbound to the handler and returns its output", async () => {
     const received: Inbound<unknown>[] = [];
+    const output = faker.lorem.word();
     const inbound = buildInbound();
 
     const out = await dispatcher.dispatch(
-      { handler: new EchoHandler({ received }) },
+      { handler: new EchoHandler({ received, output }) },
       inbound,
     );
 
-    expect(out).toBe("handled");
+    expect(out).toBe(output);
     expect(received).toStrictEqual([inbound]);
   });
 
   it("runs the middlewares in order before the handler", async () => {
     const calls: string[] = [];
     const received: Inbound<unknown>[] = [];
+    const first = faker.lorem.word();
+    const second = faker.lorem.word();
     const entry: Entry<unknown> = {
       middlewares: [
-        new RecordingMiddleware({ name: "first", calls }),
-        new RecordingMiddleware({ name: "second", calls }),
+        new RecordingMiddleware({ name: first, calls }),
+        new RecordingMiddleware({ name: second, calls }),
       ],
       handler: new EchoHandler({ received }),
     };
 
     await dispatcher.dispatch(entry, buildInbound());
 
-    expect(calls).toStrictEqual(["first", "second"]);
+    expect(calls).toStrictEqual([first, second]);
     expect(received).toHaveLength(1);
   });
 

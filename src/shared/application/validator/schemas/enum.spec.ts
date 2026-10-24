@@ -10,6 +10,7 @@ const fail = (reason: string) => ({
 });
 
 const values = ["draft", "published"] as const;
+const outsideValue = faker.string.alpha({ length: 12 });
 
 describe("enumValue", () => {
   it("accepts an allowed string value", () => {
@@ -21,7 +22,7 @@ describe("enumValue", () => {
   });
 
   it("rejects a value outside the list as invalid_enum", () => {
-    expect(enumValue({ values }).parse("archived")).toEqual(
+    expect(enumValue({ values }).parse(outsideValue)).toEqual(
       fail("invalid_enum"),
     );
   });
@@ -54,7 +55,7 @@ describe("enumValue", () => {
     it("rejects a transformed value outside the list as invalid_enum", () => {
       const schema = enumValue({
         values,
-        transform: () => "archived" as (typeof values)[number],
+        transform: () => outsideValue as (typeof values)[number],
       });
 
       expect(schema.parse("draft")).toEqual(fail("invalid_enum"));

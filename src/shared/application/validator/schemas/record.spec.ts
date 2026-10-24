@@ -31,7 +31,8 @@ describe("record", () => {
   });
 
   it("keeps a __proto__ key as an own property instead of changing the prototype", () => {
-    const input = JSON.parse('{"__proto__": {"polluted": true}}') as unknown;
+    const key = faker.string.alpha({ length: 12 });
+    const input = JSON.parse(`{"__proto__": {"${key}": true}}`) as unknown;
 
     const parsed = record().parse(input);
 
@@ -39,7 +40,7 @@ describe("record", () => {
     const data = parsed.ok ? parsed.data : {};
     expect(Object.getPrototypeOf(data)).toBe(Object.prototype);
     expect(Object.hasOwn(data, "__proto__")).toBe(true);
-    expect((data as { polluted?: boolean }).polluted).toBeUndefined();
+    expect(data[key]).toBeUndefined();
   });
 
   it.each([
@@ -83,9 +84,10 @@ describe("record", () => {
 
   it("runs refinements on the transformed value", () => {
     const reason = faker.lorem.slug();
+    const marker = faker.string.alpha({ length: 12 });
     const schema = record({
-      transform: (value) => ({ ...value, transformed: true }),
-      refine: [{ check: (value) => value.transformed !== true, reason }],
+      transform: (value) => ({ ...value, [marker]: true }),
+      refine: [{ check: (value) => value[marker] !== true, reason }],
     });
 
     expect(schema.parse({})).toEqual(fail(reason));

@@ -3,16 +3,20 @@ import { describe, expect, it } from "vitest";
 
 import { AppError, defineError, isAppError } from "./app-error";
 
+const accountNotFoundCode = `${faker.lorem.word()}.${faker.lorem.word()}`;
 const AccountNotFound = defineError<{ id: string }>(
-  "test.account_not_found",
+  accountNotFoundCode,
   "not_found",
 );
-const Conflict = defineError("test.conflict", "conflict");
+const Conflict = defineError(
+  `${faker.lorem.word()}.${faker.lorem.word()}`,
+  "conflict",
+);
 
 describe("defineError", () => {
   it("returns the code and kind", () => {
     expect(AccountNotFound).toEqual({
-      code: "test.account_not_found",
+      code: accountNotFoundCode,
       kind: "not_found",
     });
   });
@@ -27,8 +31,8 @@ describe("AppError", () => {
     expect(error).toBeInstanceOf(Error);
     expect(error).toMatchObject({
       name: "AppError",
-      message: "test.account_not_found",
-      code: "test.account_not_found",
+      message: accountNotFoundCode,
+      code: accountNotFoundCode,
       kind: "not_found",
       data: { id },
     });

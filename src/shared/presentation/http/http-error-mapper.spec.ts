@@ -34,8 +34,9 @@ describe("HttpErrorMapper", () => {
     ["precondition_failed", 422],
   ])("maps the kind %s to status %i", (kind, status) => {
     const { mapper } = createMapper();
+    const code = `${faker.lorem.word()}.${faker.lorem.word()}`;
 
-    const out = mapper.map(new AppError(defineError("test.failed", kind)));
+    const out = mapper.map(new AppError(defineError(code, kind)));
 
     expect(out.status).toBe(status);
   });
@@ -83,7 +84,9 @@ describe("HttpErrorMapper", () => {
 
   it("keeps the violations of an invalid input", () => {
     const { mapper } = createMapper();
-    const violations = [{ field: "email", reason: "required" }];
+    const violations = [
+      { field: faker.lorem.word(), reason: faker.lorem.word() },
+    ];
 
     const out = mapper.map(
       new AppError(SharedError.InputInvalid, { violations }),
@@ -91,7 +94,7 @@ describe("HttpErrorMapper", () => {
 
     expect(out).toMatchObject({
       status: 400,
-      body: { code: "shared.input_invalid", data: { violations } },
+      body: { code: SharedError.InputInvalid.code, data: { violations } },
     });
   });
 

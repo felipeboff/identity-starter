@@ -91,17 +91,18 @@ describe("UpdateMemberPermissionsUseCase", () => {
   it("throws InvalidMembershipPermissions when a permission is unknown", async () => {
     const admin = await seedAccount(ctx, { role: MembershipRole.ADMIN });
     const ana = await seedAccount(ctx);
+    const permission = faker.string.alpha(12);
 
     await expectAppError(
       useCase.execute(
         {
           accountId: ana.accountId,
-          permissions: ["root" as MembershipPermission],
+          permissions: [permission as MembershipPermission],
         },
         admin.actor,
       ),
       IdentityError.InvalidMembershipPermissions,
-      { permissions: ["root"] },
+      { permissions: [permission] },
     );
   });
 });

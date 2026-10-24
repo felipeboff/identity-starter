@@ -70,14 +70,16 @@ describe("Invitation", () => {
     });
 
     it("throws InvalidMembershipRole when the role is unknown", () => {
-      expect(() => makeInvitation({ role: "owner" as MembershipRole })).toThrow(
-        IdentityError.InvalidMembershipRole.code,
-      );
+      expect(() =>
+        makeInvitation({ role: faker.string.alpha(12) as MembershipRole }),
+      ).toThrow(IdentityError.InvalidMembershipRole.code);
     });
 
     it("throws InvalidMembershipPermissions when a permission is unknown", () => {
       expect(() =>
-        makeInvitation({ permissions: ["manage" as MembershipPermission] }),
+        makeInvitation({
+          permissions: [faker.string.alpha(12) as MembershipPermission],
+        }),
       ).toThrow(IdentityError.InvalidMembershipPermissions.code);
     });
   });
@@ -191,7 +193,7 @@ describe("Invitation", () => {
       const invitation = makeInvitation();
 
       expect(() =>
-        invitation.updateRole("owner" as MembershipRole, LATER),
+        invitation.updateRole(faker.string.alpha(12) as MembershipRole, LATER),
       ).toThrow(IdentityError.InvalidMembershipRole.code);
     });
   });
@@ -237,7 +239,10 @@ describe("Invitation", () => {
       const invitation = makeInvitation();
 
       expect(() =>
-        invitation.updatePermissions(["manage" as MembershipPermission], LATER),
+        invitation.updatePermissions(
+          [faker.string.alpha(12) as MembershipPermission],
+          LATER,
+        ),
       ).toThrow(IdentityError.InvalidMembershipPermissions.code);
     });
   });

@@ -120,9 +120,8 @@ describe("runRefinements", () => {
   it("reports only the checks that fail", () => {
     const word = faker.lorem.word();
     const field = faker.lorem.word();
-    const failingReason = faker.lorem.slug();
-    const passingReason = `${failingReason}-passing`;
-    const failingWithFieldReason = `${failingReason}-with-field`;
+    const [failingReason, passingReason, failingWithFieldReason] =
+      faker.helpers.uniqueArray(() => faker.lorem.slug(), 3);
 
     const violations = runRefinements(word, [
       { check: (value) => value !== word, reason: failingReason },

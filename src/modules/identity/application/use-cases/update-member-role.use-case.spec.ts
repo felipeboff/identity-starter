@@ -104,14 +104,15 @@ describe("UpdateMemberRoleUseCase", () => {
   it("throws InvalidMembershipRole when the role is unknown", async () => {
     const admin = await seedAccount(ctx, { role: MembershipRole.ADMIN });
     const ana = await seedAccount(ctx);
+    const role = faker.string.alpha(12);
 
     await expectAppError(
       useCase.execute(
-        { accountId: ana.accountId, role: "owner" as MembershipRole },
+        { accountId: ana.accountId, role: role as MembershipRole },
         admin.actor,
       ),
       IdentityError.InvalidMembershipRole,
-      { role: "owner" },
+      { role },
     );
   });
 });

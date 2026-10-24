@@ -14,6 +14,7 @@ describe("string", () => {
   const integer = faker.number.int();
   const decimal = faker.number.float({ fractionDigits: 2 });
   const day = faker.date.past();
+  const suffix = faker.string.alpha({ length: 8 });
 
   it.each([
     ["a string", word, word],
@@ -60,7 +61,12 @@ describe("string", () => {
         word.toLowerCase(),
       ],
       ["uppercase", { uppercase: true }, word, word.toUpperCase()],
-      ["transform", { transform: (v: string) => `${v}!` }, word, `${word}!`],
+      [
+        "transform",
+        { transform: (v: string) => `${v}${suffix}` },
+        word,
+        `${word}${suffix}`,
+      ],
     ])("applies %s", (_, options, input, expected) => {
       expect(string(options).parse(input)).toEqual(ok(expected));
     });

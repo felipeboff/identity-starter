@@ -9,8 +9,10 @@ describe("createIdentityHttp", () => {
   it("rejects a route identity does not declare", async () => {
     const http = createIdentityHttp();
 
-    await expect(http.call("GET", "/nowhere")).rejects.toThrow(
-      "No identity route GET /nowhere",
+    const path = `/${faker.lorem.slug()}`;
+
+    await expect(http.call("GET", path)).rejects.toThrow(
+      `No identity route GET ${path}`,
     );
   });
 

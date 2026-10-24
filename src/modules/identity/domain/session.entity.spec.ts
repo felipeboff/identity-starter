@@ -99,7 +99,7 @@ describe("Session", () => {
       const persisted = {
         ...makeSession().toSnapshot(),
         revokedAt: LATER,
-        revokedReason: "unknown" as SessionRevocationReason,
+        revokedReason: faker.string.alpha(12) as SessionRevocationReason,
       };
 
       expect(() => Session.restore(persisted)).toThrow(
@@ -186,7 +186,10 @@ describe("Session", () => {
       const session = makeSession();
 
       expect(() =>
-        session.revoke("unknown" as SessionRevocationReason, LATER),
+        session.revoke(
+          faker.string.alpha(12) as SessionRevocationReason,
+          LATER,
+        ),
       ).toThrow(IdentityError.InvalidSessionRevocationReason.code);
     });
   });
