@@ -3,9 +3,13 @@ import { LogLevel } from "@shared/application/ports/logger";
 import { SharedError } from "@shared/domain/errors/shared.error";
 import { describe, expect, it, vi } from "vitest";
 
-import type { NodeEnv as NodeEnvType } from "./config";
+import type {
+  MailerKind as MailerKindType,
+  NodeEnv as NodeEnvType,
+} from "./config";
 
 const NODE_ENVS: NodeEnvType[] = ["develop", "prod", "test"];
+const MAILER_KINDS: MailerKindType[] = ["log", "mailersend"];
 
 const buildSource = (overrides: Record<string, string | undefined> = {}) => ({
   NODE_ENV: faker.helpers.arrayElement(NODE_ENVS),
@@ -14,18 +18,24 @@ const buildSource = (overrides: Record<string, string | undefined> = {}) => ({
   LOG_LEVEL: faker.helpers.arrayElement(Object.values(LogLevel)),
   MONGO_URL: faker.internet.url(),
   JWT_SECRET: faker.string.alphanumeric(64),
+  APP_URL: faker.internet.url(),
+  MAILER: faker.helpers.arrayElement(MAILER_KINDS),
+  MAIL_FROM_EMAIL: faker.internet.email().toLowerCase(),
+  MAIL_FROM_NAME: faker.company.name(),
   MAILERSEND_API_KEY: faker.string.alphanumeric(40),
   GITHUB_CLIENT_ID: faker.string.alphanumeric(20),
   GITHUB_CLIENT_SECRET: faker.string.hexadecimal({ length: 40, prefix: "" }),
+  GITHUB_REDIRECT_URI: faker.internet.url(),
   GOOGLE_CLIENT_ID: `${faker.string.numeric(12)}-${faker.string.alphanumeric(32)}.apps.googleusercontent.com`,
   GOOGLE_CLIENT_SECRET: `GOCSPX-${faker.string.alphanumeric(28)}`,
+  GOOGLE_REDIRECT_URI: faker.internet.url(),
   ...overrides,
 });
 
 const processEnv = buildSource();
 for (const [name, value] of Object.entries(processEnv)) vi.stubEnv(name, value);
 
-const { env, loadEnv, NodeEnv } = await import("./config");
+const { env, loadEnv, MailerKind, NodeEnv } = await import("./config");
 
 describe("env", () => {
   it("is the process environment, read once at import", () => {
@@ -33,6 +43,9 @@ describe("env", () => {
       ...processEnv,
       PORT: Number(processEnv.PORT),
       TRUST_PROXY: Number(processEnv.TRUST_PROXY),
+      APP_URL: new URL(processEnv.APP_URL),
+      GITHUB_REDIRECT_URI: new URL(processEnv.GITHUB_REDIRECT_URI),
+      GOOGLE_REDIRECT_URI: new URL(processEnv.GOOGLE_REDIRECT_URI),
     });
   });
 });
@@ -43,8 +56,14 @@ describe("NodeEnv", () => {
   });
 });
 
+describe("MailerKind", () => {
+  it("lists the mailers the app can use", () => {
+    expect(Object.values(MailerKind)).toStrictEqual(MAILER_KINDS);
+  });
+});
+
 describe("loadEnv", () => {
-  it("reads a valid environment, with PORT as a number", () => {
+  it("reads a valid environment, with numbers and URLs parsed", () => {
     const source = buildSource();
 
     const env = loadEnv(source);
@@ -53,15 +72,21 @@ describe("loadEnv", () => {
       ...source,
       PORT: Number(source.PORT),
       TRUST_PROXY: Number(source.TRUST_PROXY),
+      APP_URL: new URL(source.APP_URL),
+      GITHUB_REDIRECT_URI: new URL(source.GITHUB_REDIRECT_URI),
+      GOOGLE_REDIRECT_URI: new URL(source.GOOGLE_REDIRECT_URI),
     });
   });
 
-  it("defaults NODE_ENV, PORT, TRUST_PROXY and LOG_LEVEL when they are missing", () => {
+  it("defaults NODE_ENV, PORT, TRUST_PROXY, LOG_LEVEL, APP_URL, MAILER and MAIL_FROM_NAME when they are missing", () => {
     const source = buildSource({
       NODE_ENV: undefined,
       PORT: undefined,
       TRUST_PROXY: undefined,
       LOG_LEVEL: undefined,
+      APP_URL: undefined,
+      MAILER: undefined,
+      MAIL_FROM_NAME: undefined,
     });
 
     const env = loadEnv(source);
@@ -71,6 +96,9 @@ describe("loadEnv", () => {
       PORT: 3000,
       TRUST_PROXY: 0,
       LOG_LEVEL: LogLevel.INFO,
+      APP_URL: new URL("http://localhost:3000"),
+      MAILER: MailerKind.LOG,
+      MAIL_FROM_NAME: "Resolve Hub",
     });
   });
 
@@ -112,6 +140,24 @@ describe("loadEnv", () => {
         JWT_SECRET: faker.string.alphanumeric({ length: { min: 1, max: 31 } }),
       },
       "JWT_SECRET",
+    ],
+    ["APP_URL not a URL", { APP_URL: faker.lorem.word() }, "APP_URL"],
+    ["MAILER unknown", { MAILER: faker.string.alpha(12) }, "MAILER"],
+    [
+      "MAIL_FROM_EMAIL not an e-mail",
+      { MAIL_FROM_EMAIL: faker.lorem.word() },
+      "MAIL_FROM_EMAIL",
+    ],
+    ["MAIL_FROM_NAME blank", { MAIL_FROM_NAME: "   " }, "MAIL_FROM_NAME"],
+    [
+      "GITHUB_REDIRECT_URI not a URL",
+      { GITHUB_REDIRECT_URI: faker.lorem.word() },
+      "GITHUB_REDIRECT_URI",
+    ],
+    [
+      "GOOGLE_REDIRECT_URI not a URL",
+      { GOOGLE_REDIRECT_URI: faker.lorem.word() },
+      "GOOGLE_REDIRECT_URI",
     ],
     [
       "MAILERSEND_API_KEY empty",
@@ -173,11 +219,14 @@ describe("loadEnv", () => {
           violations: [
             expect.objectContaining({ field: "MONGO_URL" }),
             expect.objectContaining({ field: "JWT_SECRET" }),
+            expect.objectContaining({ field: "MAIL_FROM_EMAIL" }),
             expect.objectContaining({ field: "MAILERSEND_API_KEY" }),
             expect.objectContaining({ field: "GITHUB_CLIENT_ID" }),
             expect.objectContaining({ field: "GITHUB_CLIENT_SECRET" }),
+            expect.objectContaining({ field: "GITHUB_REDIRECT_URI" }),
             expect.objectContaining({ field: "GOOGLE_CLIENT_ID" }),
             expect.objectContaining({ field: "GOOGLE_CLIENT_SECRET" }),
+            expect.objectContaining({ field: "GOOGLE_REDIRECT_URI" }),
           ],
         },
       }),

@@ -34,11 +34,17 @@ const buildEnv = (overrides: Partial<Env> = {}): Env => ({
   LOG_LEVEL: LogLevel.INFO,
   MONGO_URL: faker.internet.url(),
   JWT_SECRET: faker.string.alphanumeric(64),
+  APP_URL: new URL(faker.internet.url()),
+  MAILER: "log",
+  MAIL_FROM_EMAIL: faker.internet.email(),
+  MAIL_FROM_NAME: faker.company.name(),
   MAILERSEND_API_KEY: faker.string.alphanumeric(40),
   GITHUB_CLIENT_ID: faker.string.alphanumeric(20),
   GITHUB_CLIENT_SECRET: faker.string.hexadecimal({ length: 40, prefix: "" }),
+  GITHUB_REDIRECT_URI: new URL(faker.internet.url()),
   GOOGLE_CLIENT_ID: `${faker.string.numeric(12)}-${faker.string.alphanumeric(32)}.apps.googleusercontent.com`,
   GOOGLE_CLIENT_SECRET: `GOCSPX-${faker.string.alphanumeric(28)}`,
+  GOOGLE_REDIRECT_URI: new URL(faker.internet.url()),
   ...overrides,
 });
 
