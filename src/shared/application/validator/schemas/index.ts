@@ -31,3 +31,5 @@ export { schema } from "./schema";
 export type { RecordOptions } from "./record";
 export { string } from "./string";
 export type { StringOptions } from "./string";
+export { url } from "./url";
+export type { UrlOptions } from "./url";

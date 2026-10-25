@@ -14,6 +14,7 @@ export type BuiltInViolationReason =
   | "invalid_email"
   | "invalid_uuid"
   | "invalid_object_id"
+  | "invalid_url"
   | "invalid_cpf"
   | "invalid_cnpj"
   | "invalid_cpf_cnpj"

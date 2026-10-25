@@ -19,6 +19,7 @@ import {
   record,
   schema,
   string,
+  url,
   uuid,
   v,
 } from "./index";
@@ -34,6 +35,7 @@ describe("validator index", () => {
       email,
       uuid,
       objectId,
+      url,
       cpf,
       cnpj,
       cpfCnpj,

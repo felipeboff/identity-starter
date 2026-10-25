@@ -14,6 +14,7 @@ import {
   record,
   schema,
   string,
+  url,
   uuid,
 } from "./schemas";
 
@@ -35,6 +36,7 @@ export type {
   ObjectOptions,
   RecordOptions,
   StringOptions,
+  UrlOptions,
   UuidOptions,
 } from "./schemas";
 
@@ -60,6 +62,7 @@ export {
   record,
   schema,
   string,
+  url,
   uuid,
 };
 
@@ -72,6 +75,7 @@ export const v = {
   email,
   uuid,
   objectId,
+  url,
   cpf,
   cnpj,
   cpfCnpj,

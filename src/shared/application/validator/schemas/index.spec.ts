@@ -18,6 +18,7 @@ describe("schemas index", () => {
     "objectId",
     "record",
     "string",
+    "url",
     "uuid",
   ] as const)("re-exports %s", (name) => {
     expect(schemas[name]).toEqual(expect.any(Function));
