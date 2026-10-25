@@ -7,17 +7,39 @@ import { SharedError } from "@shared/domain/errors/shared.error";
 import { AsyncLocalLogContext } from "@shared/infrastructure/logging/async-local-log-context";
 import { PinoLogger } from "@shared/infrastructure/logging/pino-logger";
 import { FakeLogger } from "@shared/testing/fake-logger";
+import { useMemoryMongo } from "@shared/testing/memory-mongo";
 import request from "supertest";
 import { describe, expect, it } from "vitest";
 
 import { createServer } from "./create-server";
 
 import {
+  type IdentitySettings,
   createIdentityModule,
-  createInMemoryIdentityAdapters,
 } from "@/identity/identity.module";
 
-const createApp = (
+const mongo = useMemoryMongo();
+
+const buildOAuthClient = () => ({
+  clientId: faker.string.alphanumeric(20),
+  clientSecret: faker.string.alphanumeric(40),
+  redirectUri: new URL(faker.internet.url()),
+});
+
+const identitySettings: IdentitySettings = {
+  jwtSecret: faker.string.alphanumeric(64),
+  appUrl: new URL(faker.internet.url()),
+  externalCallTimeoutMs: 1_000,
+  mailer: {
+    kind: "log",
+    apiKey: faker.string.alphanumeric(40),
+    from: { email: faker.internet.email(), name: faker.company.name() },
+  },
+  google: buildOAuthClient(),
+  github: buildOAuthClient(),
+};
+
+const createApp = async (
   trustProxy = 0,
   logContext = new AsyncLocalLogContext(),
   logger: Logger = new FakeLogger(),
@@ -25,8 +47,9 @@ const createApp = (
 ) =>
   createServer({
     modules: {
-      identity: createIdentityModule({
-        ...createInMemoryIdentityAdapters(),
+      identity: await createIdentityModule(identitySettings, {
+        connection: mongo.connection(),
+        logger: new FakeLogger(),
         logContext,
       }),
     },
@@ -36,17 +59,16 @@ const createApp = (
     trustProxy,
   });
 
-const signUp = (app: ReturnType<typeof createApp>) =>
+type App = Awaited<ReturnType<typeof createApp>>;
+
+const signUp = (app: App) =>
   request(app).post("/api/auth/sign-up").send({
     name: faker.person.fullName(),
     email: faker.internet.email(),
     password: faker.internet.password(),
   });
 
-const sessionIpOf = async (
-  app: ReturnType<typeof createApp>,
-  accessToken: string,
-) => {
+const sessionIpOf = async (app: App, accessToken: string) => {
   const response = await request(app)
     .get("/api/me/sessions")
     .set("authorization", `Bearer ${accessToken}`);
@@ -56,7 +78,7 @@ const sessionIpOf = async (
 
 describe("createServer", () => {
   it("serves the module routes under /api", async () => {
-    const app = createApp();
+    const app = await createApp();
 
     const response = await signUp(app);
 
@@ -68,7 +90,7 @@ describe("createServer", () => {
   });
 
   it("refreshes the session with the refresh token it issued", async () => {
-    const app = createApp();
+    const app = await createApp();
     const signedUp = await signUp(app);
     const { refreshToken } = signedUp.body as { refreshToken: string };
 
@@ -83,7 +105,7 @@ describe("createServer", () => {
   });
 
   it("answers with security and CORS headers", async () => {
-    const app = createApp();
+    const app = await createApp();
 
     const response = await signUp(app);
 
@@ -96,7 +118,7 @@ describe("createServer", () => {
   });
 
   it("stores the forwarded client IP when it trusts the proxy", async () => {
-    const app = createApp(1);
+    const app = await createApp(1);
     const clientIp = faker.internet.ipv4();
 
     const response = await signUp(app).set("x-forwarded-for", clientIp);
@@ -106,7 +128,7 @@ describe("createServer", () => {
   });
 
   it("ignores x-forwarded-for when it trusts no proxy", async () => {
-    const app = createApp(0);
+    const app = await createApp(0);
     const clientIp = faker.internet.ipv4();
 
     const response = await signUp(app).set("x-forwarded-for", clientIp);
@@ -116,7 +138,7 @@ describe("createServer", () => {
   });
 
   it("answers a path outside the API with 404 problem details", async () => {
-    const app = createApp();
+    const app = await createApp();
 
     const response = await request(app).get(`/${faker.lorem.slug()}`);
 
@@ -127,7 +149,7 @@ describe("createServer", () => {
   });
 
   it("answers a malformed JSON body with 400 problem details", async () => {
-    const app = createApp();
+    const app = await createApp();
 
     const response = await request(app)
       .post("/api/auth/sign-up")
@@ -156,7 +178,7 @@ describe("createServer", () => {
       }),
       context: logContext,
     });
-    const app = createApp(0, logContext, logger);
+    const app = await createApp(0, logContext, logger);
     const signedUp = await signUp(app);
     const { account, accessToken } = signedUp.body as {
       account: { id: string };
@@ -184,7 +206,7 @@ describe("createServer", () => {
 
   describe("GET /health", () => {
     it("answers ready when the database answers", async () => {
-      const app = createApp();
+      const app = await createApp();
 
       const health = await request(app).get("/health");
       const insideApi = await request(app).get("/api/health");
@@ -195,7 +217,7 @@ describe("createServer", () => {
     });
 
     it("answers unavailable when the database does not", async () => {
-      const app = createApp(0, undefined, undefined, false);
+      const app = await createApp(0, undefined, undefined, false);
 
       const response = await request(app).get("/health");
 

@@ -12,7 +12,7 @@ import {
   seedAccount,
   seedSession,
 } from "@/identity/application/testing/identity-context";
-import { createIdentityModule } from "@/identity/identity.module";
+import { assembleIdentityModule } from "@/identity/identity.module";
 
 export type CallOptions = {
   params?: Record<string, string>;
@@ -27,7 +27,7 @@ export type IdentityHttp = ReturnType<typeof createIdentityHttp>;
 
 export const createIdentityHttp = () => {
   const ctx = createIdentityContext();
-  const identity = createIdentityModule(ctx);
+  const identity = assembleIdentityModule(ctx);
   const routes = new HttpRouter()
     .add(identity.publicRoutes)
     .use(identity.authenticate)

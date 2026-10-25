@@ -1,6 +1,8 @@
 import { LogLevel } from "@shared/application/ports/logger";
 import { v } from "@shared/application/validator";
 
+import type { IdentitySettings } from "@/identity/identity.module";
+
 export const NodeEnv = {
   DEVELOP: "develop",
   PROD: "prod",
@@ -60,8 +62,32 @@ const envSchema = v.object<Env>({
   GOOGLE_REDIRECT_URI: v.url(),
 });
 
-export const loadEnv = (
-  source: Readonly<Record<string, string | undefined>>,
-): Env => envSchema.probe({ ...source });
+export type EnvSource = Readonly<Record<string, string | undefined>>;
+
+export const loadEnv = (source: EnvSource): Env =>
+  envSchema.probe({ ...source });
+
+export const EXTERNAL_CALL_TIMEOUT_MS = 10_000;
+
+export const toIdentitySettings = (env: Env): IdentitySettings => ({
+  jwtSecret: env.JWT_SECRET,
+  appUrl: env.APP_URL,
+  externalCallTimeoutMs: EXTERNAL_CALL_TIMEOUT_MS,
+  mailer: {
+    kind: env.MAILER,
+    apiKey: env.MAILERSEND_API_KEY,
+    from: { email: env.MAIL_FROM_EMAIL, name: env.MAIL_FROM_NAME },
+  },
+  google: {
+    clientId: env.GOOGLE_CLIENT_ID,
+    clientSecret: env.GOOGLE_CLIENT_SECRET,
+    redirectUri: env.GOOGLE_REDIRECT_URI,
+  },
+  github: {
+    clientId: env.GITHUB_CLIENT_ID,
+    clientSecret: env.GITHUB_CLIENT_SECRET,
+    redirectUri: env.GITHUB_REDIRECT_URI,
+  },
+});
 
 export const env = loadEnv(process.env);

@@ -1,8 +1,12 @@
 import { Clock } from "@shared/application/ports/clock";
 import { IdGenerator } from "@shared/application/ports/id-generator";
 import type { LogContext } from "@shared/application/ports/log-context";
+import type { Logger } from "@shared/application/ports/logger";
 import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
+import { FetchHttpClient } from "@shared/infrastructure/http/fetch-http-client";
 import { MongoTransactionRunner } from "@shared/infrastructure/mongo/mongo-transaction-runner";
+import { ObjectIdGenerator } from "@shared/infrastructure/mongo/object-id-generator";
+import { SystemClock } from "@shared/infrastructure/time/system-clock";
 import { HttpRoute } from "@shared/presentation/http/http-route";
 import type { Connection } from "mongoose";
 
@@ -23,7 +27,6 @@ import { AccountResolver } from "./application/services/account-resolver";
 import { MembershipResolver } from "./application/services/membership-resolver";
 import { SessionIssuer } from "./application/services/session-issuer";
 import { SessionRevoker } from "./application/services/session-revoker";
-import { createIdentityContext } from "./application/testing/identity-context";
 import { AuthenticateUseCase } from "./application/use-cases/authenticate.use-case";
 import { ChangePasswordUseCase } from "./application/use-cases/change-password.use-case";
 import { DeactivateAccountUseCase } from "./application/use-cases/deactivate-account.use-case";
@@ -48,7 +51,17 @@ import { UpdateMemberRoleUseCase } from "./application/use-cases/update-member-r
 import { VerifyEmailUseCase } from "./application/use-cases/verify-email.use-case";
 import { Argon2PasswordHasher } from "./infrastructure/argon2-password-hasher";
 import { CryptoTokenIssuer } from "./infrastructure/crypto-token-issuer";
+import {
+  FetchOAuthGateway,
+  type OAuthClientConfig,
+} from "./infrastructure/fetch-oauth-gateway";
+import { IdentityEmailComposer } from "./infrastructure/identity-email-composer";
 import { JoseAccessToken } from "./infrastructure/jose-access-token";
+import { LogIdentityMailer } from "./infrastructure/log-identity-mailer";
+import {
+  type MailSender,
+  MailerSendIdentityMailer,
+} from "./infrastructure/mailersend-identity-mailer";
 import { IdentityModels } from "./infrastructure/persistence/identity-models";
 import { MongoAccountRepository } from "./infrastructure/persistence/mongo-account.repository";
 import { MongoCredentialRepository } from "./infrastructure/persistence/mongo-credential.repository";
@@ -83,13 +96,34 @@ export type IdentityModuleDeps = {
   logContext: LogContext;
 };
 
+export type IdentityMailerSettings = Readonly<{
+  kind: "log" | "mailersend";
+  apiKey: string;
+  from: MailSender;
+}>;
+
+export type IdentitySettings = Readonly<{
+  jwtSecret: string;
+  appUrl: URL;
+  externalCallTimeoutMs: number;
+  mailer: IdentityMailerSettings;
+  google: OAuthClientConfig;
+  github: OAuthClientConfig;
+}>;
+
+export type IdentityRuntime = Readonly<{
+  connection: Connection;
+  logger: Logger;
+  logContext: LogContext;
+}>;
+
 export type IdentityModule = {
   authenticate: AuthenticateMiddleware;
   publicRoutes: readonly HttpRoute[];
   routes: readonly HttpRoute<Actor>[];
 };
 
-export const createIdentityModule = (
+export const assembleIdentityModule = (
   adapters: IdentityModuleDeps,
 ): IdentityModule => {
   const deps = {
@@ -138,24 +172,20 @@ export const createIdentityModule = (
   };
 };
 
-export const createMongoIdentityRepositories = async (
-  connection: Connection,
-): Promise<
-  Pick<
-    IdentityModuleDeps,
-    | "accounts"
-    | "credentials"
-    | "memberships"
-    | "sessions"
-    | "passwordResets"
-    | "emailVerifications"
-    | "transactions"
-  >
-> => {
-  const models = new IdentityModels(connection);
+export const createIdentityModule = async (
+  settings: IdentitySettings,
+  runtime: IdentityRuntime,
+): Promise<IdentityModule> => {
+  const models = new IdentityModels(runtime.connection);
   await models.ready();
-  const transactions = new MongoTransactionRunner(connection);
-  return {
+  const transactions = new MongoTransactionRunner(runtime.connection);
+  const clock = new SystemClock();
+  const http = new FetchHttpClient({
+    timeoutMs: settings.externalCallTimeoutMs,
+  });
+  const composer = new IdentityEmailComposer({ appUrl: settings.appUrl });
+
+  return assembleIdentityModule({
     accounts: new MongoAccountRepository(models, transactions),
     credentials: new MongoCredentialRepository(models, transactions),
     memberships: new MongoMembershipRepository(models, transactions),
@@ -166,26 +196,30 @@ export const createMongoIdentityRepositories = async (
       transactions,
     ),
     transactions,
-  };
+
+    passwordHasher: new Argon2PasswordHasher(),
+    tokens: new CryptoTokenIssuer(),
+    accessToken: new JoseAccessToken({ secret: settings.jwtSecret, clock }),
+    mailer:
+      settings.mailer.kind === "mailersend"
+        ? new MailerSendIdentityMailer({
+            apiKey: settings.mailer.apiKey,
+            from: settings.mailer.from,
+            http,
+            composer,
+            logger: runtime.logger,
+          })
+        : new LogIdentityMailer({ composer, logger: runtime.logger }),
+    oauth: new FetchOAuthGateway({
+      http,
+      logger: runtime.logger,
+      google: settings.google,
+      github: settings.github,
+    }),
+
+    clock,
+    ids: new ObjectIdGenerator(),
+
+    logContext: runtime.logContext,
+  });
 };
-
-export type IdentitySecurityConfig = {
-  jwtSecret: string;
-  clock: Clock;
-};
-
-export const createIdentitySecurityAdapters = ({
-  jwtSecret,
-  clock,
-}: IdentitySecurityConfig): Pick<
-  IdentityModuleDeps,
-  "passwordHasher" | "accessToken"
-> => ({
-  passwordHasher: new Argon2PasswordHasher(),
-  accessToken: new JoseAccessToken({ secret: jwtSecret, clock }),
-});
-
-export const createInMemoryIdentityAdapters = (): IdentityModuleDeps => ({
-  ...createIdentityContext(),
-  tokens: new CryptoTokenIssuer(),
-});

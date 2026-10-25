@@ -2,25 +2,16 @@ import { once } from "node:events";
 import type { AddressInfo } from "node:net";
 
 import { SharedLogEvent } from "@shared/application/logging/shared.log-event";
-import { AppError } from "@shared/domain/errors/app-error";
-import { SharedError } from "@shared/domain/errors/shared.error";
 import { HttpServerShutdown } from "@shared/infrastructure/http/http-server-shutdown";
 import { AsyncLocalLogContext } from "@shared/infrastructure/logging/async-local-log-context";
 import { PinoLogger } from "@shared/infrastructure/logging/pino-logger";
 import { MongoDatabase } from "@shared/infrastructure/mongo/mongo-database";
-import { ObjectIdGenerator } from "@shared/infrastructure/mongo/object-id-generator";
-import { SystemClock } from "@shared/infrastructure/time/system-clock";
 import type { DestinationStream } from "pino";
 
-import { type Env, NodeEnv } from "./config";
+import { type Env, NodeEnv, toIdentitySettings } from "./config";
 import { createServer } from "./create-server";
 
-import {
-  createIdentityModule,
-  createIdentitySecurityAdapters,
-  createInMemoryIdentityAdapters,
-  createMongoIdentityRepositories,
-} from "@/identity/identity.module";
+import { createIdentityModule } from "@/identity/identity.module";
 
 export type StartTimeouts = Readonly<{
   databaseSelectionMs?: number;
@@ -40,22 +31,17 @@ export type RunningApp = Readonly<{
   stop(): Promise<0 | 1>;
 }>;
 
-export const start = async ({
-  env,
-  logDestination,
-  timeouts = {},
-}: StartOptions): Promise<RunningApp> => {
-  if (env.NODE_ENV === NodeEnv.PROD) {
-    throw new AppError(SharedError.InMemoryAdaptersInProduction);
-  }
-
+export const start = async (options: StartOptions): Promise<RunningApp> => {
+  const env = options.env;
+  const timeouts = options.timeouts ?? {};
   const logContext = new AsyncLocalLogContext();
+
   const logger = PinoLogger.create({
     service: "resolve-hub",
     environment: env.NODE_ENV,
     level: env.LOG_LEVEL,
     format: env.NODE_ENV === NodeEnv.DEVELOP ? "pretty" : "json",
-    destination: logDestination,
+    destination: options.logDestination,
     context: logContext,
   });
 
@@ -66,22 +52,18 @@ export const start = async ({
     heartbeatFrequencyMS: timeouts.databaseHeartbeatMs,
     pingTimeoutMS: timeouts.databasePingMs,
   });
-  await database.connect();
-  const repositories = await createMongoIdentityRepositories(
-    database.connection,
-  );
 
-  const clock = new SystemClock();
+  await database.connect();
+
+  const identity = await createIdentityModule(toIdentitySettings(env), {
+    connection: database.connection,
+    logger,
+    logContext,
+  });
+
   const app = createServer({
     modules: {
-      identity: createIdentityModule({
-        ...createInMemoryIdentityAdapters(),
-        ...repositories,
-        ...createIdentitySecurityAdapters({ jwtSecret: env.JWT_SECRET, clock }),
-        clock,
-        ids: new ObjectIdGenerator(),
-        logContext,
-      }),
+      identity,
     },
     logger,
     logContext,
@@ -96,11 +78,12 @@ export const start = async ({
     await database.close();
     throw error;
   }
+
   const httpShutdown = new HttpServerShutdown(server, timeouts.shutdownMs);
   const { port } = server.address() as AddressInfo;
   logger.info(SharedLogEvent.ServerStarted, { port });
-
   let stopping: Promise<0 | 1> | undefined;
+
   const shutdown = async (): Promise<0 | 1> => {
     const outcome = await httpShutdown.run();
     await database.close();

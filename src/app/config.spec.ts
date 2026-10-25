@@ -35,7 +35,14 @@ const buildSource = (overrides: Record<string, string | undefined> = {}) => ({
 const processEnv = buildSource();
 for (const [name, value] of Object.entries(processEnv)) vi.stubEnv(name, value);
 
-const { env, loadEnv, MailerKind, NodeEnv } = await import("./config");
+const {
+  env,
+  EXTERNAL_CALL_TIMEOUT_MS,
+  loadEnv,
+  MailerKind,
+  NodeEnv,
+  toIdentitySettings,
+} = await import("./config");
 
 describe("env", () => {
   it("is the process environment, read once at import", () => {
@@ -46,6 +53,33 @@ describe("env", () => {
       APP_URL: new URL(processEnv.APP_URL),
       GITHUB_REDIRECT_URI: new URL(processEnv.GITHUB_REDIRECT_URI),
       GOOGLE_REDIRECT_URI: new URL(processEnv.GOOGLE_REDIRECT_URI),
+    });
+  });
+});
+
+describe("toIdentitySettings", () => {
+  it("groups what the identity module needs from the environment", () => {
+    const source = loadEnv(buildSource());
+
+    expect(toIdentitySettings(source)).toStrictEqual({
+      jwtSecret: source.JWT_SECRET,
+      appUrl: source.APP_URL,
+      externalCallTimeoutMs: EXTERNAL_CALL_TIMEOUT_MS,
+      mailer: {
+        kind: source.MAILER,
+        apiKey: source.MAILERSEND_API_KEY,
+        from: { email: source.MAIL_FROM_EMAIL, name: source.MAIL_FROM_NAME },
+      },
+      google: {
+        clientId: source.GOOGLE_CLIENT_ID,
+        clientSecret: source.GOOGLE_CLIENT_SECRET,
+        redirectUri: source.GOOGLE_REDIRECT_URI,
+      },
+      github: {
+        clientId: source.GITHUB_CLIENT_ID,
+        clientSecret: source.GITHUB_CLIENT_SECRET,
+        redirectUri: source.GITHUB_REDIRECT_URI,
+      },
     });
   });
 });

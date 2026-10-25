@@ -186,28 +186,6 @@ describe("start", () => {
     expect(output.events()).not.toContain(SharedLogEvent.ServerStarted.name);
   });
 
-  it("does not listen when the database is not a replica set", async () => {
-    const standalone = await MongoMemoryServer.create();
-    const output = createOutput();
-
-    try {
-      await expectAppError(
-        start({
-          env: buildEnv({ MONGO_URL: standalone.getUri(databaseName()) }),
-          logDestination: output.logDestination,
-        }),
-        SharedError.DatabaseNotReplicaSet,
-      );
-    } finally {
-      await standalone.stop();
-    }
-
-    expect(output.events()).toContain(
-      SharedLogEvent.DatabaseNotReplicaSet.name,
-    );
-    expect(output.events()).not.toContain(SharedLogEvent.ServerStarted.name);
-  });
-
   it("keeps the global mongoose connection unused", async () => {
     const { name } = await startApp();
 
@@ -275,6 +253,28 @@ describe("start", () => {
     expect(await stored?.collection("memberships").countDocuments()).toBe(1);
   });
 
+  it("does not listen when the database is not a replica set", async () => {
+    const standalone = await MongoMemoryServer.create();
+    const output = createOutput();
+
+    try {
+      await expectAppError(
+        start({
+          env: buildEnv({ MONGO_URL: standalone.getUri(databaseName()) }),
+          logDestination: output.logDestination,
+        }),
+        SharedError.DatabaseNotReplicaSet,
+      );
+    } finally {
+      await standalone.stop();
+    }
+
+    expect(output.events()).toContain(
+      SharedLogEvent.DatabaseNotReplicaSet.name,
+    );
+    expect(output.events()).not.toContain(SharedLogEvent.ServerStarted.name);
+  });
+
   it("logs the port it listens on as JSON outside develop", async () => {
     const { app, output } = await startApp();
 
@@ -307,15 +307,6 @@ describe("start", () => {
     expect(response.body).toMatchObject({
       account: { createdAt: now.toISOString() },
     });
-  });
-
-  it("refuses to run the in-memory adapters in production", async () => {
-    const { logDestination } = createOutput();
-
-    await expectAppError(
-      start({ env: buildEnv({ NODE_ENV: "prod" }), logDestination }),
-      SharedError.InMemoryAdaptersInProduction,
-    );
   });
 
   it("closes the database when the port is taken", async () => {
