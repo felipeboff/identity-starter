@@ -28,7 +28,8 @@ file deserve an ADR (`create-adr`).
   wrapped in the shared `Id` value object.
 - **Optimistic concurrency** on every repository write (`OptimisticWriter`,
   [ADR-003](../../docs/adr/003-optimistic-concurrency-on-repository-writes.md)).
-- **Redis** (ioredis): rate-limit counters, cache, BullMQ backend. _planned_
+- **Redis** (ioredis): rate-limit counters (`RedisRateLimiter`, fixed window, lets requests
+  through if Redis is down). Cache and BullMQ backend are _planned_.
 - **Text search:** MongoDB text index; revisit (Atlas Search / Elasticsearch) only on a real
   relevance need.
 - **Attachments:** S3 behind a storage port. _planned_
