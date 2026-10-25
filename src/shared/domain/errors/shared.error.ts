@@ -49,4 +49,8 @@ export const SharedError = {
     "shared.in_memory_adapters_in_production",
     "precondition_failed",
   ),
+  NestedTransaction: defineError(
+    "shared.nested_transaction",
+    "precondition_failed",
+  ),
 };
