@@ -7,7 +7,7 @@ import mongoose, { type Connection } from "mongoose";
 export type MongoDatabaseOptions = Readonly<{
   url: string;
   logger: Logger;
-  autoIndex: boolean;
+  autoIndex?: boolean;
   serverSelectionTimeoutMS?: number;
   heartbeatFrequencyMS?: number;
   pingTimeoutMS?: number;
@@ -29,7 +29,7 @@ export class MongoDatabase {
           this.options.serverSelectionTimeoutMS ?? 10_000,
         ...(heartbeatFrequencyMS === undefined ? {} : { heartbeatFrequencyMS }),
         bufferCommands: false,
-        autoIndex,
+        autoIndex: autoIndex ?? true,
       });
     } catch (error) {
       logger.error(SharedLogEvent.DatabaseConnectionFailed, { host, error });

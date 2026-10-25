@@ -117,6 +117,18 @@ describe("MongoDatabase", () => {
     });
   });
 
+  it("creates the indexes automatically when not told otherwise", async () => {
+    const database = new MongoDatabase({
+      url: `${server.getUri()}${databaseName()}`,
+      logger: new FakeLogger(),
+    });
+    opened.push(database);
+
+    await database.connect();
+
+    expect(database.connection.config).toMatchObject({ autoIndex: true });
+  });
+
   it("refuses to connect when the server does not answer", async () => {
     const port = await freePort();
     const { database, logger } = open({
