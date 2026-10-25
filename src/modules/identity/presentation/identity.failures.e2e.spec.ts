@@ -1,0 +1,686 @@
+import { faker } from "@faker-js/faker";
+import { AppError } from "@shared/domain/errors/app-error";
+import { describe, expect, it, vi } from "vitest";
+
+import { IdentityHttp, createIdentityHttp } from "./testing/identity-http";
+
+import {
+  seedAccount,
+  seedSession,
+} from "@/identity/application/testing/identity-context";
+import { Account } from "@/identity/domain/account.entity";
+import { AuthProvider, Credential } from "@/identity/domain/credential.entity";
+import { EmailVerification } from "@/identity/domain/email-verification.entity";
+import { IdentityError } from "@/identity/domain/errors/identity.error";
+import {
+  Membership,
+  MembershipPermission,
+  MembershipRole,
+} from "@/identity/domain/membership.entity";
+import { PasswordReset } from "@/identity/domain/password-reset.entity";
+import { Session } from "@/identity/domain/session.entity";
+
+const anId = () => faker.database.mongodbObjectId();
+const aToken = () => faker.string.alphanumeric(32);
+const aCode = () => faker.string.alphanumeric(20);
+
+const failure = (out: { status: number; body?: unknown }) => ({
+  status: out.status,
+  code: (out.body as { code: string }).code,
+});
+
+const googleProfile = () => ({
+  subject: faker.string.numeric(21),
+  email: faker.internet.email().toLowerCase(),
+  name: faker.person.fullName(),
+});
+
+const googleCredential = (accountId: string, subject: string, at: Date) =>
+  Credential.register(
+    {
+      id: anId(),
+      accountId,
+      provider: AuthProvider.GOOGLE,
+      subject,
+      providerEmail: faker.internet.email().toLowerCase(),
+    },
+    at,
+  );
+
+const signInWithGoogleOnly = async (http: IdentityHttp) => {
+  const at = http.ctx.clock.now();
+  const accountId = anId();
+  const account = Account.register(
+    {
+      id: accountId,
+      name: faker.person.fullName(),
+      email: faker.internet.email().toLowerCase(),
+      createdBy: accountId,
+    },
+    at,
+  );
+  const credential = googleCredential(accountId, faker.string.numeric(21), at);
+  const membership = Membership.register(
+    {
+      id: anId(),
+      accountId,
+      createdBy: accountId,
+      role: MembershipRole.USER,
+      permissions: [],
+    },
+    at,
+  );
+  await http.ctx.accounts.save(account);
+  await http.ctx.credentials.save(credential);
+  await http.ctx.memberships.save(membership);
+  const actor = {
+    accountId,
+    sessionId: "",
+    membershipId: membership.id.value,
+    role: membership.role,
+    permissions: membership.permissions,
+  };
+  const { session } = await seedSession(http.ctx, {
+    actor,
+    account,
+    credential,
+    membership,
+  });
+  return http.ctx.accessToken.issue({ accountId, sessionId: session.id.value });
+};
+
+const rejectOAuthWith = (
+  http: IdentityHttp,
+  definition:
+    | typeof IdentityError.OAuthCodeRejected
+    | typeof IdentityError.OAuthEmailNotVerified
+    | typeof IdentityError.OAuthProviderFailed,
+) =>
+  vi
+    .spyOn(http.ctx.oauth, "exchangeCode")
+    .mockRejectedValue(
+      new AppError(definition, { provider: AuthProvider.GOOGLE }),
+    );
+
+const failMail = (
+  http: IdentityHttp,
+  method: "sendPasswordReset" | "sendEmailVerification",
+) =>
+  vi
+    .spyOn(http.ctx.mailer, method)
+    .mockRejectedValue(new AppError(IdentityError.EmailDeliveryFailed));
+
+describe("identity route failures", () => {
+  describe("POST /auth/sign-in", () => {
+    it("answers 404 for an unknown e-mail", async () => {
+      const http = createIdentityHttp();
+
+      const out = await http.call("POST", "/auth/sign-in", {
+        body: {
+          email: faker.internet.email().toLowerCase(),
+          password: faker.internet.password(),
+        },
+      });
+
+      expect(failure(out)).toStrictEqual({
+        status: 404,
+        code: IdentityError.AccountNotFound.code,
+      });
+    });
+
+    it("answers 409 when the e-mail credential belongs to another account", async () => {
+      const http = createIdentityHttp();
+      const at = http.ctx.clock.now();
+      const owner = await seedAccount(http.ctx);
+      const email = faker.internet.email().toLowerCase();
+      const password = faker.internet.password();
+      await http.ctx.credentials.save(
+        Credential.register(
+          {
+            id: anId(),
+            accountId: owner.accountId,
+            provider: AuthProvider.EMAIL,
+            subject: email,
+            providerEmail: email,
+            passwordHash: await http.ctx.passwordHasher.hash(password),
+          },
+          at,
+        ),
+      );
+      const accountId = anId();
+      await http.ctx.accounts.save(
+        Account.register(
+          {
+            id: accountId,
+            name: faker.person.fullName(),
+            email,
+            createdBy: accountId,
+          },
+          at,
+        ),
+      );
+
+      const out = await http.call("POST", "/auth/sign-in", {
+        body: { email, password },
+      });
+
+      expect(failure(out)).toStrictEqual({
+        status: 409,
+        code: IdentityError.CredentialAccountMismatch.code,
+      });
+    });
+
+    it("answers 422 for a deactivated account", async () => {
+      const http = createIdentityHttp();
+      const ana = await seedAccount(http.ctx);
+      ana.account.markAsDeleted(http.ctx.clock.now());
+      await http.ctx.accounts.save(ana.account);
+
+      const out = await http.call("POST", "/auth/sign-in", {
+        body: { email: ana.email, password: ana.password },
+      });
+
+      expect(failure(out)).toStrictEqual({
+        status: 422,
+        code: IdentityError.AccountDeleted.code,
+      });
+    });
+  });
+
+  describe("POST /auth/oauth/:provider", () => {
+    it.each([
+      [401, IdentityError.OAuthCodeRejected],
+      [403, IdentityError.OAuthEmailNotVerified],
+      [422, IdentityError.OAuthProviderFailed],
+    ] as const)(
+      "answers %i when the provider fails with %o",
+      async (status, definition) => {
+        const http = createIdentityHttp();
+        rejectOAuthWith(http, definition);
+
+        const out = await http.call("POST", "/auth/oauth/:provider", {
+          params: { provider: AuthProvider.GOOGLE },
+          body: { code: aCode() },
+        });
+
+        expect(failure(out)).toStrictEqual({ status, code: definition.code });
+      },
+    );
+
+    it("answers 404 when the linked account no longer exists", async () => {
+      const http = createIdentityHttp();
+      const profile = googleProfile();
+      const code = aCode();
+      http.ctx.oauth.register(AuthProvider.GOOGLE, code, profile);
+      await http.ctx.credentials.save(
+        googleCredential(anId(), profile.subject, http.ctx.clock.now()),
+      );
+
+      const out = await http.call("POST", "/auth/oauth/:provider", {
+        params: { provider: AuthProvider.GOOGLE },
+        body: { code },
+      });
+
+      expect(failure(out)).toStrictEqual({
+        status: 404,
+        code: IdentityError.AccountNotFound.code,
+      });
+    });
+  });
+
+  describe("POST /auth/refresh", () => {
+    it("answers 404 when the session's account no longer exists", async () => {
+      const http = createIdentityHttp();
+      const at = http.ctx.clock.now();
+      const refreshToken = aToken();
+      await http.ctx.sessions.save(
+        Session.register(
+          {
+            id: anId(),
+            accountId: anId(),
+            credentialId: anId(),
+            membershipId: anId(),
+            tokenHash: http.ctx.tokens.hash(refreshToken),
+            expiresAt: faker.date.future({ refDate: at }),
+            userAgent: faker.internet.userAgent(),
+            ipAddress: faker.internet.ip(),
+          },
+          at,
+        ),
+      );
+
+      const out = await http.call("POST", "/auth/refresh", {
+        body: { refreshToken },
+      });
+
+      expect(failure(out)).toStrictEqual({
+        status: 404,
+        code: IdentityError.AccountNotFound.code,
+      });
+    });
+
+    it("answers 422 for a revoked session", async () => {
+      const http = createIdentityHttp();
+      const { refreshToken } = await http.signIn();
+      await http.call("POST", "/auth/refresh", { body: { refreshToken } });
+
+      const out = await http.call("POST", "/auth/refresh", {
+        body: { refreshToken },
+      });
+
+      expect(failure(out)).toStrictEqual({
+        status: 422,
+        code: IdentityError.SessionRevoked.code,
+      });
+    });
+  });
+
+  describe("POST /auth/password-reset/request", () => {
+    it("answers 422 when the e-mail cannot be delivered", async () => {
+      const http = createIdentityHttp();
+      const ana = await seedAccount(http.ctx);
+      failMail(http, "sendPasswordReset");
+
+      const out = await http.call("POST", "/auth/password-reset/request", {
+        body: { email: ana.email },
+      });
+
+      expect(failure(out)).toStrictEqual({
+        status: 422,
+        code: IdentityError.EmailDeliveryFailed.code,
+      });
+    });
+  });
+
+  describe("POST /auth/password-reset", () => {
+    it("answers 404 when the reset points to a credential that does not exist", async () => {
+      const http = createIdentityHttp();
+      const at = http.ctx.clock.now();
+      const ana = await seedAccount(http.ctx);
+      const token = aToken();
+      await http.ctx.passwordResets.save(
+        PasswordReset.register(
+          {
+            id: anId(),
+            accountId: ana.accountId,
+            credentialId: anId(),
+            tokenHash: http.ctx.tokens.hash(token),
+            expiresAt: faker.date.future({ refDate: at }),
+          },
+          at,
+        ),
+      );
+
+      const out = await http.call("POST", "/auth/password-reset", {
+        body: { token, newPassword: faker.internet.password() },
+      });
+
+      expect(failure(out)).toStrictEqual({
+        status: 404,
+        code: IdentityError.CredentialNotFound.code,
+      });
+    });
+
+    it("answers 422 for a token already used", async () => {
+      const http = createIdentityHttp();
+      const ana = await seedAccount(http.ctx);
+      await http.call("POST", "/auth/password-reset/request", {
+        body: { email: ana.email },
+      });
+      const [mail] = http.ctx.mailer.passwordResets;
+      const reset = () =>
+        http.call("POST", "/auth/password-reset", {
+          body: { token: mail?.token, newPassword: faker.internet.password() },
+        });
+      await reset();
+
+      const out = await reset();
+
+      expect(failure(out)).toStrictEqual({
+        status: 422,
+        code: IdentityError.PasswordResetAlreadyConsumed.code,
+      });
+    });
+  });
+
+  describe("POST /auth/email-verification", () => {
+    it("answers 404 when the verification's account no longer exists", async () => {
+      const http = createIdentityHttp();
+      const at = http.ctx.clock.now();
+      const token = aToken();
+      await http.ctx.emailVerifications.save(
+        EmailVerification.register(
+          {
+            id: anId(),
+            accountId: anId(),
+            tokenHash: http.ctx.tokens.hash(token),
+            expiresAt: faker.date.future({ refDate: at }),
+          },
+          at,
+        ),
+      );
+
+      const out = await http.call("POST", "/auth/email-verification", {
+        body: { token },
+      });
+
+      expect(failure(out)).toStrictEqual({
+        status: 404,
+        code: IdentityError.AccountNotFound.code,
+      });
+    });
+
+    it("answers 422 for a token already used", async () => {
+      const http = createIdentityHttp();
+      const ana = await http.signIn();
+      await http.call("POST", "/me/email-verification", { token: ana.token });
+      const [mail] = http.ctx.mailer.emailVerifications;
+      const verify = () =>
+        http.call("POST", "/auth/email-verification", {
+          body: { token: mail?.token },
+        });
+      await verify();
+
+      const out = await verify();
+
+      expect(failure(out)).toStrictEqual({
+        status: 422,
+        code: IdentityError.EmailVerificationAlreadyConsumed.code,
+      });
+    });
+  });
+
+  describe("PUT /me/password", () => {
+    it("answers 404 for an account with no e-mail credential", async () => {
+      const http = createIdentityHttp();
+      const token = await signInWithGoogleOnly(http);
+
+      const out = await http.call("PUT", "/me/password", {
+        token,
+        body: {
+          oldPassword: faker.internet.password(),
+          newPassword: faker.internet.password(),
+        },
+      });
+
+      expect(failure(out)).toStrictEqual({
+        status: 404,
+        code: IdentityError.CredentialNotFound.code,
+      });
+    });
+
+    it("answers 422 when the e-mail credential was removed", async () => {
+      const http = createIdentityHttp();
+      const ana = await http.signIn();
+      ana.credential.markAsDeleted(http.ctx.clock.now());
+      await http.ctx.credentials.save(ana.credential);
+
+      const out = await http.call("PUT", "/me/password", {
+        token: ana.token,
+        body: {
+          oldPassword: ana.password,
+          newPassword: faker.internet.password(),
+        },
+      });
+
+      expect(failure(out)).toStrictEqual({
+        status: 422,
+        code: IdentityError.CredentialDeleted.code,
+      });
+    });
+  });
+
+  describe("POST /me/email-verification", () => {
+    it("answers 409 when the e-mail is already verified", async () => {
+      const http = createIdentityHttp();
+      const ana = await http.signIn();
+      ana.account.markEmailAsVerified(http.ctx.clock.now());
+      await http.ctx.accounts.save(ana.account);
+
+      const out = await http.call("POST", "/me/email-verification", {
+        token: ana.token,
+      });
+
+      expect(failure(out)).toStrictEqual({
+        status: 409,
+        code: IdentityError.AccountEmailAlreadyVerified.code,
+      });
+    });
+
+    it("answers 422 when the e-mail cannot be delivered", async () => {
+      const http = createIdentityHttp();
+      const ana = await http.signIn();
+      failMail(http, "sendEmailVerification");
+
+      const out = await http.call("POST", "/me/email-verification", {
+        token: ana.token,
+      });
+
+      expect(failure(out)).toStrictEqual({
+        status: 422,
+        code: IdentityError.EmailDeliveryFailed.code,
+      });
+    });
+  });
+
+  describe("POST /me/oauth/:provider", () => {
+    it.each([
+      [403, IdentityError.OAuthEmailNotVerified],
+      [422, IdentityError.OAuthProviderFailed],
+    ] as const)(
+      "answers %i when the provider fails with %o",
+      async (status, definition) => {
+        const http = createIdentityHttp();
+        const ana = await http.signIn();
+        rejectOAuthWith(http, definition);
+
+        const out = await http.call("POST", "/me/oauth/:provider", {
+          token: ana.token,
+          params: { provider: AuthProvider.GOOGLE },
+          body: { code: aCode() },
+        });
+
+        expect(failure(out)).toStrictEqual({ status, code: definition.code });
+      },
+    );
+
+    it("answers 409 when the account already links another identity of the provider", async () => {
+      const http = createIdentityHttp();
+      const ana = await http.signIn();
+      const link = () => {
+        const code = aCode();
+        http.ctx.oauth.register(AuthProvider.GOOGLE, code, googleProfile());
+        return http.call("POST", "/me/oauth/:provider", {
+          token: ana.token,
+          params: { provider: AuthProvider.GOOGLE },
+          body: { code },
+        });
+      };
+      await link();
+
+      const out = await link();
+
+      expect(failure(out)).toStrictEqual({
+        status: 409,
+        code: IdentityError.OAuthProviderAlreadyLinked.code,
+      });
+    });
+  });
+
+  describe("DELETE /me/oauth/:provider", () => {
+    it("answers 400 for a provider identity does not support", async () => {
+      const http = createIdentityHttp();
+      const ana = await http.signIn();
+
+      const out = await http.call("DELETE", "/me/oauth/:provider", {
+        token: ana.token,
+        params: { provider: faker.string.alpha(12) },
+      });
+
+      expect(failure(out)).toStrictEqual({
+        status: 400,
+        code: IdentityError.OAuthProviderNotSupported.code,
+      });
+    });
+
+    it("answers 404 for a provider the account never linked", async () => {
+      const http = createIdentityHttp();
+      const ana = await http.signIn();
+
+      const out = await http.call("DELETE", "/me/oauth/:provider", {
+        token: ana.token,
+        params: { provider: AuthProvider.GOOGLE },
+      });
+
+      expect(failure(out)).toStrictEqual({
+        status: 404,
+        code: IdentityError.CredentialNotFound.code,
+      });
+    });
+
+    it("answers 422 for the account's last way to sign in", async () => {
+      const http = createIdentityHttp();
+      const token = await signInWithGoogleOnly(http);
+
+      const out = await http.call("DELETE", "/me/oauth/:provider", {
+        token,
+        params: { provider: AuthProvider.GOOGLE },
+      });
+
+      expect(failure(out)).toStrictEqual({
+        status: 422,
+        code: IdentityError.LastCredentialCannotBeRemoved.code,
+      });
+    });
+  });
+
+  describe("acting on another account", () => {
+    const FORBIDDEN_FOR_A_USER = [
+      ["DELETE", "/accounts/:accountId/sessions", undefined],
+      ["POST", "/accounts/:accountId/deactivate", undefined],
+      ["POST", "/accounts/:accountId/reactivate", undefined],
+      ["PUT", "/members/:accountId/role", { role: MembershipRole.ADMIN }],
+      [
+        "PUT",
+        "/members/:accountId/permissions",
+        { permissions: [MembershipPermission.READ] },
+      ],
+    ] as const;
+
+    it.each(FORBIDDEN_FOR_A_USER)(
+      "answers 403 to a user on %s %s",
+      async (method, path, body) => {
+        const http = createIdentityHttp();
+        const ana = await http.signIn();
+        const bob = await seedAccount(http.ctx);
+
+        const out = await http.call(method, path, {
+          token: ana.token,
+          params: { accountId: bob.accountId },
+          body,
+        });
+
+        expect(failure(out)).toStrictEqual({
+          status: 403,
+          code: IdentityError.Forbidden.code,
+        });
+      },
+    );
+
+    it.each([
+      ["POST", "/accounts/:accountId/deactivate", undefined, "AccountNotFound"],
+      ["POST", "/accounts/:accountId/reactivate", undefined, "AccountNotFound"],
+      [
+        "PUT",
+        "/members/:accountId/role",
+        { role: MembershipRole.ADMIN },
+        "MembershipNotFound",
+      ],
+      [
+        "PUT",
+        "/members/:accountId/permissions",
+        { permissions: [MembershipPermission.READ] },
+        "MembershipNotFound",
+      ],
+    ] as const)(
+      "answers 404 to an admin on %s %s for an unknown account",
+      async (method, path, body, error) => {
+        const http = createIdentityHttp();
+        const admin = await http.signIn({ role: MembershipRole.ADMIN });
+
+        const out = await http.call(method, path, {
+          token: admin.token,
+          params: { accountId: anId() },
+          body,
+        });
+
+        expect(failure(out)).toStrictEqual({
+          status: 404,
+          code: IdentityError[error].code,
+        });
+      },
+    );
+
+    it.each([
+      ["PUT", "/members/:accountId/role", { role: MembershipRole.ADMIN }],
+      [
+        "PUT",
+        "/members/:accountId/permissions",
+        { permissions: [MembershipPermission.READ] },
+      ],
+    ] as const)(
+      "answers 422 to an admin on %s %s for a removed member",
+      async (method, path, body) => {
+        const http = createIdentityHttp();
+        const admin = await http.signIn({ role: MembershipRole.ADMIN });
+        const bob = await seedAccount(http.ctx);
+        bob.membership.markAsDeleted(http.ctx.clock.now());
+        await http.ctx.memberships.save(bob.membership);
+
+        const out = await http.call(method, path, {
+          token: admin.token,
+          params: { accountId: bob.accountId },
+          body,
+        });
+
+        expect(failure(out)).toStrictEqual({
+          status: 422,
+          code: IdentityError.MembershipDeleted.code,
+        });
+      },
+    );
+  });
+
+  describe("DELETE /sessions/:sessionId", () => {
+    it("answers 403 to a user revoking someone else's session", async () => {
+      const http = createIdentityHttp();
+      const ana = await http.signIn();
+      const bob = await http.signIn();
+
+      const out = await http.call("DELETE", "/sessions/:sessionId", {
+        token: ana.token,
+        params: { sessionId: bob.session.id.value },
+      });
+
+      expect(failure(out)).toStrictEqual({
+        status: 403,
+        code: IdentityError.Forbidden.code,
+      });
+    });
+
+    it("answers 404 for an unknown session", async () => {
+      const http = createIdentityHttp();
+      const ana = await http.signIn();
+
+      const out = await http.call("DELETE", "/sessions/:sessionId", {
+        token: ana.token,
+        params: { sessionId: anId() },
+      });
+
+      expect(failure(out)).toStrictEqual({
+        status: 404,
+        code: IdentityError.SessionNotFound.code,
+      });
+    });
+  });
+});

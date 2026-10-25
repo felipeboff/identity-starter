@@ -37,8 +37,9 @@ them exactly; the hooks reject what does not fit.
 ## Commits
 
 Enforced by commitlint (`@commitlint/config-conventional`) through the husky `commit-msg`
-hook; the `pre-commit` hook runs lint-staged, `pnpm typecheck` and `pnpm test:run` (100%
-coverage), so a commit takes a while and fails on any red test.
+hook; the `pre-commit` hook runs lint-staged, `pnpm typecheck`, `pnpm test:coverage` and
+the per-level `test:unit:coverage`, `test:integration:coverage` and `test:e2e:coverage` (100%
+each, plus every route × status covered), so a commit takes a while and fails on any red test.
 
 **Format**: `<type>(<scope>)!: <subject>`
 

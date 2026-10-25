@@ -22,6 +22,7 @@ const buildRoute = (overrides: Partial<HttpRoute> = {}): HttpRoute => ({
   method: "GET",
   path: `/${faker.lorem.slug()}`,
   status: 200,
+  failures: [],
   handler: new NoopHandler(),
   ...overrides,
 });

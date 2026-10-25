@@ -40,7 +40,9 @@ type UseCaseClass = {
 const spyOnUseCase = (useCase: UseCaseClass) =>
   vi.spyOn(useCase.prototype, "execute");
 
-const PROBLEM_HEADERS = { "content-type": "application/problem+json" };
+const PROBLEM_HEADERS = {
+  "content-type": "application/problem+json; charset=utf-8",
+};
 
 const PROTECTED_ROUTES: [HttpMethod, string, UseCaseClass][] = [
   ["POST", "/auth/sign-out", SignOutUseCase],
@@ -99,7 +101,6 @@ const INVALID_INPUTS: [HttpMethod, string, UseCaseClass, CallOptions][] = [
     LinkOAuthUseCase,
     { params: { provider: AuthProvider.GOOGLE }, body: {} },
   ],
-  ["DELETE", "/me/oauth/:provider", UnlinkOAuthUseCase, { params: {} }],
   [
     "DELETE",
     "/sessions/:sessionId",

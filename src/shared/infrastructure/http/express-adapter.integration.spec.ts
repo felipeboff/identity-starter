@@ -37,6 +37,7 @@ const buildRoute = (
   method: "POST",
   path: `/${faker.lorem.slug()}`,
   status: 200,
+  failures: [],
   handler: new EchoHandler(),
   ...overrides,
 });

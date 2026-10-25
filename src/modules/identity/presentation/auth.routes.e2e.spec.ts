@@ -217,7 +217,7 @@ describe("identity public routes", () => {
     expect(out.body).toEqual({
       account: expect.objectContaining({
         id: ana.accountId,
-        emailVerifiedAt: http.ctx.clock.now(),
+        emailVerifiedAt: http.ctx.clock.now().toISOString(),
       }) as unknown,
     });
   });

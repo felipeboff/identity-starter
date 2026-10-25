@@ -28,6 +28,7 @@ const buildRoute = (): HttpRoute => ({
   method: "POST",
   path: `/${faker.lorem.slug()}`,
   status: 200,
+  failures: [],
   handler: new NoopHandler(),
 });
 

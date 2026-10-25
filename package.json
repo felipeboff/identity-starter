@@ -20,7 +20,7 @@
     "test:e2e": "vitest run --project e2e",
     "test:unit:coverage": "COVERAGE_LEVEL=unit vitest run --project unit --coverage",
     "test:integration:coverage": "COVERAGE_LEVEL=integration vitest run --project integration --coverage",
-    "test:e2e:coverage": "COVERAGE_LEVEL=e2e vitest run --project e2e --coverage",
+    "test:e2e:coverage": "COVERAGE_LEVEL=e2e ROUTE_STATUSES=strict vitest run --project e2e --coverage",
     "prepare": "husky"
   },
   "keywords": [],

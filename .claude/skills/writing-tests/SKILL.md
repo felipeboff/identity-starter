@@ -9,8 +9,38 @@ metadata:
 
 # Writing tests
 
-Vitest, specs next to the code (`*.spec.ts`), 100% coverage enforced by `vitest.config.ts` and
-the pre-commit hook. Follow these rules in every new or edited spec.
+Vitest, specs next to the code, 100% coverage enforced by `vitest.config.ts` and the pre-commit
+hook. Follow these rules in every new or edited spec.
+
+## Test levels
+
+The file name says the level; each level is a Vitest project.
+
+| Level       | File                    | What it touches                                                          | Run                     |
+| ----------- | ----------------------- | ------------------------------------------------------------------------ | ----------------------- |
+| unit        | `*.spec.ts`             | no I/O: entities, value objects, use cases on in-memory fakes            | `pnpm test:unit`        |
+| integration | `*.integration.spec.ts` | an adapter against the real dependency: Mongo, a real HTTP server        | `pnpm test:integration` |
+| e2e         | `*.e2e.spec.ts`         | real HTTP through Express (`supertest`, `createIdentityHttp()`, `start`) | `pnpm test:e2e`         |
+
+- ESLint fails a unit spec that imports `supertest`, `express`, `mongodb-memory-server`,
+  `node:http`, `node:net`, `memory-mongo` or a `testing/*-http` harness.
+- The level follows the folder: a spec of a file in `infrastructure/` (or a `*.module.ts`) is an
+  integration spec, a spec of an HTTP route is an e2e spec, everything else is unit.
+- Each level must reach 100% of its own scope, measured alone (`testing/` folders excluded):
+
+  | Command                          | Scope                                                                                                         |
+  | -------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+  | `pnpm test:unit:coverage`        | `domain/`, `application/`, `shared/presentation/`, `shared/types/`, `public.ts`, `app/config`, `app/shutdown` |
+  | `pnpm test:integration:coverage` | `infrastructure/` and `*.module.ts`                                                                           |
+  | `pnpm test:e2e:coverage`         | every module's `presentation/`, `app/create-server`, `app/http-routes`, `app/start`                           |
+
+- `pnpm test:e2e:coverage` also checks every route × status pair. Each `HttpRoute` lists its
+  `failures` (400, 401, 403, 404, 409, 422). The run fails on a declared status no e2e test
+  received (`missing e2e test`) and on a received status the route does not declare
+  (`undeclared status`). A new route or a new error path needs both the `failures` entry and
+  an e2e test.
+- `pnpm test:coverage` runs every level together and needs 100% of `src/`, `testing/` included.
+- The scopes live in `vitest.config.ts` (`LEVEL_SCOPES`); a new top-level folder needs a level.
 
 ## Test data: faker first, almost no loose strings
 
@@ -89,9 +119,9 @@ run the spec three times.
 | `expectAppError(promise, Definition, data?)`                                     | asserting a rejected `AppError` by definition                                                                                                                            |
 | `new FakeLogger()` (`@shared/testing/fake-logger`)                               | any `Logger` dependency; assert on `logger.entries` (`{ level, event: Event.name, fields }`)                                                                             |
 | `new FakeLogContext()` (`@shared/testing/fake-log-context`)                      | any `LogContext` dependency; assert on `logContext.added`                                                                                                                |
-| `useMemoryMongo()` (`@shared/testing/memory-mongo`)                              | integration specs against a real Mongo: one `mongodb-memory-server` per file; call `.connection()` inside the tests or a `beforeAll`                                     |
+| `useMemoryMongo()` (`@shared/testing/memory-mongo`)                              | integration specs against a real Mongo: one single-node replica set per file; call `.connection()` inside the tests or a `beforeAll`                                     |
 | `<port>RepositoryContract(create)` (`identity/application/testing/contracts/`)   | one suite per repository port, run against the in-memory and the Mongo implementation; a new repository behaviour goes in the contract, not in one implementation's spec |
-| `createIdentityHttp()` (`presentation/testing/identity-http`)                    | route specs: `call(method, path, { params, body, token, ip })`, `signIn()`                                                                                               |
+| `createIdentityHttp()` (`presentation/testing/identity-http`)                    | e2e route specs over real HTTP: `call(method, path, { params, body, token, ip })`, `signIn()`; records every route × status it answers                                   |
 | `vi.spyOn(UseCase.prototype, "execute")` + `vi.restoreAllMocks()` in `afterEach` | asserting a use case was not called when the module hides instances                                                                                                      |
 
 ## Special cases
@@ -115,4 +145,5 @@ run the spec three times.
 ## Before finishing
 
 `pnpm exec prettier --write <files>`, `pnpm exec eslint .`, `pnpm typecheck`,
-`pnpm test:coverage` (100% statements, branches, functions and lines).
+`pnpm test:coverage`, `pnpm test:unit:coverage`, `pnpm test:integration:coverage` and
+`pnpm test:e2e:coverage` (100% statements, branches, functions and lines in each).

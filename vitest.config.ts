@@ -57,6 +57,7 @@ export default defineConfig({
         test: {
           name: "e2e",
           include: [E2E],
+          globalSetup: ["src/shared/testing/route-statuses.global-setup.ts"],
         },
       },
     ],

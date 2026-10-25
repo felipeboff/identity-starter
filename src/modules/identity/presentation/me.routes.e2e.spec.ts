@@ -51,7 +51,9 @@ describe("identity protected routes", () => {
         id: ana.accountId,
         email: ana.email,
       }) as unknown,
-      membership: ana.membership.toSnapshot(),
+      membership: JSON.parse(
+        JSON.stringify(ana.membership.toSnapshot()),
+      ) as unknown,
     });
   });
 
@@ -181,7 +183,8 @@ describe("identity protected routes", () => {
       params: { accountId: ana.accountId },
     });
 
-    expect(out).toStrictEqual({ status: 200, body: { revokedCount: 2 } });
+    expect(out.status).toBe(200);
+    expect(out.body).toStrictEqual({ revokedCount: 2 });
   });
 
   it("deactivates an account with 204", async () => {
