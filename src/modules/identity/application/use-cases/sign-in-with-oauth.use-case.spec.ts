@@ -275,4 +275,14 @@ describe("SignInWithOAuthUseCase", () => {
     const stored = await ctx.accounts.findById(output.account.id);
     expect(stored && toOutputAccount(stored)).toStrictEqual(output.account);
   });
+
+  it("registers a new account with the e-mail already verified by the provider", async () => {
+    const { input } = givenGoogleLogin();
+
+    const output = await useCase.execute(input);
+
+    expect(output.account.emailVerifiedAt).toEqual(ctx.clock.now());
+    const stored = await ctx.accounts.findById(output.account.id);
+    expect(stored?.isEmailVerified()).toBe(true);
+  });
 });

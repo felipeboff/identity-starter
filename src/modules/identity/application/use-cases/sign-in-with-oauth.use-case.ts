@@ -123,6 +123,7 @@ export class SignInWithOAuthUseCase extends UseCase<{
       },
       at,
     );
+    account.markEmailAsVerified(at);
     const credential = Credential.register(
       {
         id: this.deps.ids.next(),
