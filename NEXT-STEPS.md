@@ -42,7 +42,7 @@ coloca algo rodando o quanto antes e troca os fakes por implementações reais a
       (`info`), `MONGO_URL`, `JWT_SECRET` (mín. 32 caracteres), `MAILERSEND_API_KEY`.
   - [x] `config.spec.ts`
   - [x] Chaves do GitHub (`GITHUB_CLIENT_ID` mín. 20, `GITHUB_CLIENT_SECRET` mín. 40)
-  - [ ] `GOOGLE_CLIENT_ID`/`SECRET` só quando o Google for ligado (passo 6)
+  - [x] Chaves do Google (`GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`, mín. 30)
 - [x] `.env.example` com todas as variáveis (sem valores reais) e `.env` no `.gitignore`
 
 ### 2.2 Adapters de borda
@@ -140,12 +140,13 @@ coloca algo rodando o quanto antes e troca os fakes por implementações reais a
     (e `/user/emails` quando o e-mail vier `null`)
   - Timeout em toda chamada; resposta inesperada vira `AppError`, nunca `Error`
 - [ ] specs com o `fetch` mockado
-- [ ] **Google desativado por enquanto.** O código do Google entra completo (adapter e specs),
-      mas sem chaves na config: `sign-in` e `link` com `google` respondem um erro de provedor
-      desativado (ex.: `identity.oauth_provider_disabled`) em vez de chamar a API. Só o GitHub
-      funciona de verdade.
-  - [ ] Para ligar depois: criar o cliente OAuth no Google Cloud Console, pôr
-        `GOOGLE_CLIENT_ID`/`SECRET` na config e no `.env.example` e tirar a trava
+- [ ] Google e GitHub ativos, os dois com as chaves na config
+  - [x] Cliente OAuth criado no Google Cloud Console (redirect URI de dev cadastrado, contas de
+        teste na tela de consentimento enquanto o app estiver em _Testing_)
+  - [ ] O `redirect_uri` é obrigatório na troca do `code` do Google e precisa ser idêntico ao da
+        autorização: vem da config ou passa a ser argumento do `exchangeCode`
+  - [ ] Google: `subject = sub`; recusar quando `email_verified` vier `false`
+  - [ ] GitHub: `subject = id` (não o `login`); `name` cai para o `login` quando vier `null`
 
 ## 7. Fechamento
 
