@@ -12,7 +12,7 @@ coloca algo rodando o quanto antes e troca os fakes por implementações reais a
 
 ## 0. Decisões antes de começar
 
-- [ ] **`AccessToken` assíncrono.** A porta é síncrona (`issue(): string`,
+- [x] **`AccessToken` assíncrono.** A porta é síncrona (`issue(): string`,
       `verify(): AccessTokenClaims | null`), mas o `jose` só tem API assíncrona. Escolha uma:
   - **Recomendado:** a porta passa a devolver `Promise`. Mudam o `SessionIssuer`, o
     `AuthenticateUseCase`, o `FakeAccessToken` e os specs que chamam `accessToken.issue`
@@ -41,7 +41,8 @@ coloca algo rodando o quanto antes e troca os fakes por implementações reais a
       Variáveis: `NODE_ENV` (`develop`), `PORT` (`3000`), `TRUST_PROXY` (`0`), `LOG_LEVEL`
       (`info`), `MONGO_URL`, `JWT_SECRET` (mín. 32 caracteres), `MAILERSEND_API_KEY`.
   - [x] `config.spec.ts`
-  - [ ] Chaves de OAuth (`GOOGLE_CLIENT_ID`/`SECRET`, `GITHUB_CLIENT_ID`/`SECRET`) no passo 6
+  - [x] Chaves do GitHub (`GITHUB_CLIENT_ID` mín. 20, `GITHUB_CLIENT_SECRET` mín. 40)
+  - [ ] `GOOGLE_CLIENT_ID`/`SECRET` só quando o Google for ligado (passo 6)
 - [x] `.env.example` com todas as variáveis (sem valores reais) e `.env` no `.gitignore`
 
 ### 2.2 Adapters de borda
@@ -115,13 +116,17 @@ coloca algo rodando o quanto antes e troca os fakes por implementações reais a
 
 ## 5. Segurança: hash e JWT
 
-- [ ] `src/modules/identity/infrastructure/argon2-password-hasher.ts` — `PasswordHasher` com
+- [x] `src/modules/identity/infrastructure/argon2-password-hasher.ts` — `PasswordHasher` com
       `argon2id`
-  - [ ] spec (hash ≠ senha, verify aceita a certa e recusa a errada)
-- [ ] `src/modules/identity/infrastructure/jose-access-token.ts` — `AccessToken` com HS256,
-      `JWT_SECRET` da config, expiração curta (ex.: 15 min), claims `sub = accountId` e `sid`
-  - [ ] spec (emite e verifica, recusa token expirado, adulterado ou assinado com outro segredo)
-- [ ] Trocar os fakes por esses no `main.ts`
+  - [x] spec (hash ≠ senha, verify aceita a certa e recusa a errada)
+- [x] `src/modules/identity/infrastructure/jose-access-token.ts` — `AccessToken` com HS256,
+      `JWT_SECRET` da config, expiração de 15 min (`ACCESS_TOKEN_TTL_MS`), claims
+      `sub = accountId` e `sid`
+  - [x] spec (emite e verifica, recusa token expirado, adulterado, `alg: none` ou assinado com
+        outro segredo)
+- [x] Porta `AccessToken` devolve `Promise` (decisão da seção 0)
+- [x] `createIdentitySecurityAdapters({ jwtSecret, clock })` no `identity.module.ts`, usado pela
+      `start` no lugar dos fakes
 
 ## 6. E-mail e OAuth
 
@@ -135,6 +140,12 @@ coloca algo rodando o quanto antes e troca os fakes por implementações reais a
     (e `/user/emails` quando o e-mail vier `null`)
   - Timeout em toda chamada; resposta inesperada vira `AppError`, nunca `Error`
 - [ ] specs com o `fetch` mockado
+- [ ] **Google desativado por enquanto.** O código do Google entra completo (adapter e specs),
+      mas sem chaves na config: `sign-in` e `link` com `google` respondem um erro de provedor
+      desativado (ex.: `identity.oauth_provider_disabled`) em vez de chamar a API. Só o GitHub
+      funciona de verdade.
+  - [ ] Para ligar depois: criar o cliente OAuth no Google Cloud Console, pôr
+        `GOOGLE_CLIENT_ID`/`SECRET` na config e no `.env.example` e tirar a trava
 
 ## 7. Fechamento
 
