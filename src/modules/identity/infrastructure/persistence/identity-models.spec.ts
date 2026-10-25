@@ -12,7 +12,7 @@ import {
 } from "@/identity/domain/membership.entity";
 import { SessionRevocationReason } from "@/identity/domain/session.entity";
 
-type ModelKey = keyof IdentityModels;
+type ModelKey = Exclude<keyof IdentityModels, "ready">;
 
 const objectId = () => new Types.ObjectId();
 const tokenHash = () => faker.string.hexadecimal({ length: 64, prefix: "" });
@@ -94,11 +94,7 @@ describe("IdentityModels", () => {
       })
       .asPromise();
     models = new IdentityModels(connection);
-    await Promise.all(
-      Object.values(models).map((model: mongoose.Model<unknown>) =>
-        model.syncIndexes(),
-      ),
-    );
+    await models.ready();
   });
 
   afterAll(async () => {

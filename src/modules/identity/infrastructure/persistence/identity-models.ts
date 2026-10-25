@@ -47,4 +47,15 @@ export class IdentityModels {
       emailVerificationSchema,
     );
   }
+
+  async ready(): Promise<void> {
+    await Promise.all([
+      this.accounts.init(),
+      this.credentials.init(),
+      this.memberships.init(),
+      this.sessions.init(),
+      this.passwordResets.init(),
+      this.emailVerifications.init(),
+    ]);
+  }
 }
