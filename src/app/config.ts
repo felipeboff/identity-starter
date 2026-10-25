@@ -25,6 +25,7 @@ export type Env = {
   LOG_LEVEL: LogLevel;
   MONGO_URL: string;
   REDIS_URL: URL;
+  CORS_ORIGINS: URL[];
   JWT_SECRET: string;
   APP_URL: URL;
   MAILER: MailerKind;
@@ -49,8 +50,13 @@ const envSchema = v.object<Env>({
     protocols: ["redis", "rediss"],
     default: new URL("redis://localhost:6379"),
   }),
+  CORS_ORIGINS: v.array(v.url(), {
+    csv: true,
+    minLength: 1,
+    default: [new URL("http://localhost:5173")],
+  }),
   JWT_SECRET: v.string({ minLength: 32 }),
-  APP_URL: v.url({ default: new URL("http://localhost:3000") }),
+  APP_URL: v.url({ default: new URL("http://localhost:5173") }),
   MAILER: v.enum({ values: Object.values(MailerKind), default: "log" }),
   MAIL_FROM_EMAIL: v.email(),
   MAIL_FROM_NAME: v.string({

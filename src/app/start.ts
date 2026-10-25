@@ -79,6 +79,7 @@ export const start = async (options: StartOptions): Promise<RunningApp> => {
     logContext,
     readiness: database,
     trustProxy: env.TRUST_PROXY,
+    corsOrigins: env.CORS_ORIGINS.map((origin) => origin.origin),
   });
 
   const server = app.listen(env.PORT);

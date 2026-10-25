@@ -33,6 +33,8 @@ afterAll(async () => {
   await cache.close();
 });
 
+const ALLOWED_ORIGIN = new URL(faker.internet.url()).origin;
+
 const buildOAuthClient = () => ({
   clientId: faker.string.alphanumeric(20),
   clientSecret: faker.string.alphanumeric(40),
@@ -57,6 +59,7 @@ const createApp = async (
   logContext = new AsyncLocalLogContext(),
   logger: Logger = new FakeLogger(),
   ready = true,
+  corsOrigins = [ALLOWED_ORIGIN],
 ) =>
   createServer({
     modules: {
@@ -71,6 +74,7 @@ const createApp = async (
     logContext,
     readiness: { isReady: () => Promise.resolve(ready) },
     trustProxy,
+    corsOrigins,
   });
 
 type App = Awaited<ReturnType<typeof createApp>>;
@@ -121,11 +125,11 @@ describe("createServer", () => {
   it("answers with security and CORS headers", async () => {
     const app = await createApp();
 
-    const response = await signUp(app);
+    const response = await signUp(app).set("origin", ALLOWED_ORIGIN);
 
     expect(response.headers).toMatchObject({
       "x-content-type-options": "nosniff",
-      "access-control-allow-origin": "*",
+      "access-control-allow-origin": ALLOWED_ORIGIN,
       "access-control-expose-headers": "x-request-id",
     });
     expect(response.headers).not.toHaveProperty("x-powered-by");
@@ -238,5 +242,19 @@ describe("createServer", () => {
       expect(response.status).toBe(503);
       expect(response.body).toStrictEqual({ status: "unavailable" });
     });
+  });
+
+  it("allows CORS only for the configured origins", async () => {
+    const app = await createApp();
+    const unknown = `${ALLOWED_ORIGIN}.${faker.internet.domainWord()}`;
+
+    const allowed = await request(app)
+      .get("/health")
+      .set("origin", ALLOWED_ORIGIN);
+    const refused = await request(app).get("/health").set("origin", unknown);
+
+    expect(allowed.headers["access-control-allow-origin"]).toBe(ALLOWED_ORIGIN);
+    expect(refused.headers["access-control-allow-origin"]).toBeUndefined();
+    expect(refused.status).toBe(200);
   });
 });

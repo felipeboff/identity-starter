@@ -37,6 +37,7 @@ const buildEnv = (overrides: Partial<Env> = {}): Env => ({
   REDIS_URL: new URL(
     `redis://127.0.0.1:${faker.number.int({ min: 1_024, max: 65_535 })}`,
   ),
+  CORS_ORIGINS: [new URL(faker.internet.url())],
   JWT_SECRET: faker.string.alphanumeric(64),
   APP_URL: new URL(faker.internet.url()),
   MAILER: "log",

@@ -15,6 +15,7 @@ export type CreateServerOptions = Readonly<{
   logContext: AsyncLocalLogContext;
   readiness: Readonly<{ isReady(): Promise<boolean> }>;
   trustProxy: number;
+  corsOrigins: readonly string[];
 }>;
 
 export const createServer = ({
@@ -23,6 +24,7 @@ export const createServer = ({
   logContext,
   readiness,
   trustProxy,
+  corsOrigins,
 }: CreateServerOptions): Express => {
   const adapter = new ExpressAdapter({
     dispatcher: new Dispatcher(),
@@ -35,7 +37,7 @@ export const createServer = ({
     .set("trust proxy", trustProxy)
     .use(adapter.requestContext())
     .use(helmet())
-    .use(cors({ exposedHeaders: ["x-request-id"] }))
+    .use(cors({ origin: [...corsOrigins], exposedHeaders: ["x-request-id"] }))
     .use(express.json())
     .get("/health", async (_req, res) => {
       const ready = await readiness.isReady();

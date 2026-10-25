@@ -18,6 +18,7 @@ const buildSource = (overrides: Record<string, string | undefined> = {}) => ({
   LOG_LEVEL: faker.helpers.arrayElement(Object.values(LogLevel)),
   MONGO_URL: faker.internet.url(),
   REDIS_URL: `redis://${faker.internet.domainName()}:${faker.number.int({ min: 1_024, max: 65_535 })}`,
+  CORS_ORIGINS: `${faker.internet.url()},${faker.internet.url()}`,
   JWT_SECRET: faker.string.alphanumeric(64),
   APP_URL: faker.internet.url(),
   MAILER: faker.helpers.arrayElement(MAILER_KINDS),
@@ -52,6 +53,9 @@ describe("env", () => {
       PORT: Number(processEnv.PORT),
       TRUST_PROXY: Number(processEnv.TRUST_PROXY),
       REDIS_URL: new URL(processEnv.REDIS_URL),
+      CORS_ORIGINS: processEnv.CORS_ORIGINS.split(",").map(
+        (url) => new URL(url),
+      ),
       APP_URL: new URL(processEnv.APP_URL),
       GITHUB_REDIRECT_URI: new URL(processEnv.GITHUB_REDIRECT_URI),
       GOOGLE_REDIRECT_URI: new URL(processEnv.GOOGLE_REDIRECT_URI),
@@ -109,6 +113,7 @@ describe("loadEnv", () => {
       PORT: Number(source.PORT),
       TRUST_PROXY: Number(source.TRUST_PROXY),
       REDIS_URL: new URL(source.REDIS_URL),
+      CORS_ORIGINS: source.CORS_ORIGINS.split(",").map((url) => new URL(url)),
       APP_URL: new URL(source.APP_URL),
       GITHUB_REDIRECT_URI: new URL(source.GITHUB_REDIRECT_URI),
       GOOGLE_REDIRECT_URI: new URL(source.GOOGLE_REDIRECT_URI),
@@ -122,6 +127,7 @@ describe("loadEnv", () => {
       TRUST_PROXY: undefined,
       LOG_LEVEL: undefined,
       REDIS_URL: undefined,
+      CORS_ORIGINS: undefined,
       APP_URL: undefined,
       MAILER: undefined,
       MAIL_FROM_NAME: undefined,
@@ -138,7 +144,10 @@ describe("loadEnv", () => {
       MAIL_FROM_NAME: "Resolve Hub",
     });
     expect(env.REDIS_URL.href).toBe("redis://localhost:6379");
-    expect(env.APP_URL.href).toBe("http://localhost:3000/");
+    expect(env.CORS_ORIGINS.map((url) => url.origin)).toStrictEqual([
+      "http://localhost:5173",
+    ]);
+    expect(env.APP_URL.href).toBe("http://localhost:5173/");
   });
 
   it("ignores variables it does not know", () => {
@@ -177,6 +186,11 @@ describe("loadEnv", () => {
       "REDIS_URL not a redis URL",
       { REDIS_URL: faker.internet.url() },
       "REDIS_URL",
+    ],
+    [
+      "CORS_ORIGINS with something that is not a URL",
+      { CORS_ORIGINS: `${faker.internet.url()},${faker.lorem.word()}` },
+      "CORS_ORIGINS.1",
     ],
     [
       "JWT_SECRET shorter than 32",
