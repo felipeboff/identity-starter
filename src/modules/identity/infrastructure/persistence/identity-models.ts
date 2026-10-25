@@ -1,17 +1,23 @@
 import type { Connection, Model } from "mongoose";
 
-import { AccountDocument, accountSchema } from "./account.schema";
-import { CredentialDocument, credentialSchema } from "./credential.schema";
+import { AccountDocument, accountSchema } from "./schemas/account.schema";
+import {
+  CredentialDocument,
+  credentialSchema,
+} from "./schemas/credential.schema";
 import {
   EmailVerificationDocument,
   emailVerificationSchema,
-} from "./email-verification.schema";
-import { MembershipDocument, membershipSchema } from "./membership.schema";
+} from "./schemas/email-verification.schema";
+import {
+  MembershipDocument,
+  membershipSchema,
+} from "./schemas/membership.schema";
 import {
   PasswordResetDocument,
   passwordResetSchema,
-} from "./password-reset.schema";
-import { SessionDocument, sessionSchema } from "./session.schema";
+} from "./schemas/password-reset.schema";
+import { SessionDocument, sessionSchema } from "./schemas/session.schema";
 
 export class IdentityModels {
   readonly accounts: Model<AccountDocument>;
