@@ -2,6 +2,7 @@ import { faker } from "@faker-js/faker";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { toOutputAccount } from "../mappers/toOutputAccount";
 import {
   IdentityContext,
   createIdentityContext,
@@ -115,5 +116,12 @@ describe("SignUpWithEmailUseCase", () => {
     expect(await ctx.accounts.findByEmail(input.email)).toBeNull();
     expect(await ctx.credentials.findByEmail(input.email)).toBeNull();
     expect(await ctx.memberships.findById(membership.id.value)).toBeNull();
+  });
+
+  it("returns the account as it was stored", async () => {
+    const output = await useCase.execute(makeInput());
+
+    const stored = await ctx.accounts.findById(output.account.id);
+    expect(stored && toOutputAccount(stored)).toStrictEqual(output.account);
   });
 });

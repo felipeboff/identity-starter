@@ -24,6 +24,12 @@ import {
   OAuthProviderName,
 } from "@/identity/domain/value-objects/oauth-provider.value-object";
 
+type OAuthSignIn = Readonly<{
+  account: Account;
+  issued: IssuedSession;
+  isNewAccount: boolean;
+}>;
+
 /**
  * Signing in and signing up are the same gesture: a known `provider + subject`
  * opens a session, an unknown one creates the account first.
@@ -37,7 +43,7 @@ export class SignInWithOAuthUseCase extends UseCase<{
     const provider = OAuthProvider.create(input.provider).value;
 
     const profile = await this.deps.oauth.exchangeCode(provider, input.code);
-    return this.deps.transactions.run(async () => {
+    const signedIn = await this.deps.transactions.run(async () => {
       const at = this.deps.clock.now();
 
       const credential = await this.deps.credentials.findByProviderAndSubject(
@@ -49,13 +55,20 @@ export class SignInWithOAuthUseCase extends UseCase<{
         ? this.signIn(credential, input, at)
         : this.signUp(provider, profile, input, at);
     });
+
+    return {
+      account: toOutputAccount(signedIn.account),
+      isNewAccount: signedIn.isNewAccount,
+      accessToken: signedIn.issued.accessToken,
+      refreshToken: signedIn.issued.refreshToken,
+    };
   }
 
   private async signIn(
     credential: Credential,
     device: Device,
     at: Date,
-  ): Promise<SignInWithOAuthOutput> {
+  ): Promise<OAuthSignIn> {
     if (credential.isDeleted()) {
       throw new AppError(IdentityError.CredentialDeleted, {
         credentialId: credential.id.value,
@@ -82,7 +95,7 @@ export class SignInWithOAuthUseCase extends UseCase<{
       at,
     );
 
-    return this.output(account, issued, false);
+    return { account, issued, isNewAccount: false };
   }
 
   private async signUp(
@@ -90,7 +103,7 @@ export class SignInWithOAuthUseCase extends UseCase<{
     profile: OAuthProfile,
     device: Device,
     at: Date,
-  ): Promise<SignInWithOAuthOutput> {
+  ): Promise<OAuthSignIn> {
     // Linking to an existing e-mail must be an explicit, authenticated LinkOAuth.
     const existingAccount = await this.deps.accounts.findByEmail(profile.email);
     if (existingAccount) {
@@ -145,19 +158,6 @@ export class SignInWithOAuthUseCase extends UseCase<{
       at,
     );
 
-    return this.output(account, issued, true);
-  }
-
-  private output(
-    account: Account,
-    issued: IssuedSession,
-    isNewAccount: boolean,
-  ): SignInWithOAuthOutput {
-    return {
-      account: toOutputAccount(account),
-      isNewAccount,
-      accessToken: issued.accessToken,
-      refreshToken: issued.refreshToken,
-    };
+    return { account, issued, isNewAccount: true };
   }
 }

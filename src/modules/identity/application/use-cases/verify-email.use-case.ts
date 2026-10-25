@@ -17,7 +17,7 @@ export class VerifyEmailUseCase extends UseCase<{
   deps: VerifyEmailDeps;
 }> {
   async execute(input: VerifyEmailInput): Promise<VerifyEmailOutput> {
-    return this.deps.transactions.run(async () => {
+    const account = await this.deps.transactions.run(async () => {
       const at = this.deps.clock.now();
 
       const verification = await this.deps.emailVerifications.findByTokenHash(
@@ -39,7 +39,9 @@ export class VerifyEmailUseCase extends UseCase<{
       await this.deps.emailVerifications.save(verification);
       await this.deps.accounts.save(account);
 
-      return { account: toOutputAccount(account) };
+      return account;
     });
+
+    return { account: toOutputAccount(account) };
   }
 }

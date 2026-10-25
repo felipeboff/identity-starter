@@ -2,6 +2,7 @@ import { faker } from "@faker-js/faker";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { toOutputAccount } from "../mappers/toOutputAccount";
 import {
   IdentityContext,
   createIdentityContext,
@@ -131,5 +132,15 @@ describe("VerifyEmailUseCase", () => {
         )
       )?.isConsumed(),
     ).toBe(false);
+  });
+
+  it("returns the account as it was stored", async () => {
+    const ana = await seedAccount(ctx);
+    const { token } = await saveVerification(ana.accountId);
+
+    const output = await useCase.execute({ token });
+
+    const stored = await ctx.accounts.findById(ana.accountId);
+    expect(stored && toOutputAccount(stored)).toStrictEqual(output.account);
   });
 });

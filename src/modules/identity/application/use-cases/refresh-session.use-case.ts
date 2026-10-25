@@ -18,7 +18,7 @@ export class RefreshSessionUseCase extends UseCase<{
   deps: RefreshSessionDeps;
 }> {
   async execute(input: RefreshSessionInput): Promise<RefreshSessionOutput> {
-    return this.deps.transactions.run(async () => {
+    const refreshed = await this.deps.transactions.run(async () => {
       const at = this.deps.clock.now();
       const currentSession = await this.deps.sessions.findByTokenHash(
         this.deps.tokens.hash(input.refreshToken),
@@ -89,7 +89,7 @@ export class RefreshSessionUseCase extends UseCase<{
       await this.deps.sessions.save(currentSession);
       await this.deps.accounts.save(account);
 
-      const { accessToken, refreshToken } = await this.deps.sessionIssuer.issue(
+      const issued = await this.deps.sessionIssuer.issue(
         {
           accountId: account.id.value,
           credentialId: credential.id.value,
@@ -100,11 +100,13 @@ export class RefreshSessionUseCase extends UseCase<{
         at,
       );
 
-      return {
-        account: toOutputAccount(account),
-        accessToken,
-        refreshToken,
-      };
+      return { account, issued };
     });
+
+    return {
+      account: toOutputAccount(refreshed.account),
+      accessToken: refreshed.issued.accessToken,
+      refreshToken: refreshed.issued.refreshToken,
+    };
   }
 }

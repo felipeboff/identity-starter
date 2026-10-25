@@ -25,7 +25,7 @@ export class SignUpWithEmailUseCase extends UseCase<{
   async execute(input: SignUpWithEmailInput): Promise<SignUpWithEmailOutput> {
     const passwordHash = await this.deps.passwordHasher.hash(input.password);
 
-    return this.deps.transactions.run(async () => {
+    const signedUp = await this.deps.transactions.run(async () => {
       const existingAccount = await this.deps.accounts.findByEmail(input.email);
       if (existingAccount) {
         throw new AppError(IdentityError.AccountEmailTaken, {
@@ -84,7 +84,7 @@ export class SignUpWithEmailUseCase extends UseCase<{
       await this.deps.accounts.save(account);
       await this.deps.memberships.save(membership);
 
-      const { accessToken, refreshToken } = await this.deps.sessionIssuer.issue(
+      const issued = await this.deps.sessionIssuer.issue(
         {
           accountId,
           credentialId,
@@ -95,11 +95,13 @@ export class SignUpWithEmailUseCase extends UseCase<{
         at,
       );
 
-      return {
-        account: toOutputAccount(account),
-        accessToken,
-        refreshToken,
-      };
+      return { account, issued };
     });
+
+    return {
+      account: toOutputAccount(signedUp.account),
+      accessToken: signedUp.issued.accessToken,
+      refreshToken: signedUp.issued.refreshToken,
+    };
   }
 }

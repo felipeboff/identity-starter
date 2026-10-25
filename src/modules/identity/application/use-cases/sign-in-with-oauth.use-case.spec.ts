@@ -2,6 +2,7 @@ import { faker } from "@faker-js/faker";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { toOutputAccount } from "../mappers/toOutputAccount";
 import { OAuthProfile } from "../ports/oauth-gateway";
 import {
   IdentityContext,
@@ -254,4 +255,24 @@ describe("SignInWithOAuthUseCase", () => {
       expect(running).toStrictEqual([false]);
     },
   );
+
+  it("returns a linked account as it was stored", async () => {
+    const { profile, input } = givenGoogleLogin();
+    const ana = await seedAccount(ctx, { email: profile.email });
+    await saveGoogleCredential(ana.accountId, profile);
+
+    const output = await useCase.execute(input);
+
+    const stored = await ctx.accounts.findById(ana.accountId);
+    expect(stored && toOutputAccount(stored)).toStrictEqual(output.account);
+  });
+
+  it("returns a new account as it was stored", async () => {
+    const { input } = givenGoogleLogin();
+
+    const output = await useCase.execute(input);
+
+    const stored = await ctx.accounts.findById(output.account.id);
+    expect(stored && toOutputAccount(stored)).toStrictEqual(output.account);
+  });
 });

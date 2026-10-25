@@ -84,29 +84,28 @@ export class SignInWithEmailUseCase extends UseCase<{
       });
     }
 
-    return this.deps.transactions.run(async () => {
+    const issued = await this.deps.transactions.run(async () => {
       const at = this.deps.clock.now();
       account.markAsLastSeen(at);
 
       await this.deps.accounts.save(account);
 
-      const { accessToken, refreshToken } =
-        await this.deps.sessionIssuer.replace(
-          {
-            accountId: account.id.value,
-            credentialId: credential.id.value,
-            membershipId: membership.id.value,
-            userAgent: input.userAgent,
-            ipAddress: input.ipAddress,
-          },
-          at,
-        );
-
-      return {
-        account: toOutputAccount(account),
-        accessToken,
-        refreshToken,
-      };
+      return this.deps.sessionIssuer.replace(
+        {
+          accountId: account.id.value,
+          credentialId: credential.id.value,
+          membershipId: membership.id.value,
+          userAgent: input.userAgent,
+          ipAddress: input.ipAddress,
+        },
+        at,
+      );
     });
+
+    return {
+      account: toOutputAccount(account),
+      accessToken: issued.accessToken,
+      refreshToken: issued.refreshToken,
+    };
   }
 }
