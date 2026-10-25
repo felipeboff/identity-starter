@@ -17,6 +17,8 @@ const buildSource = (overrides: Record<string, string | undefined> = {}) => ({
   MAILERSEND_API_KEY: faker.string.alphanumeric(40),
   GITHUB_CLIENT_ID: faker.string.alphanumeric(20),
   GITHUB_CLIENT_SECRET: faker.string.hexadecimal({ length: 40, prefix: "" }),
+  GOOGLE_CLIENT_ID: `${faker.string.numeric(12)}-${faker.string.alphanumeric(32)}.apps.googleusercontent.com`,
+  GOOGLE_CLIENT_SECRET: `GOCSPX-${faker.string.alphanumeric(28)}`,
   ...overrides,
 });
 
@@ -134,6 +136,24 @@ describe("loadEnv", () => {
       },
       "GITHUB_CLIENT_SECRET",
     ],
+    [
+      "GOOGLE_CLIENT_ID shorter than 30",
+      {
+        GOOGLE_CLIENT_ID: faker.string.alphanumeric({
+          length: { min: 1, max: 29 },
+        }),
+      },
+      "GOOGLE_CLIENT_ID",
+    ],
+    [
+      "GOOGLE_CLIENT_SECRET shorter than 30",
+      {
+        GOOGLE_CLIENT_SECRET: faker.string.alphanumeric({
+          length: { min: 1, max: 29 },
+        }),
+      },
+      "GOOGLE_CLIENT_SECRET",
+    ],
   ])("refuses %s", (_, overrides, field) => {
     expect(() => loadEnv(buildSource(overrides))).toThrow(
       expect.objectContaining({
@@ -156,6 +176,8 @@ describe("loadEnv", () => {
             expect.objectContaining({ field: "MAILERSEND_API_KEY" }),
             expect.objectContaining({ field: "GITHUB_CLIENT_ID" }),
             expect.objectContaining({ field: "GITHUB_CLIENT_SECRET" }),
+            expect.objectContaining({ field: "GOOGLE_CLIENT_ID" }),
+            expect.objectContaining({ field: "GOOGLE_CLIENT_SECRET" }),
           ],
         },
       }),

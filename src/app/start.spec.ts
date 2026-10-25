@@ -37,6 +37,8 @@ const buildEnv = (overrides: Partial<Env> = {}): Env => ({
   MAILERSEND_API_KEY: faker.string.alphanumeric(40),
   GITHUB_CLIENT_ID: faker.string.alphanumeric(20),
   GITHUB_CLIENT_SECRET: faker.string.hexadecimal({ length: 40, prefix: "" }),
+  GOOGLE_CLIENT_ID: `${faker.string.numeric(12)}-${faker.string.alphanumeric(32)}.apps.googleusercontent.com`,
+  GOOGLE_CLIENT_SECRET: `GOCSPX-${faker.string.alphanumeric(28)}`,
   ...overrides,
 });
 

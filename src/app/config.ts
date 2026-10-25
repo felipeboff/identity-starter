@@ -19,6 +19,8 @@ export type Env = {
   MAILERSEND_API_KEY: string;
   GITHUB_CLIENT_ID: string;
   GITHUB_CLIENT_SECRET: string;
+  GOOGLE_CLIENT_ID: string;
+  GOOGLE_CLIENT_SECRET: string;
 };
 
 const envSchema = v.object<Env>({
@@ -31,6 +33,8 @@ const envSchema = v.object<Env>({
   MAILERSEND_API_KEY: v.string({ trim: true, minLength: 1 }),
   GITHUB_CLIENT_ID: v.string({ minLength: 20 }),
   GITHUB_CLIENT_SECRET: v.string({ minLength: 40 }),
+  GOOGLE_CLIENT_ID: v.string({ minLength: 30 }),
+  GOOGLE_CLIENT_SECRET: v.string({ minLength: 30 }),
 });
 
 export const loadEnv = (
