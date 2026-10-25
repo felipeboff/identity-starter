@@ -94,23 +94,23 @@ coloca algo rodando o quanto antes e troca os fakes por implementações reais a
 ## 4. Persistência com Mongoose
 
 - [x] `src/shared/infrastructure/mongo/mongo-database.ts` — `MongoDatabase`: conecta antes do `listen` (10 s, senão sai 1), loga queda e volta, `isReady()` para o `GET /health`, encerramento limpo com `SIGTERM`/`SIGINT` (spec: `.specs/features/mongo-connection/`)
-- [ ] Um repositório por porta em `src/modules/identity/infrastructure/persistence/`:
-  - [ ] `mongo-account.repository.ts` — índice único em `email`
-  - [ ] `mongo-credential.repository.ts` — índice único em `(provider, subject)`; índice em
-        `accountId` e em `email`
-  - [ ] `mongo-membership.repository.ts` — índice único em `accountId`
-  - [ ] `mongo-session.repository.ts` — índice único em `tokenHash`; índice em `accountId`
-  - [ ] `mongo-password-reset.repository.ts` — índice único em `tokenHash`; índice em `accountId`
-  - [ ] `mongo-email-verification.repository.ts` — índice único em `tokenHash`; índice em
-        `accountId`
-- [ ] Regras dos repositórios:
-  - schema e model só dentro do adapter; o domínio nunca vê `Document` nem `ObjectId`
-  - `save(entity)` grava `entity.toSnapshot()` com upsert por `_id`
-  - `find*` devolve `Entity.restore(...)` a partir do que veio do banco, ou `null`
-  - `_id` como `ObjectId` no banco, string hex no domínio (converte no adapter)
-- [ ] Testes de integração com `mongodb-memory-server`, um por repositório (salva, busca,
-      índice único recusa duplicado)
-  - [ ] Separar a config se ficarem lentos (`vitest.integration.config.ts`), sem perder os 100%
+- [x] Um repositório por porta em `src/modules/identity/infrastructure/persistence/`
+      (`mongo-<entidade>.repository.ts`), com `schemas/`, `mappers/` e o `IdentityModels`
+- [x] `OptimisticWriter` (`src/shared/infrastructure/mongo/`): cria na versão 1, atualiza
+      filtrando por `{ _id, version }` e lança `shared.version_conflict`; `_id` repetido na
+      criação vira `shared.already_exists`; o resto sobe para o repositório
+- [x] Listagens em ordem de criação (`createdAt`, depois `_id`)
+- [x] Testes de integração com `mongodb-memory-server` por repositório (`useMemoryMongo()`)
+- [x] `createMongoIdentityRepositories(connection)` no `identity.module.ts`, usado pela `start`
+- [x] Testado na mão: sign-up, restart do processo, sign-in e `GET /me` com a mesma conta
+- [x] Índices em produção: `autoIndex` ligado em todos os ambientes, e a `start` espera
+      `IdentityModels.ready()` (os índices prontos) antes de escutar a porta
+- [x] Sign-ups simultâneos com o mesmo e-mail: `identity.credential_email_taken` /
+      `identity.account_email_taken` em vez de `500` (testado com 8 em paralelo)
+- [x] Versão em memória acompanha o banco: `markAsSaved()` nas entidades, chamado pelos
+      repositórios depois de gravar
+- [x] Repositórios em memória conferem versão, id repetido, e-mail e `(provider, subject)` únicos;
+      um contrato por porta (`application/testing/contracts/`) roda nas duas implementações
 - [x] `docker-compose.yml` com o Mongo 8 e healthcheck, dados em `.data/mongo` (no `.gitignore`): `docker compose up -d`
 
 ## 5. Segurança: hash e JWT
@@ -138,6 +138,13 @@ coloca algo rodando o quanto antes e troca os fakes por implementações reais a
 
 ## 7. Fechamento
 
+- [ ] **Nada em memória na `start`:** trocar `createInMemoryIdentityAdapters()` por uma fábrica só
+      com adapters reais (`argon2`, `jose`, MailerSend, OAuth) e apagar o
+      `createInMemoryIdentityAdapters` do `identity.module.ts`
+- [ ] Remover a recusa de `NODE_ENV=prod` da `start` e o erro
+      `shared.in_memory_adapters_in_production`
+- [ ] Regra no ESLint: código de produção não importa nada de `**/testing/**` (só specs e as
+      próprias pastas `testing/`), para os fakes nunca mais voltarem para a `start`
 - [ ] `pnpm lint`, `pnpm typecheck` e `pnpm test:coverage` verdes
 - [ ] Subir com `docker compose up -d` + `pnpm dev` e fazer o fluxo: sign-up → sign-in →
       `GET /me` → refresh → sign-out
