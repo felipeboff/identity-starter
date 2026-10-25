@@ -39,7 +39,7 @@ describe("AuthenticateMiddleware", () => {
   it("hands the token's actor to next and returns what next returns", async () => {
     const ana = await seedAccount(ctx);
     const { session, actor } = await seedSession(ctx, ana);
-    const token = ctx.accessToken.issue({
+    const token = await ctx.accessToken.issue({
       accountId: ana.accountId,
       sessionId: session.id.value,
     });

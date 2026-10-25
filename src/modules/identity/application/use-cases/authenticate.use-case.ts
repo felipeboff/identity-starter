@@ -13,7 +13,7 @@ export class AuthenticateUseCase extends UseCase<{
   deps: AuthenticateDeps;
 }> {
   async execute(input: AuthenticateInput): Promise<Actor> {
-    const claims = this.deps.accessToken.verify(input.accessToken);
+    const claims = await this.deps.accessToken.verify(input.accessToken);
     if (!claims) throw new AppError(IdentityError.InvalidAccessToken);
 
     const session = await this.deps.sessions.findById(claims.sessionId);

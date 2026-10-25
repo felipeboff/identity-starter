@@ -51,16 +51,16 @@ export class FakeTokenIssuer implements TokenIssuer {
 }
 
 export class FakeAccessToken implements AccessToken {
-  issue(claims: AccessTokenClaims): string {
-    return `access:${claims.accountId}:${claims.sessionId}`;
+  issue(claims: AccessTokenClaims): Promise<string> {
+    return Promise.resolve(`access:${claims.accountId}:${claims.sessionId}`);
   }
 
-  verify(token: string): AccessTokenClaims | null {
+  verify(token: string): Promise<AccessTokenClaims | null> {
     const [prefix, accountId, sessionId] = token.split(":");
     if (prefix !== "access" || !accountId || !sessionId) {
-      return null;
+      return Promise.resolve(null);
     }
-    return { accountId, sessionId };
+    return Promise.resolve({ accountId, sessionId });
   }
 }
 

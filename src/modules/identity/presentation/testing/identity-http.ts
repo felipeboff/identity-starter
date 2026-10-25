@@ -71,7 +71,7 @@ export const createIdentityHttp = () => {
   const signIn = async (options?: SeedAccountOptions) => {
     const seeded = await seedAccount(ctx, options);
     const { session, refreshToken, actor } = await seedSession(ctx, seeded);
-    const token = ctx.accessToken.issue({
+    const token = await ctx.accessToken.issue({
       accountId: seeded.accountId,
       sessionId: session.id.value,
     });

@@ -67,23 +67,23 @@ describe("fakes", () => {
   });
 
   describe("FakeAccessToken", () => {
-    it("issues access:<accountId>:<sessionId> and verifies it back", () => {
+    it("issues access:<accountId>:<sessionId> and verifies it back", async () => {
       const accessToken = new FakeAccessToken();
       const claims = {
         accountId: faker.database.mongodbObjectId(),
         sessionId: faker.database.mongodbObjectId(),
       };
 
-      const token = accessToken.issue(claims);
+      const token = await accessToken.issue(claims);
 
       expect(token).toBe(`access:${claims.accountId}:${claims.sessionId}`);
-      expect(accessToken.verify(token)).toEqual(claims);
+      await expect(accessToken.verify(token)).resolves.toEqual(claims);
     });
 
     it.each(["bearer:a:b", "access::b", "access:a:", "garbage"])(
       "returns null for %s",
-      (token) => {
-        expect(new FakeAccessToken().verify(token)).toBeNull();
+      async (token) => {
+        await expect(new FakeAccessToken().verify(token)).resolves.toBeNull();
       },
     );
   });

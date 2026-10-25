@@ -53,7 +53,7 @@ export class SessionIssuer {
     );
     await this.deps.sessions.save(session);
 
-    const accessToken = this.deps.accessToken.issue({
+    const accessToken = await this.deps.accessToken.issue({
       accountId: input.accountId,
       sessionId: session.id.value,
     });

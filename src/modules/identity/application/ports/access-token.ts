@@ -4,6 +4,6 @@ export type AccessTokenClaims = {
 };
 
 export type AccessToken = {
-  issue(claims: AccessTokenClaims): string;
-  verify(token: string): AccessTokenClaims | null;
+  issue(claims: AccessTokenClaims): Promise<string>;
+  verify(token: string): Promise<AccessTokenClaims | null>;
 };

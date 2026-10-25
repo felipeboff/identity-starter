@@ -41,7 +41,7 @@ describe("AuthenticateUseCase", () => {
     const { session } = await seedSession(ctx, ana);
 
     const actor = await useCase.execute({
-      accessToken: tokenFor(ana.accountId, session.id.value),
+      accessToken: await tokenFor(ana.accountId, session.id.value),
     });
 
     expect(actor).toEqual({
@@ -66,7 +66,7 @@ describe("AuthenticateUseCase", () => {
 
       await expectAppError(
         useCase.execute({
-          accessToken: tokenFor(
+          accessToken: await tokenFor(
             ana.accountId,
             faker.database.mongodbObjectId(),
           ),
@@ -82,7 +82,7 @@ describe("AuthenticateUseCase", () => {
 
       await expectAppError(
         useCase.execute({
-          accessToken: tokenFor(ana.accountId, brunoSession.id.value),
+          accessToken: await tokenFor(ana.accountId, brunoSession.id.value),
         }),
         IdentityError.InvalidAccessToken,
       );
@@ -96,7 +96,7 @@ describe("AuthenticateUseCase", () => {
 
       await expectAppError(
         useCase.execute({
-          accessToken: tokenFor(ana.accountId, session.id.value),
+          accessToken: await tokenFor(ana.accountId, session.id.value),
         }),
         IdentityError.InvalidAccessToken,
       );
@@ -109,7 +109,7 @@ describe("AuthenticateUseCase", () => {
 
       await expectAppError(
         useCase.execute({
-          accessToken: tokenFor(ana.accountId, session.id.value),
+          accessToken: await tokenFor(ana.accountId, session.id.value),
         }),
         IdentityError.InvalidAccessToken,
       );
@@ -124,7 +124,7 @@ describe("AuthenticateUseCase", () => {
 
       await expectAppError(
         useCase.execute({
-          accessToken: tokenFor(ghost.accountId, session.id.value),
+          accessToken: await tokenFor(ghost.accountId, session.id.value),
         }),
         IdentityError.InvalidAccessToken,
       );
@@ -138,7 +138,7 @@ describe("AuthenticateUseCase", () => {
 
       await expectAppError(
         useCase.execute({
-          accessToken: tokenFor(ana.accountId, session.id.value),
+          accessToken: await tokenFor(ana.accountId, session.id.value),
         }),
         IdentityError.InvalidAccessToken,
       );
@@ -153,7 +153,7 @@ describe("AuthenticateUseCase", () => {
 
       await expectAppError(
         useCase.execute({
-          accessToken: tokenFor(ghost.accountId, session.id.value),
+          accessToken: await tokenFor(ghost.accountId, session.id.value),
         }),
         IdentityError.InvalidAccessToken,
       );
@@ -167,7 +167,7 @@ describe("AuthenticateUseCase", () => {
 
       await expectAppError(
         useCase.execute({
-          accessToken: tokenFor(ana.accountId, session.id.value),
+          accessToken: await tokenFor(ana.accountId, session.id.value),
         }),
         IdentityError.InvalidAccessToken,
       );
