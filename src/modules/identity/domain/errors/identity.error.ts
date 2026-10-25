@@ -169,6 +169,18 @@ export const IdentityError = {
     "identity.last_credential_cannot_be_removed",
     "precondition_failed",
   ),
+  OAuthCodeRejected: defineError<{ provider: string }>(
+    "identity.oauth_code_rejected",
+    "unauthenticated",
+  ),
+  OAuthEmailNotVerified: defineError<{ provider: string }>(
+    "identity.oauth_email_not_verified",
+    "forbidden",
+  ),
+  OAuthProviderFailed: defineError<{ provider: string }>(
+    "identity.oauth_provider_failed",
+    "precondition_failed",
+  ),
   EmailDeliveryFailed: defineError(
     "identity.email_delivery_failed",
     "precondition_failed",

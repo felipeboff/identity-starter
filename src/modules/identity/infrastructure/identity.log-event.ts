@@ -15,4 +15,11 @@ export const IdentityLogEvent = {
     failure: ExternalCallFailure;
     status?: number;
   }>("identity.email_delivery_failed"),
+  OAuthProviderFailed: defineLogEvent<{
+    provider: string;
+    step: string;
+    failure: ExternalCallFailure;
+    status?: number;
+    providerError?: string;
+  }>("identity.oauth_provider_failed"),
 };

@@ -1,0 +1,282 @@
+import { Logger } from "@shared/application/ports/logger";
+import { Schema, v } from "@shared/application/validator";
+import { AppError } from "@shared/domain/errors/app-error";
+import {
+  FetchHttpClient,
+  HttpHeaders,
+  HttpRequest,
+} from "@shared/infrastructure/http/fetch-http-client";
+
+import { OAuthGateway, OAuthProfile } from "../application/ports/oauth-gateway";
+
+import { ExternalCallFailure, IdentityLogEvent } from "./identity.log-event";
+
+import { AuthProvider } from "@/identity/domain/credential.entity";
+import { IdentityError } from "@/identity/domain/errors/identity.error";
+import { OAuthProviderName } from "@/identity/domain/value-objects/oauth-provider.value-object";
+
+export const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
+export const GOOGLE_USERINFO_URL =
+  "https://openidconnect.googleapis.com/v1/userinfo";
+export const GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token";
+export const GITHUB_USER_URL = "https://api.github.com/user";
+export const GITHUB_EMAILS_URL = "https://api.github.com/user/emails";
+
+const OK = 200;
+const BAD_REQUEST = 400;
+
+export type OAuthClientConfig = Readonly<{
+  clientId: string;
+  clientSecret: string;
+  redirectUri: URL;
+}>;
+
+export type FetchOAuthGatewayDeps = Readonly<{
+  http: FetchHttpClient;
+  logger: Logger;
+  google: OAuthClientConfig;
+  github: OAuthClientConfig;
+}>;
+
+type OAuthStep = "token" | "profile" | "emails";
+
+type ProviderResponse = Readonly<{ status: number; body: unknown }>;
+
+type CodeExchange = (code: string) => Promise<OAuthProfile>;
+
+type TokenResponse = { access_token: string };
+
+type ProviderErrorResponse = { error: string };
+
+type GoogleUser = {
+  sub: string;
+  email: string;
+  email_verified: boolean;
+  name: string | undefined;
+};
+
+type GitHubUser = {
+  id: number;
+  login: string;
+  name: string | null;
+  email: string | null;
+};
+
+type GitHubEmail = { email: string; primary: boolean; verified: boolean };
+
+const tokenSchema = v.object<TokenResponse>({
+  access_token: v.string({ minLength: 1 }),
+});
+
+const providerErrorSchema = v.object<ProviderErrorResponse>({
+  error: v.string({ minLength: 1 }),
+});
+
+const googleUserSchema = v.object<GoogleUser>({
+  sub: v.string({ minLength: 1 }),
+  email: v.email(),
+  email_verified: v.boolean(),
+  name: v.string({ trim: true, optional: true }),
+});
+
+const githubUserSchema = v.object<GitHubUser>({
+  id: v.number({ integer: true, min: 1 }),
+  login: v.string({ minLength: 1 }),
+  name: v.string({ trim: true, nullable: true }),
+  email: v.email({ nullable: true }),
+});
+
+const githubEmailsSchema = v.array(
+  v.object<GitHubEmail>({
+    email: v.email(),
+    primary: v.boolean(),
+    verified: v.boolean(),
+  }),
+);
+
+export class FetchOAuthGateway implements OAuthGateway {
+  private readonly exchanges: Record<OAuthProviderName, CodeExchange> = {
+    [AuthProvider.GOOGLE]: (code) => this.google(code),
+    [AuthProvider.GITHUB]: (code) => this.github(code),
+    [AuthProvider.APPLE]: () =>
+      Promise.reject(
+        new AppError(IdentityError.OAuthProviderNotSupported, {
+          provider: AuthProvider.APPLE,
+        }),
+      ),
+  };
+
+  constructor(private readonly deps: FetchOAuthGatewayDeps) {}
+
+  exchangeCode(
+    provider: OAuthProviderName,
+    code: string,
+  ): Promise<OAuthProfile> {
+    return this.exchanges[provider](code);
+  }
+
+  private async google(code: string): Promise<OAuthProfile> {
+    const provider = AuthProvider.GOOGLE;
+    const { clientId, clientSecret, redirectUri } = this.deps.google;
+
+    const token = await this.send(provider, "token", {
+      method: "POST",
+      url: GOOGLE_TOKEN_URL,
+      headers: { accept: "application/json" },
+      body: {
+        form: {
+          grant_type: "authorization_code",
+          code,
+          client_id: clientId,
+          client_secret: clientSecret,
+          redirect_uri: redirectUri.href,
+        },
+      },
+    });
+    if (
+      token.status === BAD_REQUEST &&
+      this.providerError(token.body) === "invalid_grant"
+    ) {
+      throw new AppError(IdentityError.OAuthCodeRejected, { provider });
+    }
+    const { access_token } = this.read(provider, "token", token, tokenSchema);
+
+    const user = this.read(
+      provider,
+      "profile",
+      await this.send(provider, "profile", {
+        method: "GET",
+        url: GOOGLE_USERINFO_URL,
+        headers: { authorization: `Bearer ${access_token}` },
+      }),
+      googleUserSchema,
+    );
+    if (!user.email_verified) {
+      throw new AppError(IdentityError.OAuthEmailNotVerified, { provider });
+    }
+
+    return {
+      subject: user.sub,
+      email: user.email,
+      name: user.name || user.email,
+    };
+  }
+
+  private async github(code: string): Promise<OAuthProfile> {
+    const provider = AuthProvider.GITHUB;
+    const { clientId, clientSecret, redirectUri } = this.deps.github;
+
+    const token = await this.send(provider, "token", {
+      method: "POST",
+      url: GITHUB_TOKEN_URL,
+      headers: { accept: "application/json" },
+      body: {
+        form: {
+          client_id: clientId,
+          client_secret: clientSecret,
+          code,
+          redirect_uri: redirectUri.href,
+        },
+      },
+    });
+    if (
+      token.status === OK &&
+      this.providerError(token.body) === "bad_verification_code"
+    ) {
+      throw new AppError(IdentityError.OAuthCodeRejected, { provider });
+    }
+    const { access_token } = this.read(provider, "token", token, tokenSchema);
+
+    const headers = {
+      accept: "application/vnd.github+json",
+      authorization: `Bearer ${access_token}`,
+      "user-agent": "resolve-hub",
+      "x-github-api-version": "2022-11-28",
+    };
+    const user = this.read(
+      provider,
+      "profile",
+      await this.send(provider, "profile", {
+        method: "GET",
+        url: GITHUB_USER_URL,
+        headers,
+      }),
+      githubUserSchema,
+    );
+
+    return {
+      subject: String(user.id),
+      email: user.email ?? (await this.githubPrimaryEmail(headers)),
+      name: user.name || user.login,
+    };
+  }
+
+  private async githubPrimaryEmail(headers: HttpHeaders): Promise<string> {
+    const provider = AuthProvider.GITHUB;
+    const emails = this.read(
+      provider,
+      "emails",
+      await this.send(provider, "emails", {
+        method: "GET",
+        url: GITHUB_EMAILS_URL,
+        headers,
+      }),
+      githubEmailsSchema,
+    );
+
+    const primary = emails.find((email) => email.primary && email.verified);
+    if (!primary) {
+      throw new AppError(IdentityError.OAuthEmailNotVerified, { provider });
+    }
+    return primary.email;
+  }
+
+  private async send(
+    provider: OAuthProviderName,
+    step: OAuthStep,
+    request: HttpRequest,
+  ): Promise<ProviderResponse> {
+    const result = await this.deps.http.send(request);
+    if (!result.ok) return this.fail(provider, step, result.failure);
+    return result;
+  }
+
+  private read<T>(
+    provider: OAuthProviderName,
+    step: OAuthStep,
+    response: ProviderResponse,
+    schema: Schema<T>,
+  ): T {
+    if (response.status !== OK) {
+      return this.fail(provider, step, "unexpected_status", response);
+    }
+    const parsed = schema.parse(response.body);
+    if (!parsed.ok) {
+      return this.fail(provider, step, "unexpected_body", response);
+    }
+    return parsed.data;
+  }
+
+  private providerError(body: unknown): string | undefined {
+    const parsed = providerErrorSchema.parse(body);
+    return parsed.ok ? parsed.data.error : undefined;
+  }
+
+  private fail(
+    provider: OAuthProviderName,
+    step: OAuthStep,
+    failure: ExternalCallFailure,
+    response?: ProviderResponse,
+  ): never {
+    this.deps.logger.error(IdentityLogEvent.OAuthProviderFailed, {
+      provider,
+      step,
+      failure,
+      ...(response && {
+        status: response.status,
+        providerError: this.providerError(response.body),
+      }),
+    });
+    throw new AppError(IdentityError.OAuthProviderFailed, { provider });
+  }
+}
