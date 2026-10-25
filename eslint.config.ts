@@ -6,6 +6,17 @@ import { importX } from "eslint-plugin-import-x";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 
+const NO_LOCAL_EXTENSION = {
+  regex: "^(\\.|@/|@shared/).*\\.[cm]?[jt]s$",
+  message: "Remove the file extension from local imports.",
+};
+
+const NO_TEST_HELPERS = {
+  regex: "(^|/)testing(/|$)",
+  message:
+    "Production code must not import fakes or test helpers from a testing/ folder.",
+};
+
 export default defineConfig(
   { ignores: ["dist/**", "coverage/**"] },
   {
@@ -23,17 +34,7 @@ export default defineConfig(
       ...tseslint.configs.recommendedTypeChecked,
     ],
     rules: {
-      "no-restricted-imports": [
-        "error",
-        {
-          patterns: [
-            {
-              regex: "^(\\.|@/|@shared/).*\\.[cm]?[jt]s$",
-              message: "Remove the file extension from local imports.",
-            },
-          ],
-        },
-      ],
+      "no-restricted-imports": ["error", { patterns: [NO_LOCAL_EXTENSION] }],
       "import-x/order": [
         "error",
         {
@@ -106,6 +107,10 @@ export default defineConfig(
     files: ["src/**/*.ts"],
     ignores: ["**/*.spec.ts", "**/testing/**"],
     rules: {
+      "no-restricted-imports": [
+        "error",
+        { patterns: [NO_LOCAL_EXTENSION, NO_TEST_HELPERS] },
+      ],
       "no-restricted-syntax": [
         "error",
         {
