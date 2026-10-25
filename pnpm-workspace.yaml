@@ -4,6 +4,7 @@ allowBuilds:
   argon2: true
   esbuild: true
   mongodb-memory-server: true
+  redis-memory-server: true
   unrs-resolver: true
 minimumReleaseAgeExclude:
   - mongoose@9.11.4

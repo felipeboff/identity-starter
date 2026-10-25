@@ -19,7 +19,7 @@ const NO_TEST_HELPERS = {
 
 const NO_REAL_IO_IN_UNIT_SPECS = {
   regex:
-    "^(supertest|express|mongodb-memory-server|node:http|node:net)$|(^|/)testing/(memory-mongo|[\\w-]+-http)$",
+    "^(supertest|express|mongodb-memory-server|redis-memory-server|ioredis|node:http|node:net)$|(^|/)testing/(memory-mongo|memory-redis|[\\w-]+-http)$",
   message:
     "A unit spec runs without I/O. Rename it to *.integration.spec.ts (a real dependency) or *.e2e.spec.ts (real HTTP).",
 };

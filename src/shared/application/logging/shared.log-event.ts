@@ -17,6 +17,13 @@ export const SharedLogEvent = {
   ),
   DatabaseDisconnected: defineLogEvent("shared.database_disconnected"),
   DatabaseReconnected: defineLogEvent("shared.database_reconnected"),
+  CacheConnected: defineLogEvent<{ host: string }>("shared.cache_connected"),
+  CacheConnectionFailed: defineLogEvent<{ host: string; error: unknown }>(
+    "shared.cache_connection_failed",
+  ),
+  RateLimiterUnavailable: defineLogEvent<{ rule: string; error: unknown }>(
+    "shared.rate_limiter_unavailable",
+  ),
   RequestCompleted: defineLogEvent<{ status: number; durationMs: number }>(
     "shared.request_completed",
   ),

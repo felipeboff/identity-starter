@@ -12,6 +12,7 @@ const STATUS_BY_KIND: Record<ErrorKind, number> = {
   not_found: 404,
   conflict: 409,
   precondition_failed: 422,
+  rate_limited: 429,
 };
 
 /** `tag:` URI: a stable identifier, not a page. The year is fixed for good. */

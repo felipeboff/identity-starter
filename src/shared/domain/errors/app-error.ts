@@ -4,7 +4,8 @@ export type ErrorKind =
   | "conflict"
   | "forbidden"
   | "unauthenticated"
-  | "precondition_failed";
+  | "precondition_failed"
+  | "rate_limited";
 
 export type ErrorDefinition<Data = never> = {
   code: string;

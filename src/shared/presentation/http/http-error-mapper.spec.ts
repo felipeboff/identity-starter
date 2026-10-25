@@ -34,6 +34,7 @@ describe("HttpErrorMapper", () => {
     ["not_found", 404],
     ["conflict", 409],
     ["precondition_failed", 422],
+    ["rate_limited", 429],
   ])("maps the kind %s to status %i", (kind, status) => {
     const { mapper } = createMapper();
     const code = `${faker.lorem.word()}.${faker.lorem.word()}`;

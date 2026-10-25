@@ -53,4 +53,12 @@ export const SharedError = {
     "shared.nested_transaction",
     "precondition_failed",
   ),
+  RateLimited: defineError<{ retryAfterSeconds: number }>(
+    "shared.rate_limited",
+    "rate_limited",
+  ),
+  CacheUnavailable: defineError(
+    "shared.cache_unavailable",
+    "precondition_failed",
+  ),
 };
