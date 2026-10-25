@@ -17,6 +17,7 @@ import { createServer } from "./create-server";
 
 import {
   createIdentityModule,
+  createIdentitySecurityAdapters,
   createInMemoryIdentityAdapters,
   createMongoIdentityRepositories,
 } from "@/identity/identity.module";
@@ -70,12 +71,14 @@ export const start = async ({
     database.connection,
   );
 
+  const clock = new SystemClock();
   const app = createServer({
     modules: {
       identity: createIdentityModule({
         ...createInMemoryIdentityAdapters(),
         ...repositories,
-        clock: new SystemClock(),
+        ...createIdentitySecurityAdapters({ jwtSecret: env.JWT_SECRET, clock }),
+        clock,
         ids: new ObjectIdGenerator(),
         logContext,
       }),

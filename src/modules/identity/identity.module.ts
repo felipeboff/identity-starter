@@ -44,7 +44,9 @@ import { UpdateAccountNameUseCase } from "./application/use-cases/update-account
 import { UpdateMemberPermissionsUseCase } from "./application/use-cases/update-member-permissions.use-case";
 import { UpdateMemberRoleUseCase } from "./application/use-cases/update-member-role.use-case";
 import { VerifyEmailUseCase } from "./application/use-cases/verify-email.use-case";
+import { Argon2PasswordHasher } from "./infrastructure/argon2-password-hasher";
 import { CryptoTokenIssuer } from "./infrastructure/crypto-token-issuer";
+import { JoseAccessToken } from "./infrastructure/jose-access-token";
 import { IdentityModels } from "./infrastructure/persistence/identity-models";
 import { MongoAccountRepository } from "./infrastructure/persistence/mongo-account.repository";
 import { MongoCredentialRepository } from "./infrastructure/persistence/mongo-credential.repository";
@@ -157,6 +159,22 @@ export const createMongoIdentityRepositories = async (
     emailVerifications: new MongoEmailVerificationRepository(models),
   };
 };
+
+export type IdentitySecurityConfig = {
+  jwtSecret: string;
+  clock: Clock;
+};
+
+export const createIdentitySecurityAdapters = ({
+  jwtSecret,
+  clock,
+}: IdentitySecurityConfig): Pick<
+  IdentityModuleDeps,
+  "passwordHasher" | "accessToken"
+> => ({
+  passwordHasher: new Argon2PasswordHasher(),
+  accessToken: new JoseAccessToken({ secret: jwtSecret, clock }),
+});
 
 export const createInMemoryIdentityAdapters = (): IdentityModuleDeps => ({
   ...createIdentityContext(),
