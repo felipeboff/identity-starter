@@ -2,12 +2,15 @@ import { Clock } from "@shared/application/ports/clock";
 import { IdGenerator } from "@shared/application/ports/id-generator";
 import type { LogContext } from "@shared/application/ports/log-context";
 import type { Logger } from "@shared/application/ports/logger";
+import type { RateLimiter } from "@shared/application/ports/rate-limiter";
 import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
 import { FetchHttpClient } from "@shared/infrastructure/http/fetch-http-client";
 import { MongoTransactionRunner } from "@shared/infrastructure/mongo/mongo-transaction-runner";
 import { ObjectIdGenerator } from "@shared/infrastructure/mongo/object-id-generator";
+import { RedisRateLimiter } from "@shared/infrastructure/redis/redis-rate-limiter";
 import { SystemClock } from "@shared/infrastructure/time/system-clock";
 import { HttpRoute } from "@shared/presentation/http/http-route";
+import type { Redis } from "ioredis";
 import type { Connection } from "mongoose";
 
 import { Actor } from "./application/actor";
@@ -27,6 +30,7 @@ import { AccountResolver } from "./application/services/account-resolver";
 import { MembershipResolver } from "./application/services/membership-resolver";
 import { SessionIssuer } from "./application/services/session-issuer";
 import { SessionRevoker } from "./application/services/session-revoker";
+import { SignInThrottle } from "./application/services/sign-in-throttle";
 import { AuthenticateUseCase } from "./application/use-cases/authenticate.use-case";
 import { ChangePasswordUseCase } from "./application/use-cases/change-password.use-case";
 import { DeactivateAccountUseCase } from "./application/use-cases/deactivate-account.use-case";
@@ -89,11 +93,13 @@ export type IdentityModuleDeps = {
   accessToken: AccessToken;
   mailer: IdentityMailer;
   oauth: OAuthGateway;
+  rateLimiter: RateLimiter;
 
   clock: Clock;
   ids: IdGenerator;
 
   logContext: LogContext;
+  logger: Logger;
 };
 
 export type IdentityMailerSettings = Readonly<{
@@ -113,6 +119,7 @@ export type IdentitySettings = Readonly<{
 
 export type IdentityRuntime = Readonly<{
   connection: Connection;
+  redis: Redis;
   logger: Logger;
   logContext: LogContext;
 }>;
@@ -130,6 +137,7 @@ export const assembleIdentityModule = (
     ...adapters,
     sessionIssuer: new SessionIssuer(adapters),
     sessionRevoker: new SessionRevoker(adapters),
+    signInThrottle: new SignInThrottle(adapters),
     accountResolver: new AccountResolver(adapters),
     membershipResolver: new MembershipResolver(adapters),
     accessPolicy: new AccessPolicy(),
@@ -167,8 +175,14 @@ export const assembleIdentityModule = (
 
   return {
     authenticate,
-    publicRoutes: createIdentityPublicRoutes(useCases),
-    routes: createIdentityRoutes(useCases),
+    publicRoutes: createIdentityPublicRoutes({
+      ...useCases,
+      rateLimiter: adapters.rateLimiter,
+    }),
+    routes: createIdentityRoutes({
+      ...useCases,
+      rateLimiter: adapters.rateLimiter,
+    }),
   };
 };
 
@@ -220,6 +234,12 @@ export const createIdentityModule = async (
     clock,
     ids: new ObjectIdGenerator(),
 
+    rateLimiter: new RedisRateLimiter({
+      client: runtime.redis,
+      logger: runtime.logger,
+    }),
+
     logContext: runtime.logContext,
+    logger: runtime.logger,
   });
 };

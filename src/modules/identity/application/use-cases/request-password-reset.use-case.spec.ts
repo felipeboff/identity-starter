@@ -1,6 +1,7 @@
 import { faker } from "@faker-js/faker";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { RateLimitPolicy } from "../rate-limit.policy";
 import {
   IdentityContext,
   createIdentityContext,
@@ -209,5 +210,17 @@ describe("RequestPasswordResetUseCase", () => {
     await useCase.execute({ email: ana.email });
 
     expect(seen).toStrictEqual([{ running: false, stored: true }]);
+  });
+
+  it("stops sending reset e-mails to one address past the limit, silently", async () => {
+    const ana = await seedAccount(ctx);
+    const limit = RateLimitPolicy.PASSWORD_RESET_REQUEST_PER_EMAIL.limit;
+    for (let i = 0; i < limit; i++) {
+      await useCase.execute({ email: ana.email });
+    }
+
+    await useCase.execute({ email: ana.email });
+
+    expect(ctx.mailer.passwordResets).toHaveLength(limit);
   });
 });

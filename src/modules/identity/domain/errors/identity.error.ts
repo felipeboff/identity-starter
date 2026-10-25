@@ -181,6 +181,14 @@ export const IdentityError = {
     "identity.oauth_provider_failed",
     "precondition_failed",
   ),
+  SignInLocked: defineError<{ retryAfterSeconds: number }>(
+    "identity.sign_in_locked",
+    "rate_limited",
+  ),
+  RefreshTokenReused: defineError(
+    "identity.refresh_token_reused",
+    "unauthenticated",
+  ),
   EmailDeliveryFailed: defineError(
     "identity.email_delivery_failed",
     "precondition_failed",

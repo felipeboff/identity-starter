@@ -1,6 +1,7 @@
 import { faker } from "@faker-js/faker";
 import { SharedError } from "@shared/domain/errors/shared.error";
 import { HttpMethod } from "@shared/presentation/http/http-route";
+import { RateLimitMiddleware } from "@shared/presentation/rate-limit.middleware";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AuthenticateMiddleware } from "./authenticate.middleware";
@@ -43,6 +44,19 @@ const spyOnUseCase = (useCase: UseCaseClass) =>
 const PROBLEM_HEADERS = {
   "content-type": "application/problem+json; charset=utf-8",
 };
+
+const RATE_LIMITED = new Set([
+  "POST /auth/sign-up",
+  "POST /auth/sign-in",
+  "POST /auth/oauth/:provider",
+  "POST /auth/refresh",
+  "POST /auth/password-reset/request",
+  "POST /auth/password-reset",
+  "POST /auth/email-verification",
+  "PUT /me/password",
+  "POST /me/email-verification",
+  "POST /me/oauth/:provider",
+]);
 
 const PROTECTED_ROUTES: [HttpMethod, string, UseCaseClass][] = [
   ["POST", "/auth/sign-out", SignOutUseCase],
@@ -154,11 +168,22 @@ describe("identity routes", () => {
         route.middlewares ?? [],
       ]),
     ).toEqual([
-      ...PUBLIC_ROUTES.map(([method, path]) => [method, path, []]),
+      ...PUBLIC_ROUTES.map(([method, path]) => [
+        method,
+        path,
+        RATE_LIMITED.has(`${method} ${path}`)
+          ? [expect.any(RateLimitMiddleware)]
+          : [],
+      ]),
       ...PROTECTED_ROUTES.map(([method, path]) => [
         method,
         path,
-        [expect.any(AuthenticateMiddleware)],
+        RATE_LIMITED.has(`${method} ${path}`)
+          ? [
+              expect.any(AuthenticateMiddleware),
+              expect.any(RateLimitMiddleware),
+            ]
+          : [expect.any(AuthenticateMiddleware)],
       ]),
     ]);
   });

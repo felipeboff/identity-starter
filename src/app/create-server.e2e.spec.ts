@@ -6,10 +6,12 @@ import { LogLevel, type Logger } from "@shared/application/ports/logger";
 import { SharedError } from "@shared/domain/errors/shared.error";
 import { AsyncLocalLogContext } from "@shared/infrastructure/logging/async-local-log-context";
 import { PinoLogger } from "@shared/infrastructure/logging/pino-logger";
+import { RedisConnection } from "@shared/infrastructure/redis/redis-connection";
 import { FakeLogger } from "@shared/testing/fake-logger";
 import { useMemoryMongo } from "@shared/testing/memory-mongo";
+import { useMemoryRedis } from "@shared/testing/memory-redis";
 import request from "supertest";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { createServer } from "./create-server";
 
@@ -19,6 +21,17 @@ import {
 } from "@/identity/identity.module";
 
 const mongo = useMemoryMongo();
+const redis = useMemoryRedis();
+let cache: RedisConnection;
+
+beforeAll(async () => {
+  cache = new RedisConnection({ url: redis.url(), logger: new FakeLogger() });
+  await cache.connect();
+});
+
+afterAll(async () => {
+  await cache.close();
+});
 
 const buildOAuthClient = () => ({
   clientId: faker.string.alphanumeric(20),
@@ -49,6 +62,7 @@ const createApp = async (
     modules: {
       identity: await createIdentityModule(identitySettings, {
         connection: mongo.connection(),
+        redis: cache.client,
         logger: new FakeLogger(),
         logContext,
       }),

@@ -1,5 +1,7 @@
 import { faker } from "@faker-js/faker";
 import { FakeLogContext } from "@shared/testing/fake-log-context";
+import { FakeLogger } from "@shared/testing/fake-logger";
+import { InMemoryRateLimiter } from "@shared/testing/in-memory-rate-limiter";
 import { InMemoryTransactionRunner } from "@shared/testing/in-memory-transaction-runner";
 
 import { Actor } from "../actor";
@@ -8,6 +10,7 @@ import { AccountResolver } from "../services/account-resolver";
 import { MembershipResolver } from "../services/membership-resolver";
 import { SessionIssuer } from "../services/session-issuer";
 import { SessionRevoker } from "../services/session-revoker";
+import { SignInThrottle } from "../services/sign-in-throttle";
 import { REFRESH_TOKEN_TTL_MS } from "../session.policy";
 
 import {
@@ -58,6 +61,8 @@ export const createIdentityContext = () => {
   const mailer = new FakeIdentityMailer();
   const oauth = new FakeOAuthGateway();
   const logContext = new FakeLogContext();
+  const logger = new FakeLogger();
+  const rateLimiter = new InMemoryRateLimiter(clock);
 
   const sessionIssuer = new SessionIssuer({
     sessions,
@@ -66,6 +71,7 @@ export const createIdentityContext = () => {
     ids,
   });
   const sessionRevoker = new SessionRevoker({ sessions });
+  const signInThrottle = new SignInThrottle({ rateLimiter });
   const accountResolver = new AccountResolver({ accounts });
   const membershipResolver = new MembershipResolver({ memberships });
   const accessPolicy = new AccessPolicy();
@@ -86,8 +92,11 @@ export const createIdentityContext = () => {
     mailer,
     oauth,
     logContext,
+    logger,
+    rateLimiter,
     sessionIssuer,
     sessionRevoker,
+    signInThrottle,
     accountResolver,
     membershipResolver,
     accessPolicy,

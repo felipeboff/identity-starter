@@ -17,6 +17,7 @@ const buildSource = (overrides: Record<string, string | undefined> = {}) => ({
   TRUST_PROXY: String(faker.number.int({ min: 0, max: 3 })),
   LOG_LEVEL: faker.helpers.arrayElement(Object.values(LogLevel)),
   MONGO_URL: faker.internet.url(),
+  REDIS_URL: `redis://${faker.internet.domainName()}:${faker.number.int({ min: 1_024, max: 65_535 })}`,
   JWT_SECRET: faker.string.alphanumeric(64),
   APP_URL: faker.internet.url(),
   MAILER: faker.helpers.arrayElement(MAILER_KINDS),
@@ -50,6 +51,7 @@ describe("env", () => {
       ...processEnv,
       PORT: Number(processEnv.PORT),
       TRUST_PROXY: Number(processEnv.TRUST_PROXY),
+      REDIS_URL: new URL(processEnv.REDIS_URL),
       APP_URL: new URL(processEnv.APP_URL),
       GITHUB_REDIRECT_URI: new URL(processEnv.GITHUB_REDIRECT_URI),
       GOOGLE_REDIRECT_URI: new URL(processEnv.GOOGLE_REDIRECT_URI),
@@ -106,18 +108,20 @@ describe("loadEnv", () => {
       ...source,
       PORT: Number(source.PORT),
       TRUST_PROXY: Number(source.TRUST_PROXY),
+      REDIS_URL: new URL(source.REDIS_URL),
       APP_URL: new URL(source.APP_URL),
       GITHUB_REDIRECT_URI: new URL(source.GITHUB_REDIRECT_URI),
       GOOGLE_REDIRECT_URI: new URL(source.GOOGLE_REDIRECT_URI),
     });
   });
 
-  it("defaults NODE_ENV, PORT, TRUST_PROXY, LOG_LEVEL, APP_URL, MAILER and MAIL_FROM_NAME when they are missing", () => {
+  it("defaults the optional variables when they are missing", () => {
     const source = buildSource({
       NODE_ENV: undefined,
       PORT: undefined,
       TRUST_PROXY: undefined,
       LOG_LEVEL: undefined,
+      REDIS_URL: undefined,
       APP_URL: undefined,
       MAILER: undefined,
       MAIL_FROM_NAME: undefined,
@@ -130,10 +134,11 @@ describe("loadEnv", () => {
       PORT: 3000,
       TRUST_PROXY: 0,
       LOG_LEVEL: LogLevel.INFO,
-      APP_URL: new URL("http://localhost:3000"),
       MAILER: MailerKind.LOG,
       MAIL_FROM_NAME: "Resolve Hub",
     });
+    expect(env.REDIS_URL.href).toBe("redis://localhost:6379");
+    expect(env.APP_URL.href).toBe("http://localhost:3000/");
   });
 
   it("ignores variables it does not know", () => {
@@ -168,6 +173,11 @@ describe("loadEnv", () => {
     ],
     ["MONGO_URL empty", { MONGO_URL: "" }, "MONGO_URL"],
     ["MONGO_URL blank", { MONGO_URL: "   " }, "MONGO_URL"],
+    [
+      "REDIS_URL not a redis URL",
+      { REDIS_URL: faker.internet.url() },
+      "REDIS_URL",
+    ],
     [
       "JWT_SECRET shorter than 32",
       {

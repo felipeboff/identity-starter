@@ -1,4 +1,6 @@
+import type { RateLimiter } from "@shared/application/ports/rate-limiter";
 import { HttpRoute } from "@shared/presentation/http/http-route";
+import { RateLimitMiddleware } from "@shared/presentation/rate-limit.middleware";
 
 import { ChangePasswordHandler } from "./change-password.handler";
 import { DeactivateAccountHandler } from "./deactivate-account.handler";
@@ -23,6 +25,7 @@ import { UpdateMemberRoleHandler } from "./update-member-role.handler";
 import { VerifyEmailHandler } from "./verify-email.handler";
 
 import { Actor } from "@/identity/application/actor";
+import { RateLimitPolicy } from "@/identity/application/rate-limit.policy";
 import { ChangePasswordUseCase } from "@/identity/application/use-cases/change-password.use-case";
 import { DeactivateAccountUseCase } from "@/identity/application/use-cases/deactivate-account.use-case";
 import { GetMeUseCase } from "@/identity/application/use-cases/get-me.use-case";
@@ -46,6 +49,8 @@ import { UpdateMemberRoleUseCase } from "@/identity/application/use-cases/update
 import { VerifyEmailUseCase } from "@/identity/application/use-cases/verify-email.use-case";
 
 export type IdentityHttpDeps = {
+  rateLimiter: RateLimiter;
+
   signUpWithEmail: SignUpWithEmailUseCase;
   signInWithEmail: SignInWithEmailUseCase;
   signInWithOAuth: SignInWithOAuthUseCase;
@@ -77,49 +82,91 @@ export const createIdentityPublicRoutes = (
     method: "POST",
     path: "/auth/sign-up",
     status: 201,
-    failures: [400],
+    failures: [400, 429],
+    middlewares: [
+      new RateLimitMiddleware({
+        limiter: deps.rateLimiter,
+        rule: RateLimitPolicy.SIGN_UP_PER_IP,
+      }),
+    ],
     handler: new SignUpWithEmailHandler(deps),
   },
   {
     method: "POST",
     path: "/auth/sign-in",
     status: 200,
-    failures: [400, 401, 404, 409, 422],
+    failures: [400, 401, 404, 409, 422, 429],
+    middlewares: [
+      new RateLimitMiddleware({
+        limiter: deps.rateLimiter,
+        rule: RateLimitPolicy.SIGN_IN_PER_IP,
+      }),
+    ],
     handler: new SignInWithEmailHandler(deps),
   },
   {
     method: "POST",
     path: "/auth/oauth/:provider",
     status: 200,
-    failures: [400, 401, 403, 404, 422],
+    failures: [400, 401, 403, 404, 422, 429],
+    middlewares: [
+      new RateLimitMiddleware({
+        limiter: deps.rateLimiter,
+        rule: RateLimitPolicy.OAUTH_PER_IP,
+      }),
+    ],
     handler: new SignInWithOAuthHandler(deps),
   },
   {
     method: "POST",
     path: "/auth/refresh",
     status: 200,
-    failures: [400, 401, 404, 422],
+    failures: [400, 401, 404, 422, 429],
+    middlewares: [
+      new RateLimitMiddleware({
+        limiter: deps.rateLimiter,
+        rule: RateLimitPolicy.REFRESH_PER_IP,
+      }),
+    ],
     handler: new RefreshSessionHandler(deps),
   },
   {
     method: "POST",
     path: "/auth/password-reset/request",
     status: 204,
-    failures: [400, 422],
+    failures: [400, 422, 429],
+    middlewares: [
+      new RateLimitMiddleware({
+        limiter: deps.rateLimiter,
+        rule: RateLimitPolicy.PASSWORD_RESET_REQUEST_PER_IP,
+      }),
+    ],
     handler: new RequestPasswordResetHandler(deps),
   },
   {
     method: "POST",
     path: "/auth/password-reset",
     status: 204,
-    failures: [400, 401, 404, 422],
+    failures: [400, 401, 404, 422, 429],
+    middlewares: [
+      new RateLimitMiddleware({
+        limiter: deps.rateLimiter,
+        rule: RateLimitPolicy.PASSWORD_RESET_PER_IP,
+      }),
+    ],
     handler: new ResetPasswordHandler(deps),
   },
   {
     method: "POST",
     path: "/auth/email-verification",
     status: 200,
-    failures: [400, 401, 404, 422],
+    failures: [400, 401, 404, 422, 429],
+    middlewares: [
+      new RateLimitMiddleware({
+        limiter: deps.rateLimiter,
+        rule: RateLimitPolicy.EMAIL_VERIFICATION_PER_IP,
+      }),
+    ],
     handler: new VerifyEmailHandler(deps),
   },
 ];
@@ -152,14 +199,26 @@ export const createIdentityRoutes = (
     method: "PUT",
     path: "/me/password",
     status: 204,
-    failures: [400, 401, 404, 422],
+    failures: [400, 401, 404, 422, 429],
+    middlewares: [
+      new RateLimitMiddleware({
+        limiter: deps.rateLimiter,
+        rule: RateLimitPolicy.CHANGE_PASSWORD_PER_IP,
+      }),
+    ],
     handler: new ChangePasswordHandler(deps),
   },
   {
     method: "POST",
     path: "/me/email-verification",
     status: 204,
-    failures: [401, 409, 422],
+    failures: [401, 409, 422, 429],
+    middlewares: [
+      new RateLimitMiddleware({
+        limiter: deps.rateLimiter,
+        rule: RateLimitPolicy.EMAIL_VERIFICATION_REQUEST_PER_IP,
+      }),
+    ],
     handler: new RequestEmailVerificationHandler(deps),
   },
   {
@@ -173,7 +232,13 @@ export const createIdentityRoutes = (
     method: "POST",
     path: "/me/oauth/:provider",
     status: 201,
-    failures: [400, 401, 403, 409, 422],
+    failures: [400, 401, 403, 409, 422, 429],
+    middlewares: [
+      new RateLimitMiddleware({
+        limiter: deps.rateLimiter,
+        rule: RateLimitPolicy.OAUTH_PER_IP,
+      }),
+    ],
     handler: new LinkOAuthHandler(deps),
   },
   {

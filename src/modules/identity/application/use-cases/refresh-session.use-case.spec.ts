@@ -1,7 +1,9 @@
 import { faker } from "@faker-js/faker";
+import { LogLevel } from "@shared/application/ports/logger";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { IdentitySecurityLogEvent } from "../identity-security.log-event";
 import { toOutputAccount } from "../mappers/toOutputAccount";
 import {
   IdentityContext,
@@ -206,5 +208,32 @@ describe("RefreshSessionUseCase", () => {
 
     const stored = await ctx.accounts.findById(ana.accountId);
     expect(stored && toOutputAccount(stored)).toStrictEqual(output.account);
+  });
+
+  it("revokes every session of the account and refuses a rotated token used again", async () => {
+    const ana = await seedAccount(ctx);
+    const { session, refreshToken } = await seedSession(ctx, ana);
+    const rotated = await useCase.execute({ refreshToken, ...makeDevice() });
+
+    await expectAppError(
+      useCase.execute({ refreshToken, ...makeDevice() }),
+      IdentityError.RefreshTokenReused,
+    );
+
+    const next = await ctx.sessions.findByTokenHash(
+      ctx.tokens.hash(rotated.refreshToken),
+    );
+    expect(next?.revokedReason).toBe(SessionRevocationReason.SECURITY);
+    expect(ctx.logger.entries).toStrictEqual([
+      {
+        level: LogLevel.WARN,
+        event: IdentitySecurityLogEvent.RefreshTokenReused.name,
+        fields: {
+          accountId: ana.accountId,
+          sessionId: session.id.value,
+          revokedSessions: 1,
+        },
+      },
+    ]);
   });
 });

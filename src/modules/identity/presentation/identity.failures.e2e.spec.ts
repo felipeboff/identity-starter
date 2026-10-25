@@ -259,16 +259,41 @@ describe("identity route failures", () => {
       });
     });
 
-    it("answers 422 for a revoked session", async () => {
+    it("answers 422 for a session revoked by sign-out", async () => {
       const http = createIdentityHttp();
-      const { refreshToken } = await http.signIn();
-      await http.call("POST", "/auth/refresh", { body: { refreshToken } });
+      const { refreshToken, token } = await http.signIn();
+      await http.call("POST", "/auth/sign-out", { token });
 
       const out = await http.call("POST", "/auth/refresh", {
         body: { refreshToken },
       });
 
       expect(failure(out)).toStrictEqual({
+        status: 422,
+        code: IdentityError.SessionRevoked.code,
+      });
+    });
+
+    it("answers 401 and revokes every session when a rotated token is reused", async () => {
+      const http = createIdentityHttp();
+      const { refreshToken } = await http.signIn();
+      const rotated = await http.call("POST", "/auth/refresh", {
+        body: { refreshToken },
+      });
+      const next = (rotated.body as { refreshToken: string }).refreshToken;
+
+      const reuse = await http.call("POST", "/auth/refresh", {
+        body: { refreshToken },
+      });
+      const afterReuse = await http.call("POST", "/auth/refresh", {
+        body: { refreshToken: next },
+      });
+
+      expect(failure(reuse)).toStrictEqual({
+        status: 401,
+        code: IdentityError.RefreshTokenReused.code,
+      });
+      expect(failure(afterReuse)).toStrictEqual({
         status: 422,
         code: IdentityError.SessionRevoked.code,
       });

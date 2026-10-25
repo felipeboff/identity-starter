@@ -1,11 +1,22 @@
 import { faker } from "@faker-js/faker";
+import { SharedError } from "@shared/domain/errors/shared.error";
+import { RedisConnection } from "@shared/infrastructure/redis/redis-connection";
 import { Dispatcher } from "@shared/presentation/dispatcher";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { FakeLogContext } from "@shared/testing/fake-log-context";
 import { FakeLogger } from "@shared/testing/fake-logger";
 import { useMemoryMongo } from "@shared/testing/memory-mongo";
+import { useMemoryRedis } from "@shared/testing/memory-redis";
 import { jwtVerify } from "jose";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 import {
   type IdentityMailerSettings,
@@ -16,10 +27,22 @@ import { GOOGLE_TOKEN_URL } from "./infrastructure/fetch-oauth-gateway";
 import { IdentityLogEvent } from "./infrastructure/identity.log-event";
 import { MAILERSEND_EMAIL_URL } from "./infrastructure/mailersend-identity-mailer";
 
+import { RateLimitPolicy } from "@/identity/application/rate-limit.policy";
 import { AuthProvider } from "@/identity/domain/credential.entity";
 import { IdentityError } from "@/identity/domain/errors/identity.error";
 
 const mongo = useMemoryMongo();
+const redis = useMemoryRedis();
+let cache: RedisConnection;
+
+beforeAll(async () => {
+  cache = new RedisConnection({ url: redis.url(), logger: new FakeLogger() });
+  await cache.connect();
+});
+
+afterAll(async () => {
+  await cache.close();
+});
 
 type SignUpOutput = { account: { id: string }; accessToken: string };
 
@@ -48,12 +71,17 @@ const create = async (settings = buildSettings()) => {
   const logger = new FakeLogger();
   const identity = await createIdentityModule(settings, {
     connection: mongo.connection(),
+    redis: cache.client,
     logger,
     logContext: new FakeLogContext(),
   });
   const dispatcher = new Dispatcher();
 
-  const call = (path: string, input: Record<string, unknown>) => {
+  const call = (
+    path: string,
+    input: Record<string, unknown>,
+    ip = faker.internet.ip(),
+  ) => {
     const route = identity.publicRoutes.find(
       (candidate) => candidate.path === path,
     );
@@ -61,7 +89,7 @@ const create = async (settings = buildSettings()) => {
     return dispatcher.dispatch(route, {
       input,
       metadata: { "user-agent": faker.internet.userAgent() },
-      ip: faker.internet.ip(),
+      ip,
       actor: undefined,
     });
   };
@@ -199,5 +227,23 @@ describe("createIdentityModule", () => {
     expect(fetch.mock.calls[0]?.[0]).toBe(GOOGLE_TOKEN_URL);
     expect(form.get("client_id")).toBe(settings.google.clientId);
     expect(form.get("redirect_uri")).toBe(settings.google.redirectUri.href);
+  });
+
+  it("counts requests per IP in Redis", async () => {
+    const { call } = await create();
+    const ip = faker.internet.ip();
+    const email = faker.internet.email().toLowerCase();
+    for (
+      let i = 0;
+      i < RateLimitPolicy.PASSWORD_RESET_REQUEST_PER_IP.limit;
+      i++
+    ) {
+      await call("/auth/password-reset/request", { email }, ip);
+    }
+
+    await expectAppError(
+      call("/auth/password-reset/request", { email }, ip),
+      SharedError.RateLimited,
+    );
   });
 });

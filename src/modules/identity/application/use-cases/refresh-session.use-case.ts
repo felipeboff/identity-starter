@@ -1,7 +1,9 @@
 import { UseCase } from "@shared/application/use-cases";
 import { AppError } from "@shared/domain/errors/app-error";
 
+import { IdentitySecurityLogEvent } from "../identity-security.log-event";
 import { toOutputAccount } from "../mappers/toOutputAccount";
+import { IssuedSession } from "../services/session-issuer";
 
 import {
   RefreshSessionDeps,
@@ -9,8 +11,16 @@ import {
   RefreshSessionOutput,
 } from "./refresh-session.types";
 
+import { Account } from "@/identity/domain/account.entity";
 import { IdentityError } from "@/identity/domain/errors/identity.error";
-import { SessionRevocationReason } from "@/identity/domain/session.entity";
+import {
+  Session,
+  SessionRevocationReason,
+} from "@/identity/domain/session.entity";
+
+type Refresh =
+  | Readonly<{ reused: false; account: Account; issued: IssuedSession }>
+  | Readonly<{ reused: true; session: Session; revokedSessions: number }>;
 
 export class RefreshSessionUseCase extends UseCase<{
   input: RefreshSessionInput;
@@ -18,13 +28,24 @@ export class RefreshSessionUseCase extends UseCase<{
   deps: RefreshSessionDeps;
 }> {
   async execute(input: RefreshSessionInput): Promise<RefreshSessionOutput> {
-    const refreshed = await this.deps.transactions.run(async () => {
+    const refreshed = await this.deps.transactions.run<Refresh>(async () => {
       const at = this.deps.clock.now();
       const currentSession = await this.deps.sessions.findByTokenHash(
         this.deps.tokens.hash(input.refreshToken),
       );
       if (!currentSession) {
         throw new AppError(IdentityError.InvalidRefreshToken);
+      }
+      if (currentSession.revokedReason === SessionRevocationReason.REPLACED) {
+        const revoked = await this.deps.sessionRevoker.revokeActive(
+          currentSession.accountId.value,
+          { reason: SessionRevocationReason.SECURITY, at },
+        );
+        return {
+          reused: true,
+          session: currentSession,
+          revokedSessions: revoked.length,
+        };
       }
       if (currentSession.isRevoked()) {
         throw new AppError(IdentityError.SessionRevoked, {
@@ -100,8 +121,17 @@ export class RefreshSessionUseCase extends UseCase<{
         at,
       );
 
-      return { account, issued };
+      return { reused: false, account, issued };
     });
+
+    if (refreshed.reused) {
+      this.deps.logger.warn(IdentitySecurityLogEvent.RefreshTokenReused, {
+        accountId: refreshed.session.accountId.value,
+        sessionId: refreshed.session.id.value,
+        revokedSessions: refreshed.revokedSessions,
+      });
+      throw new AppError(IdentityError.RefreshTokenReused);
+    }
 
     return {
       account: toOutputAccount(refreshed.account),

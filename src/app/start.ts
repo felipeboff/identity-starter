@@ -6,6 +6,7 @@ import { HttpServerShutdown } from "@shared/infrastructure/http/http-server-shut
 import { AsyncLocalLogContext } from "@shared/infrastructure/logging/async-local-log-context";
 import { PinoLogger } from "@shared/infrastructure/logging/pino-logger";
 import { MongoDatabase } from "@shared/infrastructure/mongo/mongo-database";
+import { RedisConnection } from "@shared/infrastructure/redis/redis-connection";
 import type { DestinationStream } from "pino";
 
 import { type Env, NodeEnv, toIdentitySettings } from "./config";
@@ -55,8 +56,17 @@ export const start = async (options: StartOptions): Promise<RunningApp> => {
 
   await database.connect();
 
+  const cache = new RedisConnection({ url: env.REDIS_URL.href, logger });
+  try {
+    await cache.connect();
+  } catch (error) {
+    await database.close();
+    throw error;
+  }
+
   const identity = await createIdentityModule(toIdentitySettings(env), {
     connection: database.connection,
+    redis: cache.client,
     logger,
     logContext,
   });
@@ -75,6 +85,7 @@ export const start = async (options: StartOptions): Promise<RunningApp> => {
   try {
     await once(server, "listening");
   } catch (error) {
+    await cache.close();
     await database.close();
     throw error;
   }
@@ -86,6 +97,7 @@ export const start = async (options: StartOptions): Promise<RunningApp> => {
 
   const shutdown = async (): Promise<0 | 1> => {
     const outcome = await httpShutdown.run();
+    await cache.close();
     await database.close();
     logger.info(SharedLogEvent.ServerStopped);
     return outcome === "drained" ? 0 : 1;

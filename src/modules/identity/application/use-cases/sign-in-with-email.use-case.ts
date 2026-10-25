@@ -18,6 +18,8 @@ export class SignInWithEmailUseCase extends UseCase<{
   deps: SignInWithEmailDeps;
 }> {
   async execute(input: SignInWithEmailInput): Promise<SignInWithEmailOutput> {
+    await this.deps.signInThrottle.ensureAllowed(input.email);
+
     const account = await this.deps.accounts.findByEmail(input.email);
     if (!account) {
       throw new AppError(IdentityError.AccountNotFound, {
@@ -65,10 +67,12 @@ export class SignInWithEmailUseCase extends UseCase<{
       passwordHash.value,
     );
     if (!ok) {
+      await this.deps.signInThrottle.recordFailure(input.email);
       throw new AppError(IdentityError.InvalidCredentials, {
         email: input.email,
       });
     }
+    await this.deps.signInThrottle.reset(input.email);
 
     const membership = await this.deps.memberships.findByAccountId(
       account.id.value,

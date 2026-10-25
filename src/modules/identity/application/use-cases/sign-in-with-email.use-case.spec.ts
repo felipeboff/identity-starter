@@ -3,6 +3,7 @@ import { expectAppError } from "@shared/testing/expect-app-error";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { toOutputAccount } from "../mappers/toOutputAccount";
+import { RateLimitPolicy } from "../rate-limit.policy";
 import {
   IdentityContext,
   createIdentityContext,
@@ -274,5 +275,44 @@ describe("SignInWithEmailUseCase", () => {
 
     const stored = await ctx.accounts.findById(ana.accountId);
     expect(stored && toOutputAccount(stored)).toStrictEqual(output.account);
+  });
+
+  it("locks the e-mail after too many wrong passwords, even with the right one", async () => {
+    const ana = await seedAccount(ctx);
+    const limit = RateLimitPolicy.SIGN_IN_FAILURES_PER_EMAIL.limit;
+    for (let i = 0; i < limit; i++) {
+      await useCase
+        .execute(
+          makeInput({ email: ana.email, password: `${ana.password}-wrong` }),
+        )
+        .catch(() => undefined);
+    }
+
+    await expectAppError(
+      useCase.execute(makeInput(ana)),
+      IdentityError.SignInLocked,
+      {
+        retryAfterSeconds:
+          RateLimitPolicy.SIGN_IN_FAILURES_PER_EMAIL.windowMs / 1000,
+      },
+    );
+  });
+
+  it("forgets the wrong passwords once the right one is used", async () => {
+    const ana = await seedAccount(ctx);
+    const limit = RateLimitPolicy.SIGN_IN_FAILURES_PER_EMAIL.limit;
+    const wrong = () =>
+      useCase
+        .execute(
+          makeInput({ email: ana.email, password: `${ana.password}-wrong` }),
+        )
+        .catch(() => undefined);
+    for (let i = 0; i < limit - 1; i++) await wrong();
+    await useCase.execute(makeInput(ana));
+    for (let i = 0; i < limit - 1; i++) await wrong();
+
+    const output = await useCase.execute(makeInput(ana));
+
+    expect(output.account.id).toBe(ana.accountId);
   });
 });

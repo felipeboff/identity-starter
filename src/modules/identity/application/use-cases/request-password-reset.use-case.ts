@@ -1,5 +1,6 @@
 import { UseCase } from "@shared/application/use-cases";
 
+import { RateLimitPolicy } from "../rate-limit.policy";
 import { PASSWORD_RESET_TTL_MS } from "../token.policy";
 
 import {
@@ -19,6 +20,16 @@ export class RequestPasswordResetUseCase extends UseCase<{
   deps: RequestPasswordResetDeps;
 }> {
   async execute(input: RequestPasswordResetInput): Promise<void> {
+    const requests = await this.deps.rateLimiter.increment(
+      RateLimitPolicy.PASSWORD_RESET_REQUEST_PER_EMAIL,
+      input.email,
+    );
+    if (
+      requests.count > RateLimitPolicy.PASSWORD_RESET_REQUEST_PER_EMAIL.limit
+    ) {
+      return;
+    }
+
     const issued = await this.deps.transactions.run(() => this.issue(input));
     if (!issued) {
       return;

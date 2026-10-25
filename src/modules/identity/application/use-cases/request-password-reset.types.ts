@@ -1,5 +1,6 @@
 import { Clock } from "@shared/application/ports/clock";
 import { IdGenerator } from "@shared/application/ports/id-generator";
+import type { RateLimiter } from "@shared/application/ports/rate-limiter";
 import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
 
 import { AccountRepository } from "../ports/account.repository";
@@ -20,6 +21,7 @@ export type RequestPasswordResetDeps = {
 
   tokens: TokenIssuer;
   mailer: IdentityMailer;
+  rateLimiter: RateLimiter;
 
   clock: Clock;
   ids: IdGenerator;

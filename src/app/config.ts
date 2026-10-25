@@ -24,6 +24,7 @@ export type Env = {
   TRUST_PROXY: number;
   LOG_LEVEL: LogLevel;
   MONGO_URL: string;
+  REDIS_URL: URL;
   JWT_SECRET: string;
   APP_URL: URL;
   MAILER: MailerKind;
@@ -44,6 +45,10 @@ const envSchema = v.object<Env>({
   TRUST_PROXY: v.number({ integer: true, min: 0, default: 0 }),
   LOG_LEVEL: v.enum({ values: Object.values(LogLevel), default: "info" }),
   MONGO_URL: v.string({ trim: true, minLength: 1 }),
+  REDIS_URL: v.url({
+    protocols: ["redis", "rediss"],
+    default: new URL("redis://localhost:6379"),
+  }),
   JWT_SECRET: v.string({ minLength: 32 }),
   APP_URL: v.url({ default: new URL("http://localhost:3000") }),
   MAILER: v.enum({ values: Object.values(MailerKind), default: "log" }),

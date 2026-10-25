@@ -6,6 +6,7 @@ import { CredentialRepository } from "../ports/credential.repository";
 import { MembershipRepository } from "../ports/memberships.repository";
 import { PasswordHasher } from "../ports/password-hasher";
 import { SessionIssuer } from "../services/session-issuer";
+import { SignInThrottle } from "../services/sign-in-throttle";
 
 import { AccountSnapshot } from "@/identity/domain/account.entity";
 
@@ -31,6 +32,7 @@ export type SignInWithEmailDeps = {
 
   passwordHasher: PasswordHasher;
   sessionIssuer: SessionIssuer;
+  signInThrottle: SignInThrottle;
 
   clock: Clock;
 };

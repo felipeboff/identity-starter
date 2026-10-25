@@ -12,6 +12,7 @@ import { SharedLogEvent } from "@shared/application/logging/shared.log-event";
 import { LogLevel } from "@shared/application/ports/logger";
 import { SharedError } from "@shared/domain/errors/shared.error";
 import { expectAppError } from "@shared/testing/expect-app-error";
+import { useMemoryRedis } from "@shared/testing/memory-redis";
 import { MongoMemoryReplSet, MongoMemoryServer } from "mongodb-memory-server";
 import mongoose from "mongoose";
 import request from "supertest";
@@ -33,6 +34,9 @@ const buildEnv = (overrides: Partial<Env> = {}): Env => ({
   TRUST_PROXY: 0,
   LOG_LEVEL: LogLevel.INFO,
   MONGO_URL: faker.internet.url(),
+  REDIS_URL: new URL(
+    `redis://127.0.0.1:${faker.number.int({ min: 1_024, max: 65_535 })}`,
+  ),
   JWT_SECRET: faker.string.alphanumeric(64),
   APP_URL: new URL(faker.internet.url()),
   MAILER: "log",
@@ -119,6 +123,7 @@ const signUpInFlight = async (port: number) => {
 };
 
 describe("start", () => {
+  const redis = useMemoryRedis();
   let database: MongoMemoryReplSet;
   const running: RunningApp[] = [];
 
@@ -144,7 +149,11 @@ describe("start", () => {
   ) => {
     const output = createOutput();
     const app = await start({
-      env: buildEnv({ MONGO_URL: database.getUri(name), ...overrides }),
+      env: buildEnv({
+        MONGO_URL: database.getUri(name),
+        REDIS_URL: new URL(redis.url()),
+        ...overrides,
+      }),
       logDestination: output.logDestination,
       timeouts: { shutdownMs: 2_000 },
     });
@@ -184,6 +193,39 @@ describe("start", () => {
       SharedLogEvent.DatabaseConnectionFailed.name,
     );
     expect(output.events()).not.toContain(SharedLogEvent.ServerStarted.name);
+  });
+
+  it("connects to Redis before listening", async () => {
+    const { output } = await startApp();
+
+    const events = output.events();
+
+    expect(events).toContain(SharedLogEvent.CacheConnected.name);
+    expect(events.indexOf(SharedLogEvent.CacheConnected.name)).toBeLessThan(
+      events.indexOf(SharedLogEvent.ServerStarted.name),
+    );
+  });
+
+  it("does not listen when Redis is unavailable, and closes the database", async () => {
+    const output = createOutput();
+    const name = databaseName();
+
+    await expectAppError(
+      start({
+        env: buildEnv({
+          MONGO_URL: database.getUri(name),
+          REDIS_URL: new URL(`redis://127.0.0.1:${await freePort()}`),
+        }),
+        logDestination: output.logDestination,
+      }),
+      SharedError.CacheUnavailable,
+    );
+
+    expect(output.events()).toContain(
+      SharedLogEvent.CacheConnectionFailed.name,
+    );
+    expect(output.events()).not.toContain(SharedLogEvent.ServerStarted.name);
+    expect(connectionNamed(name)?.readyState).toBe(0);
   });
 
   it("keeps the global mongoose connection unused", async () => {
@@ -317,7 +359,11 @@ describe("start", () => {
 
     await expect(
       start({
-        env: buildEnv({ PORT: port, MONGO_URL: database.getUri(name) }),
+        env: buildEnv({
+          PORT: port,
+          MONGO_URL: database.getUri(name),
+          REDIS_URL: new URL(redis.url()),
+        }),
         logDestination: createOutput().logDestination,
       }),
     ).rejects.toMatchObject({ code: "EADDRINUSE" });
@@ -364,7 +410,10 @@ describe("start", () => {
       const output = createOutput();
       const name = databaseName();
       const app = await start({
-        env: buildEnv({ MONGO_URL: database.getUri(name) }),
+        env: buildEnv({
+          MONGO_URL: database.getUri(name),
+          REDIS_URL: new URL(redis.url()),
+        }),
         logDestination: output.logDestination,
         timeouts: { shutdownMs: 200 },
       });
