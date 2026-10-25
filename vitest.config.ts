@@ -2,6 +2,37 @@ import path from "node:path";
 
 import { defineConfig } from "vitest/config";
 
+const INTEGRATION = "src/**/*.integration.spec.ts";
+const E2E = "src/**/*.e2e.spec.ts";
+
+const LEVEL_SCOPES = {
+  unit: [
+    "src/modules/*/domain/**/*.ts",
+    "src/modules/*/application/**/*.ts",
+    "src/shared/domain/**/*.ts",
+    "src/shared/application/**/*.ts",
+    "src/shared/presentation/**/*.ts",
+    "src/shared/types/**/*.ts",
+    "src/modules/*/public.ts",
+    "src/app/config.ts",
+    "src/app/shutdown.ts",
+  ],
+  integration: [
+    "src/modules/*/infrastructure/**/*.ts",
+    "src/shared/infrastructure/**/*.ts",
+    "src/modules/*/*.module.ts",
+  ],
+  e2e: [
+    "src/modules/*/presentation/**/*.ts",
+    "src/app/create-server.ts",
+    "src/app/http-routes.ts",
+    "src/app/start.ts",
+  ],
+};
+
+const level = process.env.COVERAGE_LEVEL as
+  keyof typeof LEVEL_SCOPES | undefined;
+
 export default defineConfig({
   resolve: {
     alias: {
@@ -11,11 +42,32 @@ export default defineConfig({
     },
   },
   test: {
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "unit",
+          include: ["src/**/*.spec.ts"],
+          exclude: [INTEGRATION, E2E],
+        },
+      },
+      { extends: true, test: { name: "integration", include: [INTEGRATION] } },
+      {
+        extends: true,
+        test: {
+          name: "e2e",
+          include: [E2E],
+        },
+      },
+    ],
     coverage: {
       provider: "v8",
-      // Measure every source file, not only the ones some test imports.
-      include: ["src/**/*.ts"],
-      exclude: ["src/main.ts"],
+      include: level ? LEVEL_SCOPES[level] : ["src/**/*.ts"],
+      exclude: [
+        "src/main.ts",
+        "src/**/*.global-setup.ts",
+        ...(level ? ["src/**/testing/**"] : []),
+      ],
       thresholds: { 100: true },
     },
   },

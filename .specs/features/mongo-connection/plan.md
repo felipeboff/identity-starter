@@ -33,7 +33,7 @@ Reuses `start`, `loadEnv` (`MONGO_URL` already exists), `PinoLogger` with `defin
 | domain            | new term: `MongoDatabase` - owner of the process's single Mongoose connection; lives in `src/shared/infrastructure/mongo`                                               |
 | domain            | new log events `shared.database_connected`, `shared.database_disconnected`, `shared.database_reconnected`, `shared.database_connection_failed`, `shared.server_stopped` |
 | domain            | new error `SharedError.DatabaseUnavailable` (`shared.database_unavailable`) - startup could not connect                                                                 |
-| internal contract | `start` returns the Node `Server` today; it returns `{ port, stop }` instead - only `main.ts` and `start.spec.ts` use it                                                |
+| internal contract | `start` returns the Node `Server` today; it returns `{ port, stop }` instead - only `main.ts` and `start.e2e.spec.ts` use it                                            |
 | local environment | `pnpm dev` now needs a running Mongo; a new `docker-compose.yml` starts one and keeps its data in `./.data/mongo`, ignored by git                                       |
 | stored data       | nothing to migrate - no collection exists yet                                                                                                                           |
 

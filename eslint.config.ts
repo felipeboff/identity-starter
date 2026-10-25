@@ -17,6 +17,13 @@ const NO_TEST_HELPERS = {
     "Production code must not import fakes or test helpers from a testing/ folder.",
 };
 
+const NO_REAL_IO_IN_UNIT_SPECS = {
+  regex:
+    "^(supertest|express|mongodb-memory-server|node:http|node:net)$|(^|/)testing/(memory-mongo|[\\w-]+-http)$",
+  message:
+    "A unit spec runs without I/O. Rename it to *.integration.spec.ts (a real dependency) or *.e2e.spec.ts (real HTTP).",
+};
+
 export default defineConfig(
   { ignores: ["dist/**", "coverage/**"] },
   {
@@ -124,6 +131,16 @@ export default defineConfig(
           message:
             "Reject with an AppError with a definition from defineError instead.",
         },
+      ],
+    },
+  },
+  {
+    files: ["src/**/*.spec.ts"],
+    ignores: ["**/*.integration.spec.ts", "**/*.e2e.spec.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        { patterns: [NO_REAL_IO_IN_UNIT_SPECS] },
       ],
     },
   },
