@@ -169,4 +169,8 @@ export const IdentityError = {
     "identity.last_credential_cannot_be_removed",
     "precondition_failed",
   ),
+  EmailDeliveryFailed: defineError(
+    "identity.email_delivery_failed",
+    "precondition_failed",
+  ),
 };
