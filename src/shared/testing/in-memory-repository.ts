@@ -1,6 +1,8 @@
 import { AppError } from "../domain/errors/app-error";
 import { SharedError } from "../domain/errors/shared.error";
 
+import type { InMemoryTransactionRunner } from "./in-memory-transaction-runner";
+
 export type InMemoryRepositoryShape = Readonly<{
   entity: { markAsSaved(): void };
   snapshot: { id: string; version: number; createdAt: Date };
@@ -9,6 +11,8 @@ export type InMemoryRepositoryShape = Readonly<{
 /** Stores snapshots, not entities, so a change only shows up after it is saved. */
 export abstract class InMemoryRepository<S extends InMemoryRepositoryShape> {
   protected readonly snapshots = new Map<string, S["snapshot"]>();
+
+  constructor(private readonly transactions: InMemoryTransactionRunner) {}
 
   protected abstract toSnapshot(entity: S["entity"]): S["snapshot"];
   protected abstract restore(snapshot: S["snapshot"]): S["entity"];
@@ -30,7 +34,11 @@ export abstract class InMemoryRepository<S extends InMemoryRepositoryShape> {
         ...snapshot,
         version: snapshot.version + 1,
       });
-      entity.markAsSaved();
+      this.transactions.onRollback(() => {
+        if (stored) this.snapshots.set(snapshot.id, stored);
+        else this.snapshots.delete(snapshot.id);
+      });
+      this.transactions.afterCommit(() => entity.markAsSaved());
       resolve();
     });
   }

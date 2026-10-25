@@ -1,9 +1,13 @@
 import { faker } from "@faker-js/faker";
+import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
 import { SharedError } from "@shared/domain/errors/shared.error";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { beforeEach, expect, it } from "vitest";
 
 import { CredentialRepository } from "../../ports/credential.repository";
+
+import type { RepositoryUnderContract } from "./repository-under-contract";
+import { transactionalSaveContract } from "./transactional-save.contract";
 
 import { AuthProvider, Credential } from "@/identity/domain/credential.entity";
 import { IdentityError } from "@/identity/domain/errors/identity.error";
@@ -42,16 +46,24 @@ const registerGoogleCredential = (
   );
 
 export const credentialRepositoryContract = (
-  createRepository: () => CredentialRepository,
+  createRepository: () => RepositoryUnderContract<CredentialRepository>,
 ) => {
   let credentials: CredentialRepository;
+  let transactions: TransactionRunner;
 
   beforeEach(() => {
-    credentials = createRepository();
+    ({ repository: credentials, transactions } = createRepository());
   });
 
   const load = async (credential: Credential) =>
     (await credentials.findById(credential.id.value)) as Credential;
+
+  transactionalSaveContract(() => ({
+    transactions,
+    register: () => registerEmailCredential(),
+    save: (entity) => credentials.save(entity),
+    load,
+  }));
 
   it.each([
     ["an e-mail credential", () => registerEmailCredential()],

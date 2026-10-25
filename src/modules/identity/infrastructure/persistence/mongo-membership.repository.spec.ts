@@ -1,3 +1,4 @@
+import { MongoTransactionRunner } from "@shared/infrastructure/mongo/mongo-transaction-runner";
 import { useMemoryMongo } from "@shared/testing/memory-mongo";
 import { beforeAll, describe } from "vitest";
 
@@ -9,11 +10,16 @@ import { membershipRepositoryContract } from "@/identity/application/testing/con
 describe("MongoMembershipRepository", () => {
   const mongo = useMemoryMongo();
   let models: IdentityModels;
+  let transactions: MongoTransactionRunner;
 
   beforeAll(async () => {
     models = new IdentityModels(mongo.connection());
     await models.ready();
+    transactions = new MongoTransactionRunner(mongo.connection());
   });
 
-  membershipRepositoryContract(() => new MongoMembershipRepository(models));
+  membershipRepositoryContract(() => ({
+    repository: new MongoMembershipRepository(models, transactions),
+    transactions,
+  }));
 });

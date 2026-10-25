@@ -1,6 +1,6 @@
 import { faker } from "@faker-js/faker";
 import { expectAppError } from "@shared/testing/expect-app-error";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   IdentityContext,
@@ -105,5 +105,46 @@ describe("RequestEmailVerificationUseCase", () => {
       IdentityError.AccountNotFound,
       { accountId: ghost.accountId },
     );
+  });
+
+  it("writes nothing when the last write fails", async () => {
+    const ana = await seedAccount(ctx);
+    await useCase.execute(ana.actor);
+    const [first] = ctx.mailer.emailVerifications;
+    const failure = new Error(faker.lorem.sentence());
+    const save = ctx.emailVerifications.save.bind(ctx.emailVerifications);
+    vi.spyOn(ctx.emailVerifications, "save")
+      .mockImplementationOnce(save)
+      .mockRejectedValueOnce(failure);
+
+    await expect(useCase.execute(ana.actor)).rejects.toBe(failure);
+
+    const previous = await ctx.emailVerifications.findByTokenHash(
+      ctx.tokens.hash(first.token),
+    );
+    expect(previous?.isPending(ctx.clock.now())).toBe(true);
+    expect(ctx.mailer.emailVerifications).toStrictEqual([first]);
+  });
+
+  it("sends the e-mail after the transaction commits", async () => {
+    const ana = await seedAccount(ctx);
+    const send = ctx.mailer.sendEmailVerification.bind(ctx.mailer);
+    const seen: { running: boolean; stored: boolean }[] = [];
+    vi.spyOn(ctx.mailer, "sendEmailVerification").mockImplementation(
+      async (email) => {
+        seen.push({
+          running: ctx.transactions.isRunning(),
+          stored:
+            (await ctx.emailVerifications.findByTokenHash(
+              ctx.tokens.hash(email.token),
+            )) !== null,
+        });
+        return send(email);
+      },
+    );
+
+    await useCase.execute(ana.actor);
+
+    expect(seen).toStrictEqual([{ running: false, stored: true }]);
   });
 });

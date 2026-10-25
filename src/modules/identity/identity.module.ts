@@ -1,6 +1,8 @@
 import { Clock } from "@shared/application/ports/clock";
 import { IdGenerator } from "@shared/application/ports/id-generator";
 import type { LogContext } from "@shared/application/ports/log-context";
+import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
+import { MongoTransactionRunner } from "@shared/infrastructure/mongo/mongo-transaction-runner";
 import { HttpRoute } from "@shared/presentation/http/http-route";
 import type { Connection } from "mongoose";
 
@@ -67,6 +69,7 @@ export type IdentityModuleDeps = {
   sessions: SessionRepository;
   passwordResets: PasswordResetRepository;
   emailVerifications: EmailVerificationRepository;
+  transactions: TransactionRunner;
 
   passwordHasher: PasswordHasher;
   tokens: TokenIssuer;
@@ -146,17 +149,23 @@ export const createMongoIdentityRepositories = async (
     | "sessions"
     | "passwordResets"
     | "emailVerifications"
+    | "transactions"
   >
 > => {
   const models = new IdentityModels(connection);
   await models.ready();
+  const transactions = new MongoTransactionRunner(connection);
   return {
-    accounts: new MongoAccountRepository(models),
-    credentials: new MongoCredentialRepository(models),
-    memberships: new MongoMembershipRepository(models),
-    sessions: new MongoSessionRepository(models),
-    passwordResets: new MongoPasswordResetRepository(models),
-    emailVerifications: new MongoEmailVerificationRepository(models),
+    accounts: new MongoAccountRepository(models, transactions),
+    credentials: new MongoCredentialRepository(models, transactions),
+    memberships: new MongoMembershipRepository(models, transactions),
+    sessions: new MongoSessionRepository(models, transactions),
+    passwordResets: new MongoPasswordResetRepository(models, transactions),
+    emailVerifications: new MongoEmailVerificationRepository(
+      models,
+      transactions,
+    ),
+    transactions,
   };
 };
 

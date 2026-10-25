@@ -21,17 +21,19 @@ export class RevokeAllSessionsUseCase extends UseCase<{
     input: RevokeAllSessionsInput,
     actor: Actor,
   ): Promise<RevokeAllSessionsOutput> {
-    this.deps.accessPolicy.ensureCanManageAccount(actor, input.accountId);
+    return this.deps.transactions.run(async () => {
+      this.deps.accessPolicy.ensureCanManageAccount(actor, input.accountId);
 
-    const revoked = await this.deps.sessionRevoker.revokeActive(
-      input.accountId,
-      {
-        reason: SessionRevocationReason.SECURITY,
-        at: this.deps.clock.now(),
-        revokedBy: actor.accountId,
-      },
-    );
+      const revoked = await this.deps.sessionRevoker.revokeActive(
+        input.accountId,
+        {
+          reason: SessionRevocationReason.SECURITY,
+          at: this.deps.clock.now(),
+          revokedBy: actor.accountId,
+        },
+      );
 
-    return { revokedCount: revoked.length };
+      return { revokedCount: revoked.length };
+    });
   }
 }

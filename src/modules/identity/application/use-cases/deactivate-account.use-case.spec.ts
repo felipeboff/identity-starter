@@ -1,6 +1,6 @@
 import { faker } from "@faker-js/faker";
 import { expectAppError } from "@shared/testing/expect-app-error";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   IdentityContext,
@@ -85,6 +85,21 @@ describe("DeactivateAccountUseCase", () => {
       useCase.execute({ accountId: missingId }, admin.actor),
       IdentityError.AccountNotFound,
       { accountId: missingId },
+    );
+  });
+
+  it("writes nothing when the last write fails", async () => {
+    const ana = await seedAccount(ctx);
+    await seedSession(ctx, ana);
+    const failure = new Error(faker.lorem.sentence());
+    vi.spyOn(ctx.sessions, "save").mockRejectedValueOnce(failure);
+
+    await expect(
+      useCase.execute({ accountId: ana.accountId }, ana.actor),
+    ).rejects.toBe(failure);
+
+    expect((await ctx.accounts.findById(ana.accountId))?.isDeleted()).toBe(
+      false,
     );
   });
 });

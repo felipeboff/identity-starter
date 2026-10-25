@@ -18,23 +18,25 @@ export class DeactivateAccountUseCase extends UseCase<{
   actor: Actor;
 }> {
   async execute(input: DeactivateAccountInput, actor: Actor): Promise<void> {
-    this.deps.accessPolicy.ensureCanManageAccount(actor, input.accountId);
+    return this.deps.transactions.run(async () => {
+      this.deps.accessPolicy.ensureCanManageAccount(actor, input.accountId);
 
-    const account = await this.deps.accounts.findById(input.accountId);
-    if (!account) {
-      throw new AppError(IdentityError.AccountNotFound, {
-        accountId: input.accountId,
+      const account = await this.deps.accounts.findById(input.accountId);
+      if (!account) {
+        throw new AppError(IdentityError.AccountNotFound, {
+          accountId: input.accountId,
+        });
+      }
+
+      const at = this.deps.clock.now();
+      account.markAsDeleted(at);
+      await this.deps.accounts.save(account);
+
+      await this.deps.sessionRevoker.revokeActive(account.id.value, {
+        reason: SessionRevocationReason.SECURITY,
+        at,
+        revokedBy: actor.accountId,
       });
-    }
-
-    const at = this.deps.clock.now();
-    account.markAsDeleted(at);
-    await this.deps.accounts.save(account);
-
-    await this.deps.sessionRevoker.revokeActive(account.id.value, {
-      reason: SessionRevocationReason.SECURITY,
-      at,
-      revokedBy: actor.accountId,
     });
   }
 }

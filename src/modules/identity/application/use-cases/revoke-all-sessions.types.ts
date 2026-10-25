@@ -1,4 +1,5 @@
 import { Clock } from "@shared/application/ports/clock";
+import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
 
 import { AccessPolicy } from "../policies/access.policy";
 import { SessionRevoker } from "../services/session-revoker";
@@ -12,6 +13,7 @@ export type RevokeAllSessionsOutput = {
 };
 
 export type RevokeAllSessionsDeps = {
+  transactions: TransactionRunner;
   clock: Clock;
 
   accessPolicy: AccessPolicy;

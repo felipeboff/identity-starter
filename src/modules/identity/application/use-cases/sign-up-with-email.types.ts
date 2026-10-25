@@ -1,5 +1,6 @@
 import { Clock } from "@shared/application/ports/clock";
 import { IdGenerator } from "@shared/application/ports/id-generator";
+import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
 
 import { AccountRepository } from "../ports/account.repository";
 import { CredentialRepository } from "../ports/credential.repository";
@@ -25,6 +26,7 @@ export type SignUpWithEmailOutput = {
 };
 
 export type SignUpWithEmailDeps = {
+  transactions: TransactionRunner;
   accounts: AccountRepository;
   credentials: CredentialRepository;
   memberships: MembershipRepository;

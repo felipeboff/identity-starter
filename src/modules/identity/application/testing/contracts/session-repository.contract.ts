@@ -1,7 +1,11 @@
 import { faker } from "@faker-js/faker";
+import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
 import { beforeEach, expect, it } from "vitest";
 
 import { SessionRepository } from "../../ports/session.repository";
+
+import type { RepositoryUnderContract } from "./repository-under-contract";
+import { transactionalSaveContract } from "./transactional-save.contract";
 
 import {
   Session,
@@ -29,16 +33,24 @@ const registerSession = (
   );
 
 export const sessionRepositoryContract = (
-  createRepository: () => SessionRepository,
+  createRepository: () => RepositoryUnderContract<SessionRepository>,
 ) => {
   let sessions: SessionRepository;
+  let transactions: TransactionRunner;
 
   beforeEach(() => {
-    sessions = createRepository();
+    ({ repository: sessions, transactions } = createRepository());
   });
 
   const load = async (session: Session) =>
     (await sessions.findById(session.id.value)) as Session;
+
+  transactionalSaveContract(() => ({
+    transactions,
+    register: () => registerSession(),
+    save: (entity) => sessions.save(entity),
+    load,
+  }));
 
   it("keeps every field of an active session", async () => {
     const session = registerSession();

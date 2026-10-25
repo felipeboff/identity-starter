@@ -1,5 +1,6 @@
+import { faker } from "@faker-js/faker";
 import { expectAppError } from "@shared/testing/expect-app-error";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   IdentityContext,
@@ -92,5 +93,26 @@ describe("RevokeAllSessionsUseCase", () => {
 
     const stored = await ctx.sessions.findById(session.id.value);
     expect(stored?.isRevoked()).toBe(false);
+  });
+
+  it("writes nothing when the last write fails", async () => {
+    const ana = await seedAccount(ctx);
+    await seedSession(ctx, ana);
+    await seedSession(ctx, ana);
+    const failure = new Error(faker.lorem.sentence());
+    const save = ctx.sessions.save.bind(ctx.sessions);
+    vi.spyOn(ctx.sessions, "save")
+      .mockImplementationOnce(save)
+      .mockRejectedValueOnce(failure);
+
+    await expect(
+      useCase.execute({ accountId: ana.accountId }, ana.actor),
+    ).rejects.toBe(failure);
+
+    const sessions = await ctx.sessions.listByAccountId(ana.accountId);
+    expect(sessions.map((session) => session.isRevoked())).toStrictEqual([
+      false,
+      false,
+    ]);
   });
 });

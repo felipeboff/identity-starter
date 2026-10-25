@@ -1,7 +1,11 @@
 import { faker } from "@faker-js/faker";
+import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
 import { beforeEach, expect, it } from "vitest";
 
 import { EmailVerificationRepository } from "../../ports/email-verification.repository";
+
+import type { RepositoryUnderContract } from "./repository-under-contract";
+import { transactionalSaveContract } from "./transactional-save.contract";
 
 import { EmailVerification } from "@/identity/domain/email-verification.entity";
 
@@ -22,18 +26,26 @@ const registerEmailVerification = (
   );
 
 export const emailVerificationRepositoryContract = (
-  createRepository: () => EmailVerificationRepository,
+  createRepository: () => RepositoryUnderContract<EmailVerificationRepository>,
 ) => {
   let emailVerifications: EmailVerificationRepository;
+  let transactions: TransactionRunner;
 
   beforeEach(() => {
-    emailVerifications = createRepository();
+    ({ repository: emailVerifications, transactions } = createRepository());
   });
 
   const load = async (entity: EmailVerification) =>
     (await emailVerifications.findByTokenHash(
       entity.toSnapshot().tokenHash,
     )) as EmailVerification;
+
+  transactionalSaveContract(() => ({
+    transactions,
+    register: () => registerEmailVerification(),
+    save: (entity) => emailVerifications.save(entity),
+    load,
+  }));
 
   it("keeps every field", async () => {
     const entity = registerEmailVerification();

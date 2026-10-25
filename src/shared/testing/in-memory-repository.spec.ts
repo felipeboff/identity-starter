@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { expectAppError } from "./expect-app-error";
 import { InMemoryRepository } from "./in-memory-repository";
+import { InMemoryTransactionRunner } from "./in-memory-transaction-runner";
 
 type NoteSnapshot = {
   id: string;
@@ -68,7 +69,7 @@ class InMemoryNoteRepository extends InMemoryRepository<{
 
 describe("InMemoryRepository", () => {
   it("stores a new entity at version 1 and moves the entity to it", async () => {
-    const notes = new InMemoryNoteRepository();
+    const notes = new InMemoryNoteRepository(new InMemoryTransactionRunner());
     const note = Note.create();
 
     await notes.save(note);
@@ -79,7 +80,7 @@ describe("InMemoryRepository", () => {
   });
 
   it("does not expose changes that were never saved", async () => {
-    const notes = new InMemoryNoteRepository();
+    const notes = new InMemoryNoteRepository(new InMemoryTransactionRunner());
     const note = Note.create();
     await notes.save(note);
     const { text } = note.toSnapshot();
@@ -92,7 +93,7 @@ describe("InMemoryRepository", () => {
   });
 
   it("refuses a second new entity with an id already stored", async () => {
-    const notes = new InMemoryNoteRepository();
+    const notes = new InMemoryNoteRepository(new InMemoryTransactionRunner());
     const note = Note.create();
     await notes.save(note);
 
@@ -104,7 +105,7 @@ describe("InMemoryRepository", () => {
   });
 
   it("refuses a save from a version that is no longer stored", async () => {
-    const notes = new InMemoryNoteRepository();
+    const notes = new InMemoryNoteRepository(new InMemoryTransactionRunner());
     const note = Note.create();
     await notes.save(note);
     const { id } = note.toSnapshot();
@@ -119,7 +120,7 @@ describe("InMemoryRepository", () => {
   });
 
   it("refuses a save of an entity that was never stored", async () => {
-    const notes = new InMemoryNoteRepository();
+    const notes = new InMemoryNoteRepository(new InMemoryTransactionRunner());
     const note = Note.create();
     note.markAsSaved();
 
@@ -130,7 +131,7 @@ describe("InMemoryRepository", () => {
   });
 
   it("lists in creation order, then by id", async () => {
-    const notes = new InMemoryNoteRepository();
+    const notes = new InMemoryNoteRepository(new InMemoryTransactionRunner());
     const createdAt = faker.date.past();
     const later = Note.create(new Date(createdAt.getTime() + 1_000));
     const [firstId, secondId] = [

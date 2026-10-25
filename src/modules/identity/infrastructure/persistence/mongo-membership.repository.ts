@@ -1,3 +1,4 @@
+import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
 import { OptimisticWriter } from "@shared/infrastructure/mongo/optimistic-writer";
 
 import { IdentityModels } from "./identity-models";
@@ -10,13 +11,16 @@ import { Membership } from "@/identity/domain/membership.entity";
 export class MongoMembershipRepository implements MembershipRepository {
   private readonly writer: OptimisticWriter<MembershipDocument>;
 
-  constructor(private readonly models: IdentityModels) {
+  constructor(
+    private readonly models: IdentityModels,
+    private readonly transactions: TransactionRunner,
+  ) {
     this.writer = new OptimisticWriter(models.memberships);
   }
 
   async save(membership: Membership): Promise<void> {
     await this.writer.save(membershipMapper.toDocument(membership));
-    membership.markAsSaved();
+    this.transactions.afterCommit(() => membership.markAsSaved());
   }
 
   async findById(id: string): Promise<Membership | null> {

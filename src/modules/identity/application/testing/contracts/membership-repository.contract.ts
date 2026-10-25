@@ -1,7 +1,11 @@
 import { faker } from "@faker-js/faker";
+import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
 import { beforeEach, expect, it } from "vitest";
 
 import { MembershipRepository } from "../../ports/memberships.repository";
+
+import type { RepositoryUnderContract } from "./repository-under-contract";
+import { transactionalSaveContract } from "./transactional-save.contract";
 
 import {
   Membership,
@@ -24,16 +28,24 @@ const registerMembership = () => {
 };
 
 export const membershipRepositoryContract = (
-  createRepository: () => MembershipRepository,
+  createRepository: () => RepositoryUnderContract<MembershipRepository>,
 ) => {
   let memberships: MembershipRepository;
+  let transactions: TransactionRunner;
 
   beforeEach(() => {
-    memberships = createRepository();
+    ({ repository: memberships, transactions } = createRepository());
   });
 
   const load = async (membership: Membership) =>
     (await memberships.findById(membership.id.value)) as Membership;
+
+  transactionalSaveContract(() => ({
+    transactions,
+    register: () => registerMembership(),
+    save: (entity) => memberships.save(entity),
+    load,
+  }));
 
   it("keeps every field of a membership", async () => {
     const membership = registerMembership();

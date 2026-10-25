@@ -1,3 +1,4 @@
+import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
 import { OptimisticWriter } from "@shared/infrastructure/mongo/optimistic-writer";
 
 import { IdentityModels } from "./identity-models";
@@ -10,13 +11,16 @@ import { PasswordReset } from "@/identity/domain/password-reset.entity";
 export class MongoPasswordResetRepository implements PasswordResetRepository {
   private readonly writer: OptimisticWriter<PasswordResetDocument>;
 
-  constructor(private readonly models: IdentityModels) {
+  constructor(
+    private readonly models: IdentityModels,
+    private readonly transactions: TransactionRunner,
+  ) {
     this.writer = new OptimisticWriter(models.passwordResets);
   }
 
   async save(passwordReset: PasswordReset): Promise<void> {
     await this.writer.save(passwordResetMapper.toDocument(passwordReset));
-    passwordReset.markAsSaved();
+    this.transactions.afterCommit(() => passwordReset.markAsSaved());
   }
 
   async findByTokenHash(tokenHash: string): Promise<PasswordReset | null> {

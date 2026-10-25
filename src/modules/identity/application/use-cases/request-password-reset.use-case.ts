@@ -19,20 +19,29 @@ export class RequestPasswordResetUseCase extends UseCase<{
   deps: RequestPasswordResetDeps;
 }> {
   async execute(input: RequestPasswordResetInput): Promise<void> {
+    const issued = await this.deps.transactions.run(() => this.issue(input));
+    if (!issued) {
+      return;
+    }
+
+    await this.deps.mailer.sendPasswordReset(issued);
+  }
+
+  private async issue(input: RequestPasswordResetInput) {
     const credential = await this.deps.credentials.findByEmail(input.email);
     if (
       !credential ||
       credential.isDeleted() ||
       credential.provider !== AuthProvider.EMAIL
     ) {
-      return;
+      return null;
     }
 
     const account = await this.deps.accounts.findById(
       credential.accountId.value,
     );
     if (!account || account.isDeleted()) {
-      return;
+      return null;
     }
 
     const at = this.deps.clock.now();
@@ -60,11 +69,11 @@ export class RequestPasswordResetUseCase extends UseCase<{
     );
     await this.deps.passwordResets.save(passwordReset);
 
-    await this.deps.mailer.sendPasswordReset({
+    return {
       to: account.email.value,
       name: account.name,
       token,
       expiresAt,
-    });
+    };
   }
 }

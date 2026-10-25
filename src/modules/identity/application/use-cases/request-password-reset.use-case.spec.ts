@@ -1,5 +1,5 @@
 import { faker } from "@faker-js/faker";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   IdentityContext,
@@ -124,9 +124,12 @@ describe("RequestPasswordResetUseCase", () => {
         ctx.clock.now(),
       );
       // The in-memory findByEmail only returns e-mail credentials, so stub it.
-      const credentials = Object.assign(new InMemoryCredentialRepository(), {
-        findByEmail: () => Promise.resolve(google),
-      });
+      const credentials = Object.assign(
+        new InMemoryCredentialRepository(ctx.transactions),
+        {
+          findByEmail: () => Promise.resolve(google),
+        },
+      );
       useCase = new RequestPasswordResetUseCase({ ...ctx, credentials });
 
       await useCase.execute({ email });
@@ -165,5 +168,46 @@ describe("RequestPasswordResetUseCase", () => {
 
       expect(ctx.mailer.passwordResets).toEqual([]);
     });
+  });
+
+  it("writes nothing when the last write fails", async () => {
+    const ana = await seedAccount(ctx);
+    await useCase.execute({ email: ana.email });
+    const [first] = ctx.mailer.passwordResets;
+    const failure = new Error(faker.lorem.sentence());
+    const save = ctx.passwordResets.save.bind(ctx.passwordResets);
+    vi.spyOn(ctx.passwordResets, "save")
+      .mockImplementationOnce(save)
+      .mockRejectedValueOnce(failure);
+
+    await expect(useCase.execute({ email: ana.email })).rejects.toBe(failure);
+
+    const previous = await ctx.passwordResets.findByTokenHash(
+      ctx.tokens.hash(first.token),
+    );
+    expect(previous?.isPending(ctx.clock.now())).toBe(true);
+    expect(ctx.mailer.passwordResets).toStrictEqual([first]);
+  });
+
+  it("sends the e-mail after the transaction commits", async () => {
+    const ana = await seedAccount(ctx);
+    const send = ctx.mailer.sendPasswordReset.bind(ctx.mailer);
+    const seen: { running: boolean; stored: boolean }[] = [];
+    vi.spyOn(ctx.mailer, "sendPasswordReset").mockImplementation(
+      async (email) => {
+        seen.push({
+          running: ctx.transactions.isRunning(),
+          stored:
+            (await ctx.passwordResets.findByTokenHash(
+              ctx.tokens.hash(email.token),
+            )) !== null,
+        });
+        return send(email);
+      },
+    );
+
+    await useCase.execute({ email: ana.email });
+
+    expect(seen).toStrictEqual([{ running: false, stored: true }]);
   });
 });

@@ -1,9 +1,13 @@
 import { faker } from "@faker-js/faker";
+import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
 import { SharedError } from "@shared/domain/errors/shared.error";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { beforeEach, expect, it } from "vitest";
 
 import { AccountRepository } from "../../ports/account.repository";
+
+import type { RepositoryUnderContract } from "./repository-under-contract";
+import { transactionalSaveContract } from "./transactional-save.contract";
 
 import { Account } from "@/identity/domain/account.entity";
 import { IdentityError } from "@/identity/domain/errors/identity.error";
@@ -18,16 +22,24 @@ const registerAccount = (
   );
 
 export const accountRepositoryContract = (
-  createRepository: () => AccountRepository,
+  createRepository: () => RepositoryUnderContract<AccountRepository>,
 ) => {
   let accounts: AccountRepository;
+  let transactions: TransactionRunner;
 
   beforeEach(() => {
-    accounts = createRepository();
+    ({ repository: accounts, transactions } = createRepository());
   });
 
   const load = async (account: Account) =>
     (await accounts.findById(account.id.value)) as Account;
+
+  transactionalSaveContract(() => ({
+    transactions,
+    register: () => registerAccount(),
+    save: (entity) => accounts.save(entity),
+    load,
+  }));
 
   it("saves a new account at version 1 and finds it by id", async () => {
     const account = registerAccount();
@@ -69,6 +81,27 @@ export const accountRepositoryContract = (
       name,
       version: 2,
     });
+  });
+
+  it("keeps the stored account when the transaction fails", async () => {
+    const account = registerAccount();
+    await accounts.save(account);
+    const { name } = account.toSnapshot();
+    const failure = new Error(faker.lorem.sentence());
+
+    await expect(
+      transactions.run(async () => {
+        account.updateName(faker.person.fullName(), faker.date.recent());
+        await accounts.save(account);
+        throw failure;
+      }),
+    ).rejects.toBe(failure);
+
+    expect((await load(account)).toSnapshot()).toMatchObject({
+      name,
+      version: 1,
+    });
+    expect(account.version).toBe(1);
   });
 
   it("does not show a change that was not saved", async () => {

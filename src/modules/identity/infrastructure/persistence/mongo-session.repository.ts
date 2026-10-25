@@ -1,3 +1,4 @@
+import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
 import { OptimisticWriter } from "@shared/infrastructure/mongo/optimistic-writer";
 
 import { IdentityModels } from "./identity-models";
@@ -10,13 +11,16 @@ import { Session } from "@/identity/domain/session.entity";
 export class MongoSessionRepository implements SessionRepository {
   private readonly writer: OptimisticWriter<SessionDocument>;
 
-  constructor(private readonly models: IdentityModels) {
+  constructor(
+    private readonly models: IdentityModels,
+    private readonly transactions: TransactionRunner,
+  ) {
     this.writer = new OptimisticWriter(models.sessions);
   }
 
   async save(session: Session): Promise<void> {
     await this.writer.save(sessionMapper.toDocument(session));
-    session.markAsSaved();
+    this.transactions.afterCommit(() => session.markAsSaved());
   }
 
   async findById(id: string): Promise<Session | null> {

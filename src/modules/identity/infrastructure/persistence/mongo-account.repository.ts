@@ -1,3 +1,4 @@
+import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
 import { AppError } from "@shared/domain/errors/app-error";
 import { isDuplicateKey } from "@shared/infrastructure/mongo/duplicate-key";
 import { OptimisticWriter } from "@shared/infrastructure/mongo/optimistic-writer";
@@ -13,7 +14,10 @@ import { IdentityError } from "@/identity/domain/errors/identity.error";
 export class MongoAccountRepository implements AccountRepository {
   private readonly writer: OptimisticWriter<AccountDocument>;
 
-  constructor(private readonly models: IdentityModels) {
+  constructor(
+    private readonly models: IdentityModels,
+    private readonly transactions: TransactionRunner,
+  ) {
     this.writer = new OptimisticWriter(models.accounts);
   }
 
@@ -29,7 +33,7 @@ export class MongoAccountRepository implements AccountRepository {
       }
       throw error;
     }
-    account.markAsSaved();
+    this.transactions.afterCommit(() => account.markAsSaved());
   }
 
   async findById(id: string): Promise<Account | null> {

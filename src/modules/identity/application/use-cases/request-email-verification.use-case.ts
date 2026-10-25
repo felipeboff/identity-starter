@@ -14,6 +14,11 @@ export class RequestEmailVerificationUseCase extends UseCase<{
   actor: Actor;
 }> {
   async execute(actor: Actor): Promise<void> {
+    const email = await this.deps.transactions.run(() => this.issue(actor));
+    await this.deps.mailer.sendEmailVerification(email);
+  }
+
+  private async issue(actor: Actor) {
     const account = await this.deps.accountResolver.resolveActive(
       actor.accountId,
     );
@@ -47,11 +52,11 @@ export class RequestEmailVerificationUseCase extends UseCase<{
     );
     await this.deps.emailVerifications.save(verification);
 
-    await this.deps.mailer.sendEmailVerification({
+    return {
       to: account.email.value,
       name: account.name,
       token,
       expiresAt,
-    });
+    };
   }
 }

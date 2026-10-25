@@ -178,4 +178,23 @@ describe("ChangePasswordUseCase", () => {
     const stored = await ctx.sessions.findById(session.id.value);
     expect(stored?.isRevoked()).toBe(false);
   });
+
+  it("writes nothing when the last write fails", async () => {
+    const ana = await seedAccount(ctx);
+    await seedSession(ctx, ana);
+    const failure = new Error(faker.lorem.sentence());
+    vi.spyOn(ctx.sessions, "save").mockRejectedValueOnce(failure);
+
+    await expect(
+      useCase.execute(
+        { oldPassword: ana.password, newPassword: faker.internet.password() },
+        ana.actor,
+      ),
+    ).rejects.toBe(failure);
+
+    const credential = await ctx.credentials.findById(ana.credential.id.value);
+    expect(credential?.passwordHash?.value).toBe(
+      ana.credential.passwordHash?.value,
+    );
+  });
 });

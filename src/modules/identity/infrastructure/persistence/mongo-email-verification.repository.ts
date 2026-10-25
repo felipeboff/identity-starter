@@ -1,3 +1,4 @@
+import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
 import { OptimisticWriter } from "@shared/infrastructure/mongo/optimistic-writer";
 
 import { IdentityModels } from "./identity-models";
@@ -10,7 +11,10 @@ import { EmailVerification } from "@/identity/domain/email-verification.entity";
 export class MongoEmailVerificationRepository implements EmailVerificationRepository {
   private readonly writer: OptimisticWriter<EmailVerificationDocument>;
 
-  constructor(private readonly models: IdentityModels) {
+  constructor(
+    private readonly models: IdentityModels,
+    private readonly transactions: TransactionRunner,
+  ) {
     this.writer = new OptimisticWriter(models.emailVerifications);
   }
 
@@ -18,7 +22,7 @@ export class MongoEmailVerificationRepository implements EmailVerificationReposi
     await this.writer.save(
       emailVerificationMapper.toDocument(emailVerification),
     );
-    emailVerification.markAsSaved();
+    this.transactions.afterCommit(() => emailVerification.markAsSaved());
   }
 
   async findByTokenHash(tokenHash: string): Promise<EmailVerification | null> {

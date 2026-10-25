@@ -1,6 +1,6 @@
 import { faker } from "@faker-js/faker";
 import { expectAppError } from "@shared/testing/expect-app-error";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   IdentityContext,
@@ -101,5 +101,19 @@ describe("SignUpWithEmailUseCase", () => {
       IdentityError.CredentialEmailTaken,
       { email },
     );
+  });
+
+  it("writes nothing when the last write fails", async () => {
+    const input = makeInput();
+    const failure = new Error(faker.lorem.sentence());
+    const memberships = vi.spyOn(ctx.memberships, "save");
+    vi.spyOn(ctx.sessions, "save").mockRejectedValueOnce(failure);
+
+    await expect(useCase.execute(input)).rejects.toBe(failure);
+
+    const [membership] = memberships.mock.calls[0];
+    expect(await ctx.accounts.findByEmail(input.email)).toBeNull();
+    expect(await ctx.credentials.findByEmail(input.email)).toBeNull();
+    expect(await ctx.memberships.findById(membership.id.value)).toBeNull();
   });
 });

@@ -177,4 +177,23 @@ describe("RefreshSessionUseCase", () => {
       { membershipId: ana.membership.id.value },
     );
   });
+
+  it("writes nothing when the last write fails", async () => {
+    const ana = await seedAccount(ctx);
+    const { session, refreshToken } = await seedSession(ctx, ana);
+    const failure = new Error(faker.lorem.sentence());
+    const save = ctx.sessions.save.bind(ctx.sessions);
+    vi.spyOn(ctx.sessions, "save")
+      .mockImplementationOnce(save)
+      .mockRejectedValueOnce(failure);
+
+    await expect(
+      useCase.execute({ refreshToken, ...makeDevice() }),
+    ).rejects.toBe(failure);
+
+    expect((await ctx.accounts.findById(ana.accountId))?.lastSeenAt).toBeNull();
+    expect((await ctx.sessions.findById(session.id.value))?.isRevoked()).toBe(
+      false,
+    );
+  });
 });

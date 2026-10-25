@@ -1,4 +1,5 @@
 import { Clock } from "@shared/application/ports/clock";
+import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
 
 import { CredentialRepository } from "../ports/credential.repository";
 import { PasswordHasher } from "../ports/password-hasher";
@@ -13,6 +14,7 @@ export type ResetPasswordInput = {
 };
 
 export type ResetPasswordDeps = {
+  transactions: TransactionRunner;
   credentials: CredentialRepository;
   passwordResets: PasswordResetRepository;
 

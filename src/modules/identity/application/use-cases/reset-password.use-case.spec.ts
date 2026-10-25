@@ -1,6 +1,6 @@
 import { faker } from "@faker-js/faker";
 import { expectAppError } from "@shared/testing/expect-app-error";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   IdentityContext,
@@ -156,5 +156,27 @@ describe("ResetPasswordUseCase", () => {
       IdentityError.CredentialDeleted,
       { credentialId: ana.credential.id.value },
     );
+  });
+
+  it("writes nothing when the last write fails", async () => {
+    const ana = await seedAccount(ctx);
+    const { reset, token } = await saveReset(ana);
+    await seedSession(ctx, ana);
+    const failure = new Error(faker.lorem.sentence());
+    vi.spyOn(ctx.sessions, "save").mockRejectedValueOnce(failure);
+
+    await expect(
+      useCase.execute({ token, newPassword: faker.internet.password() }),
+    ).rejects.toBe(failure);
+
+    const credential = await ctx.credentials.findById(ana.credential.id.value);
+    expect(credential?.passwordHash?.value).toBe(
+      ana.credential.passwordHash?.value,
+    );
+    expect(
+      (
+        await ctx.passwordResets.findByTokenHash(reset.toSnapshot().tokenHash)
+      )?.isConsumed(),
+    ).toBe(false);
   });
 });

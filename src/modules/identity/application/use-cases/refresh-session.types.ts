@@ -1,4 +1,5 @@
 import { Clock } from "@shared/application/ports/clock";
+import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
 
 import { AccountRepository } from "../ports/account.repository";
 import { CredentialRepository } from "../ports/credential.repository";
@@ -23,6 +24,7 @@ export type RefreshSessionOutput = {
 };
 
 export type RefreshSessionDeps = {
+  transactions: TransactionRunner;
   accounts: AccountRepository;
   credentials: CredentialRepository;
   memberships: MembershipRepository;

@@ -1,6 +1,6 @@
 import { faker } from "@faker-js/faker";
 import { expectAppError } from "@shared/testing/expect-app-error";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { OAuthProfile } from "../ports/oauth-gateway";
 import {
@@ -206,6 +206,52 @@ describe("SignInWithOAuthUseCase", () => {
         IdentityError.OAuthProviderNotSupported,
         { provider },
       );
+    },
+  );
+
+  it("writes nothing when the last write fails", async () => {
+    const { profile, input } = givenGoogleLogin();
+    const failure = new Error(faker.lorem.sentence());
+    const memberships = vi.spyOn(ctx.memberships, "save");
+    vi.spyOn(ctx.sessions, "save").mockRejectedValueOnce(failure);
+
+    await expect(useCase.execute(input)).rejects.toBe(failure);
+
+    const [membership] = memberships.mock.calls[0];
+    expect(await ctx.memberships.findById(membership.id.value)).toBeNull();
+    expect(await ctx.accounts.findByEmail(profile.email)).toBeNull();
+    expect(
+      await ctx.credentials.findByProviderAndSubject(
+        AuthProvider.GOOGLE,
+        profile.subject,
+      ),
+    ).toBeNull();
+  });
+
+  it.each([
+    ["signing up", () => Promise.resolve()],
+    [
+      "signing in",
+      async (profile: OAuthProfile) => {
+        const ana = await seedAccount(ctx, { email: profile.email });
+        await saveGoogleCredential(ana.accountId, profile);
+      },
+    ],
+  ])(
+    "exchanges the code once, outside the transaction, when %s",
+    async (_, given) => {
+      const { profile, input } = givenGoogleLogin();
+      await given(profile);
+      const exchange = ctx.oauth.exchangeCode.bind(ctx.oauth);
+      const running: boolean[] = [];
+      vi.spyOn(ctx.oauth, "exchangeCode").mockImplementation((...args) => {
+        running.push(ctx.transactions.isRunning());
+        return exchange(...args);
+      });
+
+      await useCase.execute(input);
+
+      expect(running).toStrictEqual([false]);
     },
   );
 });

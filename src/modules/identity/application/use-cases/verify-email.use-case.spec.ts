@@ -1,6 +1,6 @@
 import { faker } from "@faker-js/faker";
 import { expectAppError } from "@shared/testing/expect-app-error";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   IdentityContext,
@@ -114,5 +114,22 @@ describe("VerifyEmailUseCase", () => {
       IdentityError.AccountNotFound,
       { accountId: missingId },
     );
+  });
+
+  it("writes nothing when the last write fails", async () => {
+    const ana = await seedAccount(ctx);
+    const { verification, token } = await saveVerification(ana.accountId);
+    const failure = new Error(faker.lorem.sentence());
+    vi.spyOn(ctx.accounts, "save").mockRejectedValueOnce(failure);
+
+    await expect(useCase.execute({ token })).rejects.toBe(failure);
+
+    expect(
+      (
+        await ctx.emailVerifications.findByTokenHash(
+          verification.toSnapshot().tokenHash,
+        )
+      )?.isConsumed(),
+    ).toBe(false);
   });
 });

@@ -1,3 +1,4 @@
+import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
 import { AppError } from "@shared/domain/errors/app-error";
 import { isDuplicateKey } from "@shared/infrastructure/mongo/duplicate-key";
 import { OptimisticWriter } from "@shared/infrastructure/mongo/optimistic-writer";
@@ -13,7 +14,10 @@ import { IdentityError } from "@/identity/domain/errors/identity.error";
 export class MongoCredentialRepository implements CredentialRepository {
   private readonly writer: OptimisticWriter<CredentialDocument>;
 
-  constructor(private readonly models: IdentityModels) {
+  constructor(
+    private readonly models: IdentityModels,
+    private readonly transactions: TransactionRunner,
+  ) {
     this.writer = new OptimisticWriter(models.credentials);
   }
 
@@ -33,7 +37,7 @@ export class MongoCredentialRepository implements CredentialRepository {
       }
       throw error;
     }
-    credential.markAsSaved();
+    this.transactions.afterCommit(() => credential.markAsSaved());
   }
 
   async findById(id: string): Promise<Credential | null> {

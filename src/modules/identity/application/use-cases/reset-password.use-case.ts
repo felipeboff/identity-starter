@@ -41,12 +41,14 @@ export class ResetPasswordUseCase extends UseCase<{
     const passwordHash = await this.deps.passwordHasher.hash(input.newPassword);
     credential.updatePasswordHash(passwordHash, at);
 
-    await this.deps.credentials.save(credential);
-    await this.deps.passwordResets.save(passwordReset);
+    return this.deps.transactions.run(async () => {
+      await this.deps.credentials.save(credential);
+      await this.deps.passwordResets.save(passwordReset);
 
-    await this.deps.sessionRevoker.revokeActive(account.id.value, {
-      reason: SessionRevocationReason.PASSWORD_CHANGED,
-      at,
+      await this.deps.sessionRevoker.revokeActive(account.id.value, {
+        reason: SessionRevocationReason.PASSWORD_CHANGED,
+        at,
+      });
     });
   }
 }

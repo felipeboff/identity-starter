@@ -1,7 +1,11 @@
 import { faker } from "@faker-js/faker";
+import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
 import { beforeEach, expect, it } from "vitest";
 
 import { PasswordResetRepository } from "../../ports/password-reset.repository";
+
+import type { RepositoryUnderContract } from "./repository-under-contract";
+import { transactionalSaveContract } from "./transactional-save.contract";
 
 import { PasswordReset } from "@/identity/domain/password-reset.entity";
 
@@ -23,18 +27,26 @@ const registerPasswordReset = (
   );
 
 export const passwordResetRepositoryContract = (
-  createRepository: () => PasswordResetRepository,
+  createRepository: () => RepositoryUnderContract<PasswordResetRepository>,
 ) => {
   let passwordResets: PasswordResetRepository;
+  let transactions: TransactionRunner;
 
   beforeEach(() => {
-    passwordResets = createRepository();
+    ({ repository: passwordResets, transactions } = createRepository());
   });
 
   const load = async (entity: PasswordReset) =>
     (await passwordResets.findByTokenHash(
       entity.toSnapshot().tokenHash,
     )) as PasswordReset;
+
+  transactionalSaveContract(() => ({
+    transactions,
+    register: () => registerPasswordReset(),
+    save: (entity) => passwordResets.save(entity),
+    load,
+  }));
 
   it("keeps every field", async () => {
     const entity = registerPasswordReset();

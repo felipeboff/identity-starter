@@ -19,9 +19,11 @@ coloca algo rodando o quanto antes e troca os fakes por implementações reais a
     (o harness de teste também).
   - Alternativa: manter síncrono e assinar o HS256 na mão com `node:crypto` (`createHmac`), sem
     `jose`.
-- [ ] **Consistência na escrita.** O sign-up salva account, credential e membership em três
-      `save` separados; se o segundo falhar, sobra dado pela metade. Por enquanto é aceitável.
-      Transação do Mongo (exige replica set) entra junto com o outbox.
+- [x] **Consistência na escrita.** O sign-up salva account, credential e membership em três
+      `save` separados; se o segundo falhar, sobra dado pela metade. → Os 11 use cases com mais
+      de uma gravação rodam dentro de `TransactionRunner.run` (`MongoTransactionRunner`, Mongo
+      como replica set em todo ambiente); a versão só avança no commit. O outbox continua para
+      depois e vai usar o mesmo `run` (spec: `.specs/features/transactions/`)
 - [ ] **Concorrência.** As entidades têm `version`. Decida se o `save` dos repositórios Mongo
       faz optimistic locking (`updateOne({ _id, version })` e erro se nada casar) já agora ou
       depois.

@@ -1,3 +1,4 @@
+import { MongoTransactionRunner } from "@shared/infrastructure/mongo/mongo-transaction-runner";
 import { useMemoryMongo } from "@shared/testing/memory-mongo";
 import { beforeAll, describe } from "vitest";
 
@@ -9,13 +10,16 @@ import { emailVerificationRepositoryContract } from "@/identity/application/test
 describe("MongoEmailVerificationRepository", () => {
   const mongo = useMemoryMongo();
   let models: IdentityModels;
+  let transactions: MongoTransactionRunner;
 
   beforeAll(async () => {
     models = new IdentityModels(mongo.connection());
     await models.ready();
+    transactions = new MongoTransactionRunner(mongo.connection());
   });
 
-  emailVerificationRepositoryContract(
-    () => new MongoEmailVerificationRepository(models),
-  );
+  emailVerificationRepositoryContract(() => ({
+    repository: new MongoEmailVerificationRepository(models, transactions),
+    transactions,
+  }));
 });

@@ -1,5 +1,6 @@
 import { faker } from "@faker-js/faker";
 import { FakeLogContext } from "@shared/testing/fake-log-context";
+import { InMemoryTransactionRunner } from "@shared/testing/in-memory-transaction-runner";
 
 import { Actor } from "../actor";
 import { AccessPolicy } from "../policies/access.policy";
@@ -39,12 +40,15 @@ export type IdentityContext = ReturnType<typeof createIdentityContext>;
 
 /** Every identity dependency, wired with in-memory fakes. Pass it as `deps`. */
 export const createIdentityContext = () => {
-  const accounts = new InMemoryAccountRepository();
-  const credentials = new InMemoryCredentialRepository();
-  const memberships = new InMemoryMembershipRepository();
-  const sessions = new InMemorySessionRepository();
-  const passwordResets = new InMemoryPasswordResetRepository();
-  const emailVerifications = new InMemoryEmailVerificationRepository();
+  const transactions = new InMemoryTransactionRunner();
+  const accounts = new InMemoryAccountRepository(transactions);
+  const credentials = new InMemoryCredentialRepository(transactions);
+  const memberships = new InMemoryMembershipRepository(transactions);
+  const sessions = new InMemorySessionRepository(transactions);
+  const passwordResets = new InMemoryPasswordResetRepository(transactions);
+  const emailVerifications = new InMemoryEmailVerificationRepository(
+    transactions,
+  );
 
   const clock = new FakeClock();
   const ids = new FakeIdGenerator();
@@ -67,6 +71,7 @@ export const createIdentityContext = () => {
   const accessPolicy = new AccessPolicy();
 
   return {
+    transactions,
     accounts,
     credentials,
     memberships,

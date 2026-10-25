@@ -37,16 +37,18 @@ export class SignInWithOAuthUseCase extends UseCase<{
     const provider = OAuthProvider.create(input.provider).value;
 
     const profile = await this.deps.oauth.exchangeCode(provider, input.code);
-    const at = this.deps.clock.now();
+    return this.deps.transactions.run(async () => {
+      const at = this.deps.clock.now();
 
-    const credential = await this.deps.credentials.findByProviderAndSubject(
-      provider,
-      profile.subject,
-    );
+      const credential = await this.deps.credentials.findByProviderAndSubject(
+        provider,
+        profile.subject,
+      );
 
-    return credential
-      ? this.signIn(credential, input, at)
-      : this.signUp(provider, profile, input, at);
+      return credential
+        ? this.signIn(credential, input, at)
+        : this.signUp(provider, profile, input, at);
+    });
   }
 
   private async signIn(

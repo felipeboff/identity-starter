@@ -23,81 +23,83 @@ export class SignUpWithEmailUseCase extends UseCase<{
   deps: SignUpWithEmailDeps;
 }> {
   async execute(input: SignUpWithEmailInput): Promise<SignUpWithEmailOutput> {
-    const existingAccount = await this.deps.accounts.findByEmail(input.email);
-    if (existingAccount) {
-      throw new AppError(IdentityError.AccountEmailTaken, {
-        email: input.email,
-      });
-    }
-
-    const existingCredential = await this.deps.credentials.findByEmail(
-      input.email,
-    );
-    if (existingCredential) {
-      throw new AppError(IdentityError.CredentialEmailTaken, {
-        email: input.email,
-      });
-    }
-
-    const accountId = this.deps.ids.next();
-    const credentialId = this.deps.ids.next();
-    const membershipId = this.deps.ids.next();
-    const at = this.deps.clock.now();
-
-    const account = Account.register(
-      {
-        id: accountId,
-        name: input.name,
-        email: input.email,
-        createdBy: accountId,
-      },
-      at,
-    );
-
     const passwordHash = await this.deps.passwordHasher.hash(input.password);
 
-    const credential = Credential.register(
-      {
-        id: credentialId,
-        accountId,
-        subject: input.email,
-        providerEmail: input.email,
-        provider: AuthProvider.EMAIL,
-        passwordHash,
-      },
-      at,
-    );
+    return this.deps.transactions.run(async () => {
+      const existingAccount = await this.deps.accounts.findByEmail(input.email);
+      if (existingAccount) {
+        throw new AppError(IdentityError.AccountEmailTaken, {
+          email: input.email,
+        });
+      }
 
-    const membership = Membership.register(
-      {
-        id: membershipId,
-        accountId,
-        createdBy: accountId,
-        role: MembershipRole.USER,
-        permissions: [],
-      },
-      at,
-    );
+      const existingCredential = await this.deps.credentials.findByEmail(
+        input.email,
+      );
+      if (existingCredential) {
+        throw new AppError(IdentityError.CredentialEmailTaken, {
+          email: input.email,
+        });
+      }
 
-    await this.deps.credentials.save(credential);
-    await this.deps.accounts.save(account);
-    await this.deps.memberships.save(membership);
+      const accountId = this.deps.ids.next();
+      const credentialId = this.deps.ids.next();
+      const membershipId = this.deps.ids.next();
+      const at = this.deps.clock.now();
 
-    const { accessToken, refreshToken } = await this.deps.sessionIssuer.issue(
-      {
-        accountId,
-        credentialId,
-        membershipId,
-        userAgent: input.userAgent,
-        ipAddress: input.ipAddress,
-      },
-      at,
-    );
+      const account = Account.register(
+        {
+          id: accountId,
+          name: input.name,
+          email: input.email,
+          createdBy: accountId,
+        },
+        at,
+      );
 
-    return {
-      account: toOutputAccount(account),
-      accessToken,
-      refreshToken,
-    };
+      const credential = Credential.register(
+        {
+          id: credentialId,
+          accountId,
+          subject: input.email,
+          providerEmail: input.email,
+          provider: AuthProvider.EMAIL,
+          passwordHash,
+        },
+        at,
+      );
+
+      const membership = Membership.register(
+        {
+          id: membershipId,
+          accountId,
+          createdBy: accountId,
+          role: MembershipRole.USER,
+          permissions: [],
+        },
+        at,
+      );
+
+      await this.deps.credentials.save(credential);
+      await this.deps.accounts.save(account);
+      await this.deps.memberships.save(membership);
+
+      const { accessToken, refreshToken } = await this.deps.sessionIssuer.issue(
+        {
+          accountId,
+          credentialId,
+          membershipId,
+          userAgent: input.userAgent,
+          ipAddress: input.ipAddress,
+        },
+        at,
+      );
+
+      return {
+        account: toOutputAccount(account),
+        accessToken,
+        refreshToken,
+      };
+    });
   }
 }

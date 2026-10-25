@@ -235,6 +235,40 @@ describe("start", () => {
     expect(await stored?.collection("sessions").countDocuments()).toBe(1);
   });
 
+  it("answers one 201 to simultaneous sign-ups with the same e-mail", async () => {
+    const { url, name } = await startApp();
+    const email = faker.internet.email().toLowerCase();
+
+    const responses = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        request(url).post("/api/auth/sign-up").send({
+          name: faker.person.fullName(),
+          email,
+          password: faker.internet.password(),
+        }),
+      ),
+    );
+
+    const statuses = responses.map((response) => response.status).sort();
+    expect(statuses).toStrictEqual([201, ...Array<number>(7).fill(400)]);
+    for (const response of responses.filter(({ status }) => status === 400)) {
+      expect([
+        "identity.credential_email_taken",
+        "identity.account_email_taken",
+      ]).toContain((response.body as { code: string }).code);
+    }
+    const stored = connectionNamed(name);
+    expect(await stored?.collection("accounts").countDocuments({ email })).toBe(
+      1,
+    );
+    expect(
+      await stored
+        ?.collection("credentials")
+        .countDocuments({ subject: email }),
+    ).toBe(1);
+    expect(await stored?.collection("memberships").countDocuments()).toBe(1);
+  });
+
   it("logs the port it listens on as JSON outside develop", async () => {
     const { app, output } = await startApp();
 
