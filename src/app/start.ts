@@ -18,6 +18,7 @@ import { createServer } from "./create-server";
 import {
   createIdentityModule,
   createInMemoryIdentityAdapters,
+  createMongoIdentityRepositories,
 } from "@/identity/identity.module";
 
 export type StartTimeouts = Readonly<{
@@ -43,7 +44,6 @@ export const start = async ({
   logDestination,
   timeouts = {},
 }: StartOptions): Promise<RunningApp> => {
-  const autoIndex = env.NODE_ENV !== NodeEnv.PROD;
   if (env.NODE_ENV === NodeEnv.PROD) {
     throw new AppError(SharedError.InMemoryAdaptersInProduction);
   }
@@ -61,17 +61,20 @@ export const start = async ({
   const database = new MongoDatabase({
     url: env.MONGO_URL,
     logger,
-    autoIndex,
     serverSelectionTimeoutMS: timeouts.databaseSelectionMs,
     heartbeatFrequencyMS: timeouts.databaseHeartbeatMs,
     pingTimeoutMS: timeouts.databasePingMs,
   });
   await database.connect();
+  const repositories = await createMongoIdentityRepositories(
+    database.connection,
+  );
 
   const app = createServer({
     modules: {
       identity: createIdentityModule({
         ...createInMemoryIdentityAdapters(),
+        ...repositories,
         clock: new SystemClock(),
         ids: new ObjectIdGenerator(),
         logContext,

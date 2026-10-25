@@ -194,6 +194,21 @@ describe("start", () => {
     expect(response.status).toBe(201);
   });
 
+  it("stores what the API writes in Mongo", async () => {
+    const { url, name } = await startApp();
+
+    await request(url)
+      .post("/api/auth/sign-up")
+      .set("content-type", "application/json")
+      .send(signUpBody());
+
+    const stored = connectionNamed(name);
+    expect(await stored?.collection("accounts").countDocuments()).toBe(1);
+    expect(await stored?.collection("credentials").countDocuments()).toBe(1);
+    expect(await stored?.collection("memberships").countDocuments()).toBe(1);
+    expect(await stored?.collection("sessions").countDocuments()).toBe(1);
+  });
+
   it("logs the port it listens on as JSON outside develop", async () => {
     const { app, output } = await startApp();
 

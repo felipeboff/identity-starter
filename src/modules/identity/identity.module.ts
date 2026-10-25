@@ -2,6 +2,7 @@ import { Clock } from "@shared/application/ports/clock";
 import { IdGenerator } from "@shared/application/ports/id-generator";
 import type { LogContext } from "@shared/application/ports/log-context";
 import { HttpRoute } from "@shared/presentation/http/http-route";
+import type { Connection } from "mongoose";
 
 import { Actor } from "./application/actor";
 import { AccessPolicy } from "./application/policies/access.policy";
@@ -44,6 +45,13 @@ import { UpdateMemberPermissionsUseCase } from "./application/use-cases/update-m
 import { UpdateMemberRoleUseCase } from "./application/use-cases/update-member-role.use-case";
 import { VerifyEmailUseCase } from "./application/use-cases/verify-email.use-case";
 import { CryptoTokenIssuer } from "./infrastructure/crypto-token-issuer";
+import { IdentityModels } from "./infrastructure/persistence/identity-models";
+import { MongoAccountRepository } from "./infrastructure/persistence/mongo-account.repository";
+import { MongoCredentialRepository } from "./infrastructure/persistence/mongo-credential.repository";
+import { MongoEmailVerificationRepository } from "./infrastructure/persistence/mongo-email-verification.repository";
+import { MongoMembershipRepository } from "./infrastructure/persistence/mongo-membership.repository";
+import { MongoPasswordResetRepository } from "./infrastructure/persistence/mongo-password-reset.repository";
+import { MongoSessionRepository } from "./infrastructure/persistence/mongo-session.repository";
 import { AuthenticateMiddleware } from "./presentation/authenticate.middleware";
 import {
   createIdentityPublicRoutes,
@@ -122,6 +130,31 @@ export const createIdentityModule = (
     authenticate,
     publicRoutes: createIdentityPublicRoutes(useCases),
     routes: createIdentityRoutes(useCases),
+  };
+};
+
+export const createMongoIdentityRepositories = async (
+  connection: Connection,
+): Promise<
+  Pick<
+    IdentityModuleDeps,
+    | "accounts"
+    | "credentials"
+    | "memberships"
+    | "sessions"
+    | "passwordResets"
+    | "emailVerifications"
+  >
+> => {
+  const models = new IdentityModels(connection);
+  await models.ready();
+  return {
+    accounts: new MongoAccountRepository(models),
+    credentials: new MongoCredentialRepository(models),
+    memberships: new MongoMembershipRepository(models),
+    sessions: new MongoSessionRepository(models),
+    passwordResets: new MongoPasswordResetRepository(models),
+    emailVerifications: new MongoEmailVerificationRepository(models),
   };
 };
 
