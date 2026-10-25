@@ -1,1 +1,5 @@
-export type Replace<T, R> = Omit<T, keyof R> & R;
+export type Replace<T, R, Removed extends keyof T = never> = Omit<
+  T,
+  keyof R | Removed
+> &
+  R;
