@@ -12,6 +12,9 @@ export const SharedLogEvent = {
   DatabaseConnectionFailed: defineLogEvent<{ host: string; error: unknown }>(
     "shared.database_connection_failed",
   ),
+  DatabaseNotReplicaSet: defineLogEvent<{ host: string }>(
+    "shared.database_not_replica_set",
+  ),
   DatabaseDisconnected: defineLogEvent("shared.database_disconnected"),
   DatabaseReconnected: defineLogEvent("shared.database_reconnected"),
   RequestCompleted: defineLogEvent<{ status: number; durationMs: number }>(

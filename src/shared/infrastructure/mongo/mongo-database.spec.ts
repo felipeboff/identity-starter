@@ -9,7 +9,7 @@ import { LogLevel } from "@shared/application/ports/logger";
 import { SharedError } from "@shared/domain/errors/shared.error";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { FakeLogger } from "@shared/testing/fake-logger";
-import { MongoMemoryServer } from "mongodb-memory-server";
+import { MongoMemoryReplSet, MongoMemoryServer } from "mongodb-memory-server";
 import {
   afterAll,
   afterEach,
@@ -41,15 +41,21 @@ const waitFor = async (condition: () => boolean, timeoutMs = 10_000) => {
   }
 };
 
+const uriFor = (base: string, database: string) => {
+  const url = new URL(base);
+  url.pathname = `/${database}`;
+  return url.toString();
+};
+
 const eventsOf = (logger: FakeLogger) =>
   logger.entries.map((entry) => entry.event);
 
 describe("MongoDatabase", () => {
-  let server: MongoMemoryServer;
+  let server: MongoMemoryReplSet;
   const opened: MongoDatabase[] = [];
 
   beforeAll(async () => {
-    server = await MongoMemoryServer.create();
+    server = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
   });
 
   afterAll(async () => {
@@ -68,7 +74,7 @@ describe("MongoDatabase", () => {
   const open = (overrides: Partial<MongoDatabaseOptions> = {}) => {
     const logger = new FakeLogger();
     const database = new MongoDatabase({
-      url: `${server.getUri()}${databaseName()}`,
+      url: uriFor(server.getUri(), databaseName()),
       logger,
       autoIndex: true,
       ...overrides,
@@ -87,7 +93,7 @@ describe("MongoDatabase", () => {
 
   it("logs the host and database it connected to", async () => {
     const name = databaseName();
-    const { database, logger } = open({ url: `${server.getUri()}${name}` });
+    const { database, logger } = open({ url: uriFor(server.getUri(), name) });
 
     await database.connect();
 
@@ -119,7 +125,7 @@ describe("MongoDatabase", () => {
 
   it("creates the indexes automatically when not told otherwise", async () => {
     const database = new MongoDatabase({
-      url: `${server.getUri()}${databaseName()}`,
+      url: uriFor(server.getUri(), databaseName()),
       logger: new FakeLogger(),
     });
     opened.push(database);
@@ -150,14 +156,44 @@ describe("MongoDatabase", () => {
     ]);
   });
 
+  it("refuses a server that is not a replica set member", async () => {
+    const standalone = await MongoMemoryServer.create();
+    const { host } = new URL(standalone.getUri());
+    const { database, logger } = open({
+      url: uriFor(standalone.getUri(), databaseName()),
+    });
+
+    try {
+      await expectAppError(
+        database.connect(),
+        SharedError.DatabaseNotReplicaSet,
+        { host },
+      );
+    } finally {
+      await standalone.stop();
+    }
+
+    expect(database.connection.readyState).toBe(0);
+    expect(logger.entries).toStrictEqual([
+      {
+        level: "error",
+        event: SharedLogEvent.DatabaseNotReplicaSet.name,
+        fields: { host },
+      },
+    ]);
+  });
+
   describe("never logs the password", () => {
     const user = faker.internet.username().replace(/\W/g, "");
     const password = faker.internet.password({ length: 24, pattern: /\w/ });
-    let secured: MongoMemoryServer;
+    let secured: MongoMemoryReplSet;
 
     beforeAll(async () => {
-      secured = await MongoMemoryServer.create({
-        auth: { enable: true, customRootName: user, customRootPwd: password },
+      secured = await MongoMemoryReplSet.create({
+        replSet: {
+          count: 1,
+          auth: { enable: true, customRootName: user, customRootPwd: password },
+        },
       });
     });
 
@@ -252,10 +288,10 @@ describe("MongoDatabase", () => {
   });
 
   describe("with a server that stops", () => {
-    let unstable: MongoMemoryServer;
+    let unstable: MongoMemoryReplSet;
 
     beforeAll(async () => {
-      unstable = await MongoMemoryServer.create();
+      unstable = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
     });
 
     afterAll(async () => {
@@ -264,7 +300,7 @@ describe("MongoDatabase", () => {
 
     const openUnstable = (overrides: Partial<MongoDatabaseOptions> = {}) =>
       open({
-        url: `${unstable.getUri()}${databaseName()}`,
+        url: uriFor(unstable.getUri(), databaseName()),
         heartbeatFrequencyMS: 200,
         ...overrides,
       });
@@ -278,7 +314,7 @@ describe("MongoDatabase", () => {
       const ready = await database.isReady();
 
       const elapsed = Date.now() - startedAt;
-      await unstable.start(true);
+      await unstable.start();
       expect(ready).toBe(false);
       expect(elapsed).toBeLessThan(300 + 200);
     });
@@ -291,7 +327,7 @@ describe("MongoDatabase", () => {
       await waitFor(() =>
         eventsOf(logger).includes(SharedLogEvent.DatabaseDisconnected.name),
       );
-      await unstable.start(true);
+      await unstable.start();
       await waitFor(() =>
         eventsOf(logger).includes(SharedLogEvent.DatabaseReconnected.name),
       );

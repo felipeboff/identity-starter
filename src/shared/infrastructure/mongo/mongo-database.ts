@@ -36,6 +36,12 @@ export class MongoDatabase {
       throw new AppError(SharedError.DatabaseUnavailable);
     }
 
+    if (!(await this.isReplicaSetMember())) {
+      logger.error(SharedLogEvent.DatabaseNotReplicaSet, { host });
+      await this.close();
+      throw new AppError(SharedError.DatabaseNotReplicaSet, { host });
+    }
+
     this.connection.on("disconnected", () => {
       if (!this.closing) logger.warn(SharedLogEvent.DatabaseDisconnected);
     });
@@ -68,6 +74,11 @@ export class MongoDatabase {
     } finally {
       clearTimeout(timer);
     }
+  }
+
+  private async isReplicaSetMember(): Promise<boolean> {
+    const hello = await this.connection.db?.admin().command({ hello: 1 });
+    return typeof hello?.setName === "string";
   }
 
   async close(): Promise<void> {

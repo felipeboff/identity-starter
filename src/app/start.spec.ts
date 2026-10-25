@@ -12,7 +12,7 @@ import { SharedLogEvent } from "@shared/application/logging/shared.log-event";
 import { LogLevel } from "@shared/application/ports/logger";
 import { SharedError } from "@shared/domain/errors/shared.error";
 import { expectAppError } from "@shared/testing/expect-app-error";
-import { MongoMemoryServer } from "mongodb-memory-server";
+import { MongoMemoryReplSet, MongoMemoryServer } from "mongodb-memory-server";
 import mongoose from "mongoose";
 import request from "supertest";
 import {
@@ -113,11 +113,11 @@ const signUpInFlight = async (port: number) => {
 };
 
 describe("start", () => {
-  let database: MongoMemoryServer;
+  let database: MongoMemoryReplSet;
   const running: RunningApp[] = [];
 
   beforeAll(async () => {
-    database = await MongoMemoryServer.create();
+    database = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
   });
 
   afterAll(async () => {
@@ -138,7 +138,7 @@ describe("start", () => {
   ) => {
     const output = createOutput();
     const app = await start({
-      env: buildEnv({ MONGO_URL: `${database.getUri()}${name}`, ...overrides }),
+      env: buildEnv({ MONGO_URL: database.getUri(name), ...overrides }),
       logDestination: output.logDestination,
       timeouts: { shutdownMs: 2_000 },
     });
@@ -176,6 +176,28 @@ describe("start", () => {
 
     expect(output.events()).toContain(
       SharedLogEvent.DatabaseConnectionFailed.name,
+    );
+    expect(output.events()).not.toContain(SharedLogEvent.ServerStarted.name);
+  });
+
+  it("does not listen when the database is not a replica set", async () => {
+    const standalone = await MongoMemoryServer.create();
+    const output = createOutput();
+
+    try {
+      await expectAppError(
+        start({
+          env: buildEnv({ MONGO_URL: standalone.getUri(databaseName()) }),
+          logDestination: output.logDestination,
+        }),
+        SharedError.DatabaseNotReplicaSet,
+      );
+    } finally {
+      await standalone.stop();
+    }
+
+    expect(output.events()).toContain(
+      SharedLogEvent.DatabaseNotReplicaSet.name,
     );
     expect(output.events()).not.toContain(SharedLogEvent.ServerStarted.name);
   });
@@ -264,7 +286,7 @@ describe("start", () => {
 
     await expect(
       start({
-        env: buildEnv({ PORT: port, MONGO_URL: `${database.getUri()}${name}` }),
+        env: buildEnv({ PORT: port, MONGO_URL: database.getUri(name) }),
         logDestination: createOutput().logDestination,
       }),
     ).rejects.toMatchObject({ code: "EADDRINUSE" });
@@ -311,7 +333,7 @@ describe("start", () => {
       const output = createOutput();
       const name = databaseName();
       const app = await start({
-        env: buildEnv({ MONGO_URL: `${database.getUri()}${name}` }),
+        env: buildEnv({ MONGO_URL: database.getUri(name) }),
         logDestination: output.logDestination,
         timeouts: { shutdownMs: 200 },
       });

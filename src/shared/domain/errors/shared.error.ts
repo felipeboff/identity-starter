@@ -49,6 +49,10 @@ export const SharedError = {
     "shared.in_memory_adapters_in_production",
     "precondition_failed",
   ),
+  DatabaseNotReplicaSet: defineError<{ host: string }>(
+    "shared.database_not_replica_set",
+    "precondition_failed",
+  ),
   NestedTransaction: defineError(
     "shared.nested_transaction",
     "precondition_failed",
