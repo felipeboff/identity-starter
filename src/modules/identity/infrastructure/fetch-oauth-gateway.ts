@@ -3,11 +3,16 @@ import { Schema, v } from "@shared/application/validator";
 import { AppError } from "@shared/domain/errors/app-error";
 import {
   FetchHttpClient,
+  HttpForm,
   HttpHeaders,
   HttpRequest,
 } from "@shared/infrastructure/http/fetch-http-client";
 
-import { OAuthGateway, OAuthProfile } from "../application/ports/oauth-gateway";
+import {
+  OAuthCodeExchange,
+  OAuthGateway,
+  OAuthProfile,
+} from "../application/ports/oauth-gateway";
 
 import { ExternalCallFailure, IdentityLogEvent } from "./identity.log-event";
 
@@ -42,7 +47,7 @@ type OAuthStep = "token" | "profile" | "emails";
 
 type ProviderResponse = Readonly<{ status: number; body: unknown }>;
 
-type CodeExchange = (code: string) => Promise<OAuthProfile>;
+type CodeExchange = (exchange: OAuthCodeExchange) => Promise<OAuthProfile>;
 
 type TokenResponse = { access_token: string };
 
@@ -96,8 +101,8 @@ const githubEmailsSchema = v.array(
 
 export class FetchOAuthGateway implements OAuthGateway {
   private readonly exchanges: Record<OAuthProviderName, CodeExchange> = {
-    [AuthProvider.GOOGLE]: (code) => this.google(code),
-    [AuthProvider.GITHUB]: (code) => this.github(code),
+    [AuthProvider.GOOGLE]: (exchange) => this.google(exchange),
+    [AuthProvider.GITHUB]: (exchange) => this.github(exchange),
     [AuthProvider.APPLE]: () =>
       Promise.reject(
         new AppError(IdentityError.OAuthProviderNotSupported, {
@@ -108,14 +113,11 @@ export class FetchOAuthGateway implements OAuthGateway {
 
   constructor(private readonly deps: FetchOAuthGatewayDeps) {}
 
-  exchangeCode(
-    provider: OAuthProviderName,
-    code: string,
-  ): Promise<OAuthProfile> {
-    return this.exchanges[provider](code);
+  exchangeCode(exchange: OAuthCodeExchange): Promise<OAuthProfile> {
+    return this.exchanges[exchange.provider](exchange);
   }
 
-  private async google(code: string): Promise<OAuthProfile> {
+  private async google(exchange: OAuthCodeExchange): Promise<OAuthProfile> {
     const provider = AuthProvider.GOOGLE;
     const { clientId, clientSecret, redirectUri } = this.deps.google;
 
@@ -126,10 +128,11 @@ export class FetchOAuthGateway implements OAuthGateway {
       body: {
         form: {
           grant_type: "authorization_code",
-          code,
+          code: exchange.code,
           client_id: clientId,
           client_secret: clientSecret,
           redirect_uri: redirectUri.href,
+          ...this.verifierOf(exchange),
         },
       },
     });
@@ -162,7 +165,7 @@ export class FetchOAuthGateway implements OAuthGateway {
     };
   }
 
-  private async github(code: string): Promise<OAuthProfile> {
+  private async github(exchange: OAuthCodeExchange): Promise<OAuthProfile> {
     const provider = AuthProvider.GITHUB;
     const { clientId, clientSecret, redirectUri } = this.deps.github;
 
@@ -174,8 +177,9 @@ export class FetchOAuthGateway implements OAuthGateway {
         form: {
           client_id: clientId,
           client_secret: clientSecret,
-          code,
+          code: exchange.code,
           redirect_uri: redirectUri.href,
+          ...this.verifierOf(exchange),
         },
       },
     });
@@ -255,6 +259,12 @@ export class FetchOAuthGateway implements OAuthGateway {
       return this.fail(provider, step, "unexpected_body", response);
     }
     return parsed.data;
+  }
+
+  private verifierOf(exchange: OAuthCodeExchange): HttpForm {
+    return exchange.codeVerifier === undefined
+      ? {}
+      : { code_verifier: exchange.codeVerifier };
   }
 
   private providerError(body: unknown): string | undefined {

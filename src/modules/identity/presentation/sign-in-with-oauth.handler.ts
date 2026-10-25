@@ -1,6 +1,7 @@
 import { v } from "@shared/application/validator";
 import { Handler, Inbound } from "@shared/presentation/handler";
 
+import { CODE_VERIFIER } from "./code-verifier";
 import { toSessionOrigin } from "./mappers/toSessionOrigin";
 
 import {
@@ -9,9 +10,12 @@ import {
 } from "@/identity/application/use-cases/sign-in-with-oauth.types";
 import { SignInWithOAuthUseCase } from "@/identity/application/use-cases/sign-in-with-oauth.use-case";
 
-const inputSchema = v.object<Pick<SignInWithOAuthInput, "provider" | "code">>({
+const inputSchema = v.object<
+  Pick<SignInWithOAuthInput, "provider" | "code" | "codeVerifier">
+>({
   provider: v.string(),
   code: v.string(),
+  codeVerifier: v.string(CODE_VERIFIER),
 });
 
 export type SignInWithOAuthHandlerDeps = {

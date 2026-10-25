@@ -180,4 +180,19 @@ describe("LinkOAuthUseCase", () => {
       { provider: AuthProvider.EMAIL },
     );
   });
+
+  it("hands the PKCE code verifier to the provider", async () => {
+    const { code } = givenGoogleLogin();
+    const ana = await seedAccount(ctx);
+    const codeVerifier = faker.string.alphanumeric(64);
+
+    await useCase.execute(
+      { provider: AuthProvider.GOOGLE, code, codeVerifier },
+      ana.actor,
+    );
+
+    expect(ctx.oauth.exchanges).toStrictEqual([
+      { provider: AuthProvider.GOOGLE, code, codeVerifier },
+    ]);
+  });
 });

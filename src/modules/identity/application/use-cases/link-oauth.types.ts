@@ -9,6 +9,7 @@ import { AccountResolver } from "../services/account-resolver";
 export type LinkOAuthInput = {
   provider: string;
   code: string;
+  codeVerifier?: string;
 };
 
 export type LinkOAuthOutput = {

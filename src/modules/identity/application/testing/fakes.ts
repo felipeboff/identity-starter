@@ -4,7 +4,11 @@ import { IdGenerator } from "@shared/application/ports/id-generator";
 
 import { AccessToken, AccessTokenClaims } from "../ports/access-token";
 import { IdentityMailer, TokenEmail } from "../ports/identity-mailer";
-import { OAuthGateway, OAuthProfile } from "../ports/oauth-gateway";
+import {
+  OAuthCodeExchange,
+  OAuthGateway,
+  OAuthProfile,
+} from "../ports/oauth-gateway";
 import { PasswordHasher } from "../ports/password-hasher";
 import { TokenIssuer } from "../ports/token-issuer";
 
@@ -81,19 +85,19 @@ export class FakeIdentityMailer implements IdentityMailer {
 
 /** Resolves codes registered with `register`; unknown codes reject. */
 export class FakeOAuthGateway implements OAuthGateway {
+  readonly exchanges: OAuthCodeExchange[] = [];
   private readonly profiles = new Map<string, OAuthProfile>();
 
   register(provider: OAuthProviderName, code: string, profile: OAuthProfile) {
     this.profiles.set(`${provider}:${code}`, profile);
   }
 
-  exchangeCode(
-    provider: OAuthProviderName,
-    code: string,
-  ): Promise<OAuthProfile> {
-    const profile = this.profiles.get(`${provider}:${code}`);
+  exchangeCode(exchange: OAuthCodeExchange): Promise<OAuthProfile> {
+    this.exchanges.push(exchange);
+    const id = `${exchange.provider}:${exchange.code}`;
+    const profile = this.profiles.get(id);
     return profile
       ? Promise.resolve(profile)
-      : Promise.reject(new Error(`Unknown OAuth code: ${provider}:${code}`));
+      : Promise.reject(new Error(`Unknown OAuth code: ${id}`));
   }
 }

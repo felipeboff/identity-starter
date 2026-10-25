@@ -15,6 +15,7 @@ import { AccountSnapshot } from "@/identity/domain/account.entity";
 export type SignInWithOAuthInput = {
   provider: string;
   code: string;
+  codeVerifier?: string;
   userAgent: string;
   ipAddress: string;
 };

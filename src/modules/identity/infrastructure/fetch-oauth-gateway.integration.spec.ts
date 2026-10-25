@@ -90,7 +90,7 @@ describe("FetchOAuthGateway", () => {
       const { gateway, fetch, google } = create(replies(user, accessToken));
       const code = buildCode();
 
-      const profile = await gateway.exchangeCode(provider, code);
+      const profile = await gateway.exchangeCode({ provider, code });
 
       expect(profile).toStrictEqual({
         subject: user.sub,
@@ -109,11 +109,25 @@ describe("FetchOAuthGateway", () => {
       });
     });
 
+    it("sends the PKCE code verifier when there is one", async () => {
+      const { gateway, fetch } = create(replies(buildUser()));
+      const codeVerifier = faker.string.alphanumeric(64);
+
+      await gateway.exchangeCode({ provider, code: buildCode(), codeVerifier });
+
+      expect(formOf(requestTo(fetch, GOOGLE_TOKEN_URL))).toMatchObject({
+        code_verifier: codeVerifier,
+      });
+    });
+
     it("uses the e-mail as the name when Google sends none", async () => {
       const user = buildUser({ name: undefined });
       const { gateway } = create(replies(user));
 
-      const profile = await gateway.exchangeCode(provider, buildCode());
+      const profile = await gateway.exchangeCode({
+        provider,
+        code: buildCode(),
+      });
 
       expect(profile.name).toBe(user.email);
     });
@@ -122,7 +136,7 @@ describe("FetchOAuthGateway", () => {
       const { gateway } = create(replies(buildUser({ email_verified: false })));
 
       await expectAppError(
-        gateway.exchangeCode(provider, buildCode()),
+        gateway.exchangeCode({ provider, code: buildCode() }),
         IdentityError.OAuthEmailNotVerified,
         { provider },
       );
@@ -134,7 +148,7 @@ describe("FetchOAuthGateway", () => {
       });
 
       await expectAppError(
-        gateway.exchangeCode(provider, buildCode()),
+        gateway.exchangeCode({ provider, code: buildCode() }),
         IdentityError.OAuthCodeRejected,
         { provider },
       );
@@ -149,7 +163,7 @@ describe("FetchOAuthGateway", () => {
       });
 
       await expectAppError(
-        gateway.exchangeCode(provider, buildCode()),
+        gateway.exchangeCode({ provider, code: buildCode() }),
         IdentityError.OAuthProviderFailed,
         { provider },
       );
@@ -171,7 +185,7 @@ describe("FetchOAuthGateway", () => {
       );
 
       await expectAppError(
-        gateway.exchangeCode(provider, buildCode()),
+        gateway.exchangeCode({ provider, code: buildCode() }),
         IdentityError.OAuthProviderFailed,
         { provider },
       );
@@ -191,7 +205,7 @@ describe("FetchOAuthGateway", () => {
       const { gateway, logger } = create({});
 
       await expectAppError(
-        gateway.exchangeCode(provider, buildCode()),
+        gateway.exchangeCode({ provider, code: buildCode() }),
         IdentityError.OAuthProviderFailed,
         { provider },
       );
@@ -237,7 +251,7 @@ describe("FetchOAuthGateway", () => {
       const { gateway, fetch, github } = create(replies(user, accessToken));
       const code = buildCode();
 
-      const profile = await gateway.exchangeCode(provider, code);
+      const profile = await gateway.exchangeCode({ provider, code });
 
       expect(profile).toStrictEqual({
         subject: String(user.id),
@@ -262,6 +276,17 @@ describe("FetchOAuthGateway", () => {
       expect(requestTo(fetch, GITHUB_EMAILS_URL)).toBeUndefined();
     });
 
+    it("sends the PKCE code verifier when there is one", async () => {
+      const { gateway, fetch } = create(replies(buildUser()));
+      const codeVerifier = faker.string.alphanumeric(64);
+
+      await gateway.exchangeCode({ provider, code: buildCode(), codeVerifier });
+
+      expect(formOf(requestTo(fetch, GITHUB_TOKEN_URL))).toMatchObject({
+        code_verifier: codeVerifier,
+      });
+    });
+
     it.each([
       ["null", null],
       ["blank", "   "],
@@ -269,7 +294,10 @@ describe("FetchOAuthGateway", () => {
       const user = buildUser({ name });
       const { gateway } = create(replies(user));
 
-      const profile = await gateway.exchangeCode(provider, buildCode());
+      const profile = await gateway.exchangeCode({
+        provider,
+        code: buildCode(),
+      });
 
       expect(profile.name).toBe(user.login);
     });
@@ -281,7 +309,10 @@ describe("FetchOAuthGateway", () => {
         [GITHUB_EMAILS_URL]: ok([buildEmail(), primary]),
       });
 
-      const profile = await gateway.exchangeCode(provider, buildCode());
+      const profile = await gateway.exchangeCode({
+        provider,
+        code: buildCode(),
+      });
 
       expect(profile.email).toBe(primary.email);
     });
@@ -300,7 +331,7 @@ describe("FetchOAuthGateway", () => {
       });
 
       await expectAppError(
-        gateway.exchangeCode(provider, buildCode()),
+        gateway.exchangeCode({ provider, code: buildCode() }),
         IdentityError.OAuthEmailNotVerified,
         { provider },
       );
@@ -312,7 +343,7 @@ describe("FetchOAuthGateway", () => {
       });
 
       await expectAppError(
-        gateway.exchangeCode(provider, buildCode()),
+        gateway.exchangeCode({ provider, code: buildCode() }),
         IdentityError.OAuthCodeRejected,
         { provider },
       );
@@ -324,7 +355,7 @@ describe("FetchOAuthGateway", () => {
       });
 
       await expectAppError(
-        gateway.exchangeCode(provider, buildCode()),
+        gateway.exchangeCode({ provider, code: buildCode() }),
         IdentityError.OAuthProviderFailed,
         { provider },
       );
@@ -350,7 +381,7 @@ describe("FetchOAuthGateway", () => {
       });
 
       await expectAppError(
-        gateway.exchangeCode(provider, buildCode()),
+        gateway.exchangeCode({ provider, code: buildCode() }),
         IdentityError.OAuthProviderFailed,
         { provider },
       );
@@ -370,7 +401,7 @@ describe("FetchOAuthGateway", () => {
       const { gateway, logger } = create(replies(buildUser({ email: null })));
 
       await expectAppError(
-        gateway.exchangeCode(provider, buildCode()),
+        gateway.exchangeCode({ provider, code: buildCode() }),
         IdentityError.OAuthProviderFailed,
         { provider },
       );
@@ -385,7 +416,7 @@ describe("FetchOAuthGateway", () => {
     const { gateway, fetch } = create({});
 
     await expectAppError(
-      gateway.exchangeCode(AuthProvider.APPLE, buildCode()),
+      gateway.exchangeCode({ provider: AuthProvider.APPLE, code: buildCode() }),
       IdentityError.OAuthProviderNotSupported,
       { provider: AuthProvider.APPLE },
     );

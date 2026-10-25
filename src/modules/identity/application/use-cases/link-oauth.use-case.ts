@@ -27,7 +27,11 @@ export class LinkOAuthUseCase extends UseCase<{
     const account = await this.deps.accountResolver.resolveActive(
       actor.accountId,
     );
-    const profile = await this.deps.oauth.exchangeCode(provider, input.code);
+    const profile = await this.deps.oauth.exchangeCode({
+      provider,
+      code: input.code,
+      codeVerifier: input.codeVerifier,
+    });
     const at = this.deps.clock.now();
 
     const existing = await this.deps.credentials.findByProviderAndSubject(

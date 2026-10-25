@@ -285,4 +285,15 @@ describe("SignInWithOAuthUseCase", () => {
     const stored = await ctx.accounts.findById(output.account.id);
     expect(stored?.isEmailVerified()).toBe(true);
   });
+
+  it("hands the PKCE code verifier to the provider", async () => {
+    const { input } = givenGoogleLogin();
+    const codeVerifier = faker.string.alphanumeric(64);
+
+    await useCase.execute({ ...input, codeVerifier });
+
+    expect(ctx.oauth.exchanges).toStrictEqual([
+      { provider: AuthProvider.GOOGLE, code: input.code, codeVerifier },
+    ]);
+  });
 });

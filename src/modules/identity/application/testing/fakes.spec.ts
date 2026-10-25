@@ -117,9 +117,10 @@ describe("fakes", () => {
       };
       oauth.register(AuthProvider.GOOGLE, code, profile);
 
-      expect(await oauth.exchangeCode(AuthProvider.GOOGLE, code)).toEqual(
-        profile,
-      );
+      const exchange = { provider: AuthProvider.GOOGLE, code };
+
+      expect(await oauth.exchangeCode(exchange)).toEqual(profile);
+      expect(oauth.exchanges).toStrictEqual([exchange]);
     });
 
     it("rejects unknown codes", async () => {
@@ -127,7 +128,7 @@ describe("fakes", () => {
       const code = faker.string.alphanumeric(20);
 
       await expect(
-        oauth.exchangeCode(AuthProvider.GITHUB, code),
+        oauth.exchangeCode({ provider: AuthProvider.GITHUB, code }),
       ).rejects.toThrow(`Unknown OAuth code: github:${code}`);
     });
   });

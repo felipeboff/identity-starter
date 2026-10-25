@@ -6,10 +6,12 @@ export type OAuthProfile = {
   name: string;
 };
 
+export type OAuthCodeExchange = Readonly<{
+  provider: OAuthProviderName;
+  code: string;
+  codeVerifier?: string;
+}>;
+
 export type OAuthGateway = {
-  /** Exchanges an authorization code for the provider's view of the user. */
-  exchangeCode(
-    provider: OAuthProviderName,
-    code: string,
-  ): Promise<OAuthProfile>;
+  exchangeCode(exchange: OAuthCodeExchange): Promise<OAuthProfile>;
 };

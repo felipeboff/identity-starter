@@ -1,6 +1,8 @@
 import { v } from "@shared/application/validator";
 import { Handler, Inbound } from "@shared/presentation/handler";
 
+import { CODE_VERIFIER } from "./code-verifier";
+
 import { Actor } from "@/identity/application/actor";
 import {
   LinkOAuthInput,
@@ -11,6 +13,7 @@ import { LinkOAuthUseCase } from "@/identity/application/use-cases/link-oauth.us
 const inputSchema = v.object<LinkOAuthInput>({
   provider: v.string(),
   code: v.string(),
+  codeVerifier: v.string(CODE_VERIFIER),
 });
 
 export type LinkOAuthHandlerDeps = {

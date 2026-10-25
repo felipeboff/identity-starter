@@ -42,7 +42,11 @@ export class SignInWithOAuthUseCase extends UseCase<{
   async execute(input: SignInWithOAuthInput): Promise<SignInWithOAuthOutput> {
     const provider = OAuthProvider.create(input.provider).value;
 
-    const profile = await this.deps.oauth.exchangeCode(provider, input.code);
+    const profile = await this.deps.oauth.exchangeCode({
+      provider,
+      code: input.code,
+      codeVerifier: input.codeVerifier,
+    });
     const signedIn = await this.deps.transactions.run(async () => {
       const at = this.deps.clock.now();
 
