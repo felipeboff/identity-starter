@@ -1,3 +1,4 @@
+import { AppError } from "@shared/domain/errors/app-error";
 import { InMemoryRepository } from "@shared/testing/in-memory-repository";
 
 import { AccountRepository } from "../ports/account.repository";
@@ -17,6 +18,7 @@ import {
   EmailVerification,
   EmailVerificationSnapshot,
 } from "@/identity/domain/email-verification.entity";
+import { IdentityError } from "@/identity/domain/errors/identity.error";
 import {
   Membership,
   MembershipSnapshot,
@@ -40,9 +42,16 @@ export class InMemoryAccountRepository
   }
 
   save(account: Account) {
-    const snapshot = this.toSnapshot(account);
-    this.snapshots.set(snapshot.id, snapshot);
-    return Promise.resolve();
+    const { id, email } = account.toSnapshot();
+    const taken = [...this.snapshots.values()].some(
+      (snapshot) => snapshot.email === email && snapshot.id !== id,
+    );
+    if (taken) {
+      return Promise.reject(
+        new AppError(IdentityError.AccountEmailTaken, { email }),
+      );
+    }
+    return this.store(account);
   }
 
   findById(id: string) {
@@ -74,9 +83,23 @@ export class InMemoryCredentialRepository
   }
 
   save(credential: Credential) {
-    const snapshot = this.toSnapshot(credential);
-    this.snapshots.set(snapshot.id, snapshot);
-    return Promise.resolve();
+    const { id, provider, subject } = credential.toSnapshot();
+    const taken = [...this.snapshots.values()].some(
+      (snapshot) =>
+        snapshot.provider === provider &&
+        snapshot.subject === subject &&
+        snapshot.id !== id,
+    );
+    if (taken) {
+      return Promise.reject(
+        provider === AuthProvider.EMAIL
+          ? new AppError(IdentityError.CredentialEmailTaken, { email: subject })
+          : new AppError(IdentityError.OAuthLinkedToAnotherAccount, {
+              provider,
+            }),
+      );
+    }
+    return this.store(credential);
   }
 
   findById(id: string) {
@@ -105,7 +128,7 @@ export class InMemoryCredentialRepository
     const matches = [...this.snapshots.values()].filter(
       (snapshot) => snapshot.accountId === accountId,
     );
-    return Promise.resolve(matches.map((snapshot) => this.restore(snapshot)));
+    return Promise.resolve(this.inCreationOrder(matches));
   }
 }
 
@@ -125,9 +148,7 @@ export class InMemoryMembershipRepository
   }
 
   save(membership: Membership) {
-    const snapshot = this.toSnapshot(membership);
-    this.snapshots.set(snapshot.id, snapshot);
-    return Promise.resolve();
+    return this.store(membership);
   }
 
   findById(id: string) {
@@ -156,9 +177,7 @@ export class InMemorySessionRepository
   }
 
   save(session: Session) {
-    const snapshot = this.toSnapshot(session);
-    this.snapshots.set(snapshot.id, snapshot);
-    return Promise.resolve();
+    return this.store(session);
   }
 
   findById(id: string) {
@@ -186,7 +205,7 @@ export class InMemorySessionRepository
     const matches = [...this.snapshots.values()].filter(
       (snapshot) => snapshot.accountId === accountId,
     );
-    return Promise.resolve(matches.map((snapshot) => this.restore(snapshot)));
+    return Promise.resolve(this.inCreationOrder(matches));
   }
 }
 
@@ -206,9 +225,7 @@ export class InMemoryPasswordResetRepository
   }
 
   save(passwordReset: PasswordReset) {
-    const snapshot = this.toSnapshot(passwordReset);
-    this.snapshots.set(snapshot.id, snapshot);
-    return Promise.resolve();
+    return this.store(passwordReset);
   }
 
   findByTokenHash(tokenHash: string) {
@@ -222,7 +239,7 @@ export class InMemoryPasswordResetRepository
     const matches = [...this.snapshots.values()].filter(
       (snapshot) => snapshot.accountId === accountId,
     );
-    return Promise.resolve(matches.map((snapshot) => this.restore(snapshot)));
+    return Promise.resolve(this.inCreationOrder(matches));
   }
 }
 
@@ -242,9 +259,7 @@ export class InMemoryEmailVerificationRepository
   }
 
   save(emailVerification: EmailVerification) {
-    const snapshot = this.toSnapshot(emailVerification);
-    this.snapshots.set(snapshot.id, snapshot);
-    return Promise.resolve();
+    return this.store(emailVerification);
   }
 
   findByTokenHash(tokenHash: string) {
@@ -258,6 +273,6 @@ export class InMemoryEmailVerificationRepository
     const matches = [...this.snapshots.values()].filter(
       (snapshot) => snapshot.accountId === accountId,
     );
-    return Promise.resolve(matches.map((snapshot) => this.restore(snapshot)));
+    return Promise.resolve(this.inCreationOrder(matches));
   }
 }

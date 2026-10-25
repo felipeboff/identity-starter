@@ -11,6 +11,7 @@ import {
 
 import { AuthenticateUseCase } from "./authenticate.use-case";
 
+import { Account } from "@/identity/domain/account.entity";
 import { IdentityError } from "@/identity/domain/errors/identity.error";
 import {
   MembershipPermission,
@@ -145,7 +146,9 @@ describe("AuthenticateUseCase", () => {
 
     it("membership is missing", async () => {
       const ghost = await seedAccount(createIdentityContext());
-      await ctx.accounts.save(ghost.account);
+      await ctx.accounts.save(
+        Account.restore({ ...ghost.account.toSnapshot(), version: 0 }),
+      );
       const { session } = await seedSession(ctx, ghost);
 
       await expectAppError(

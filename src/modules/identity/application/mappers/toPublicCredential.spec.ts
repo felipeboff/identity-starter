@@ -24,7 +24,7 @@ describe("toPublicCredential", () => {
       provider: AuthProvider.EMAIL,
       subject: ana.email,
       providerEmail: ana.email,
-      version: 0,
+      version: 1,
       createdAt: ana.credential.createdAt,
       updatedAt: ana.credential.updatedAt,
       deletedAt: null,
