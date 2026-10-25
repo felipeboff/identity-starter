@@ -25,7 +25,7 @@ const NO_REAL_IO_IN_UNIT_SPECS = {
 };
 
 export default defineConfig(
-  { ignores: ["dist/**", "coverage/**", ".data/**"] },
+  { ignores: ["dist/**", "coverage/**", ".data/**", "web/**"] },
   {
     files: ["**/*.{js,mjs,cjs,ts,mts,cts}"],
     languageOptions: {

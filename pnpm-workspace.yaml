@@ -1,3 +1,5 @@
+packages:
+  - web
 allowBuilds:
   argon2: true
   esbuild: true
