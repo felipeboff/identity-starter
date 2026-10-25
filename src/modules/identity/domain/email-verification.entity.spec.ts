@@ -168,4 +168,16 @@ describe("EmailVerification", () => {
       expect(verification.deletedAt).toBe(LATER);
     });
   });
+
+  describe("markAsSaved", () => {
+    it("moves the version one step ahead on every save", () => {
+      const entity = makeVerification();
+
+      entity.markAsSaved();
+      const afterFirst = entity.version;
+      entity.markAsSaved();
+
+      expect([afterFirst, entity.version]).toStrictEqual([1, 2]);
+    });
+  });
 });

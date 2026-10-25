@@ -26,7 +26,7 @@ export type AccountState = {
   readonly id: Id;
   name: string;
   readonly email: Email;
-  readonly version: number;
+  version: number;
   readonly createdBy: Id;
   readonly createdAt: Date;
   updatedAt: Date;
@@ -97,6 +97,10 @@ export class Account {
 
   public get version(): number {
     return this.state.version;
+  }
+
+  public markAsSaved(): void {
+    this.state.version += 1;
   }
 
   public get createdBy(): Id {

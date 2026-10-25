@@ -174,4 +174,16 @@ describe("PasswordReset", () => {
       expect(reset.deletedAt).toBe(LATER);
     });
   });
+
+  describe("markAsSaved", () => {
+    it("moves the version one step ahead on every save", () => {
+      const entity = makePasswordReset();
+
+      entity.markAsSaved();
+      const afterFirst = entity.version;
+      entity.markAsSaved();
+
+      expect([afterFirst, entity.version]).toStrictEqual([1, 2]);
+    });
+  });
 });

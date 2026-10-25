@@ -30,7 +30,7 @@ export type PasswordResetState = {
   readonly expiresAt: Date;
   readonly createdAt: Date;
   updatedAt: Date;
-  readonly version: number;
+  version: number;
   deletedAt: Date | null;
   consumedAt: Date | null;
 };
@@ -116,6 +116,10 @@ export class PasswordReset {
 
   public get version(): number {
     return this.state.version;
+  }
+
+  public markAsSaved(): void {
+    this.state.version += 1;
   }
 
   public get deletedAt(): Date | null {

@@ -40,7 +40,7 @@ export type SessionState = {
   readonly accountId: Id;
   readonly credentialId: Id;
   readonly membershipId: Id;
-  readonly version: number;
+  version: number;
   readonly createdAt: Date;
   readonly tokenHash: TokenHash;
   readonly expiresAt: Date;
@@ -128,6 +128,10 @@ export class Session {
 
   public get version(): number {
     return this.state.version;
+  }
+
+  public markAsSaved(): void {
+    this.state.version += 1;
   }
 
   public get createdAt(): Date {

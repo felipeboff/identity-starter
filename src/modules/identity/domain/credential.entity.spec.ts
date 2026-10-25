@@ -331,4 +331,16 @@ describe("Credential", () => {
       expect(credential.updatedAt).toBe(CREATED_AT);
     });
   });
+
+  describe("markAsSaved", () => {
+    it("moves the version one step ahead on every save", () => {
+      const entity = makeEmailCredential();
+
+      entity.markAsSaved();
+      const afterFirst = entity.version;
+      entity.markAsSaved();
+
+      expect([afterFirst, entity.version]).toStrictEqual([1, 2]);
+    });
+  });
 });

@@ -224,4 +224,16 @@ describe("Membership", () => {
       expect(membership.updatedAt).toBe(CREATED_AT);
     });
   });
+
+  describe("markAsSaved", () => {
+    it("moves the version one step ahead on every save", () => {
+      const entity = makeMembership();
+
+      entity.markAsSaved();
+      const afterFirst = entity.version;
+      entity.markAsSaved();
+
+      expect([afterFirst, entity.version]).toStrictEqual([1, 2]);
+    });
+  });
 });

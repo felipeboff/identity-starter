@@ -28,7 +28,7 @@ export type EmailVerificationState = {
   readonly expiresAt: Date;
   readonly createdAt: Date;
   updatedAt: Date;
-  readonly version: number;
+  version: number;
   deletedAt: Date | null;
   consumedAt: Date | null;
 };
@@ -107,6 +107,10 @@ export class EmailVerification {
 
   public get version(): number {
     return this.state.version;
+  }
+
+  public markAsSaved(): void {
+    this.state.version += 1;
   }
 
   public get deletedAt(): Date | null {

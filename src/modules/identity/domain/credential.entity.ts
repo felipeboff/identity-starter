@@ -51,7 +51,7 @@ export type CredentialState = {
   readonly subject: string | Email;
   passwordHash: PasswordHash | null;
   providerEmail: Email | null;
-  readonly version: number;
+  version: number;
   readonly createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
@@ -168,6 +168,10 @@ export class Credential {
 
   public get version(): number {
     return this.state.version;
+  }
+
+  public markAsSaved(): void {
+    this.state.version += 1;
   }
 
   public get createdAt(): Date {

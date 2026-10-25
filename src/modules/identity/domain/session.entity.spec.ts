@@ -193,4 +193,16 @@ describe("Session", () => {
       ).toThrow(IdentityError.InvalidSessionRevocationReason.code);
     });
   });
+
+  describe("markAsSaved", () => {
+    it("moves the version one step ahead on every save", () => {
+      const entity = makeSession();
+
+      entity.markAsSaved();
+      const afterFirst = entity.version;
+      entity.markAsSaved();
+
+      expect([afterFirst, entity.version]).toStrictEqual([1, 2]);
+    });
+  });
 });

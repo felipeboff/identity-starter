@@ -42,7 +42,7 @@ export type MembershipState = {
   readonly id: Id;
   role: MembershipRole;
   permissions: MembershipPermission[];
-  readonly version: number;
+  version: number;
   readonly createdBy: Id;
   readonly createdAt: Date;
   updatedAt: Date;
@@ -112,6 +112,10 @@ export class Membership {
 
   public get version(): number {
     return this.state.version;
+  }
+
+  public markAsSaved(): void {
+    this.state.version += 1;
   }
 
   public get createdBy(): Id {
