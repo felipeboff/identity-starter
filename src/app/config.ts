@@ -17,6 +17,8 @@ export type Env = {
   MONGO_URL: string;
   JWT_SECRET: string;
   MAILERSEND_API_KEY: string;
+  GITHUB_CLIENT_ID: string;
+  GITHUB_CLIENT_SECRET: string;
 };
 
 const envSchema = v.object<Env>({
@@ -27,6 +29,8 @@ const envSchema = v.object<Env>({
   MONGO_URL: v.string({ trim: true, minLength: 1 }),
   JWT_SECRET: v.string({ minLength: 32 }),
   MAILERSEND_API_KEY: v.string({ trim: true, minLength: 1 }),
+  GITHUB_CLIENT_ID: v.string({ minLength: 20 }),
+  GITHUB_CLIENT_SECRET: v.string({ minLength: 40 }),
 });
 
 export const loadEnv = (

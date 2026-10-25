@@ -15,6 +15,8 @@ const buildSource = (overrides: Record<string, string | undefined> = {}) => ({
   MONGO_URL: faker.internet.url(),
   JWT_SECRET: faker.string.alphanumeric(64),
   MAILERSEND_API_KEY: faker.string.alphanumeric(40),
+  GITHUB_CLIENT_ID: faker.string.alphanumeric(20),
+  GITHUB_CLIENT_SECRET: faker.string.hexadecimal({ length: 40, prefix: "" }),
   ...overrides,
 });
 
@@ -114,6 +116,24 @@ describe("loadEnv", () => {
       { MAILERSEND_API_KEY: "" },
       "MAILERSEND_API_KEY",
     ],
+    [
+      "GITHUB_CLIENT_ID shorter than 20",
+      {
+        GITHUB_CLIENT_ID: faker.string.alphanumeric({
+          length: { min: 1, max: 19 },
+        }),
+      },
+      "GITHUB_CLIENT_ID",
+    ],
+    [
+      "GITHUB_CLIENT_SECRET shorter than 40",
+      {
+        GITHUB_CLIENT_SECRET: faker.string.alphanumeric({
+          length: { min: 1, max: 39 },
+        }),
+      },
+      "GITHUB_CLIENT_SECRET",
+    ],
   ])("refuses %s", (_, overrides, field) => {
     expect(() => loadEnv(buildSource(overrides))).toThrow(
       expect.objectContaining({
@@ -134,6 +154,8 @@ describe("loadEnv", () => {
             expect.objectContaining({ field: "MONGO_URL" }),
             expect.objectContaining({ field: "JWT_SECRET" }),
             expect.objectContaining({ field: "MAILERSEND_API_KEY" }),
+            expect.objectContaining({ field: "GITHUB_CLIENT_ID" }),
+            expect.objectContaining({ field: "GITHUB_CLIENT_SECRET" }),
           ],
         },
       }),

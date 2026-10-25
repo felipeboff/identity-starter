@@ -35,6 +35,8 @@ const buildEnv = (overrides: Partial<Env> = {}): Env => ({
   MONGO_URL: faker.internet.url(),
   JWT_SECRET: faker.string.alphanumeric(64),
   MAILERSEND_API_KEY: faker.string.alphanumeric(40),
+  GITHUB_CLIENT_ID: faker.string.alphanumeric(20),
+  GITHUB_CLIENT_SECRET: faker.string.hexadecimal({ length: 40, prefix: "" }),
   ...overrides,
 });
 
