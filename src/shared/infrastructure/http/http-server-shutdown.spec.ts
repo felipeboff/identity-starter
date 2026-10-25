@@ -28,7 +28,7 @@ const requestInFlight = async (server: Server) => {
     },
   );
   await received;
-  return response;
+  return { response };
 };
 
 describe("HttpServerShutdown", () => {
@@ -39,8 +39,7 @@ describe("HttpServerShutdown", () => {
   it("lets an in-flight request finish before the server closes", async () => {
     const server = await listen(faker.number.int({ min: 50, max: 150 }));
     const shutdown = new HttpServerShutdown(server, 3_000);
-    const response = requestInFlight(server);
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    const { response } = await requestInFlight(server);
     const startedAt = Date.now();
 
     const outcome = await shutdown.run();
@@ -54,7 +53,9 @@ describe("HttpServerShutdown", () => {
   it("closes at once when the only connection is already idle", async () => {
     const server = await listen(0);
     const shutdown = new HttpServerShutdown(server, 3_000);
-    await requestInFlight(server);
+    await (
+      await requestInFlight(server)
+    ).response;
     const startedAt = Date.now();
 
     const outcome = await shutdown.run();
@@ -66,8 +67,7 @@ describe("HttpServerShutdown", () => {
   it("cuts a request that outlives the timeout", async () => {
     const server = await listen();
     const shutdown = new HttpServerShutdown(server, 100);
-    const response = requestInFlight(server);
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    const { response } = await requestInFlight(server);
 
     const outcome = await shutdown.run();
 
@@ -81,8 +81,7 @@ describe("HttpServerShutdown", () => {
   it("waits 8 seconds by default", async () => {
     const server = await listen();
     const shutdown = new HttpServerShutdown(server);
-    const response = requestInFlight(server);
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    const { response } = await requestInFlight(server);
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     let outcome: string | undefined;
 
