@@ -27,6 +27,15 @@ export const SharedError = {
   ),
   IdInvalid: defineError<{ id: string }>("shared.id_invalid", "invalid_input"),
 
+  AlreadyExists: defineError<{ id: string }>(
+    "shared.already_exists",
+    "conflict",
+  ),
+  VersionConflict: defineError<{ id: string; version: number }>(
+    "shared.version_conflict",
+    "conflict",
+  ),
+
   RouteNotFound: defineError<{ method: string; path: string }>(
     "shared.route_not_found",
     "not_found",
