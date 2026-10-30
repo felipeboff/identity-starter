@@ -2,6 +2,7 @@ import { UseCase } from "@shared/application/use-cases";
 import { AppError } from "@shared/domain/errors/app-error";
 
 import { toOutputAccount } from "../mappers/toOutputAccount";
+import { IdentityUseCaseLogEvent } from "../use-case.log-event";
 
 import {
   SignUpWithEmailDeps,
@@ -95,8 +96,23 @@ export class SignUpWithEmailUseCase extends UseCase<{
         at,
       );
 
-      return { account, issued };
+      const verificationEmail =
+        await this.deps.emailVerificationIssuer.issue(account);
+
+      return { account, issued, verificationEmail };
     });
+
+    await this.deps.mailer
+      .sendEmailVerification(signedUp.verificationEmail)
+      .catch((error: unknown) => {
+        this.deps.logger.warn(
+          IdentityUseCaseLogEvent.VerificationEmailNotSent,
+          {
+            accountId: signedUp.account.id.value,
+            error,
+          },
+        );
+      });
 
     return {
       account: toOutputAccount(signedUp.account),

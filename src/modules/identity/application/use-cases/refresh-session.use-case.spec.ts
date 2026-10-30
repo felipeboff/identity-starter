@@ -3,7 +3,6 @@ import { LogLevel } from "@shared/application/ports/logger";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { IdentitySecurityLogEvent } from "../identity-security.log-event";
 import { toOutputAccount } from "../mappers/toOutputAccount";
 import {
   IdentityContext,
@@ -11,6 +10,7 @@ import {
   seedAccount,
   seedSession,
 } from "../testing/identity-context";
+import { IdentityUseCaseLogEvent } from "../use-case.log-event";
 
 import { RefreshSessionUseCase } from "./refresh-session.use-case";
 
@@ -227,7 +227,7 @@ describe("RefreshSessionUseCase", () => {
     expect(ctx.logger.entries).toStrictEqual([
       {
         level: LogLevel.WARN,
-        event: IdentitySecurityLogEvent.RefreshTokenReused.name,
+        event: IdentityUseCaseLogEvent.RefreshTokenReused.name,
         fields: {
           accountId: ana.accountId,
           sessionId: session.id.value,

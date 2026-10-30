@@ -1,9 +1,9 @@
 import { UseCase } from "@shared/application/use-cases";
 import { AppError } from "@shared/domain/errors/app-error";
 
-import { IdentitySecurityLogEvent } from "../identity-security.log-event";
 import { toOutputAccount } from "../mappers/toOutputAccount";
 import { IssuedSession } from "../services/session-issuer";
+import { IdentityUseCaseLogEvent } from "../use-case.log-event";
 
 import {
   RefreshSessionDeps,
@@ -125,7 +125,7 @@ export class RefreshSessionUseCase extends UseCase<{
     });
 
     if (refreshed.reused) {
-      this.deps.logger.warn(IdentitySecurityLogEvent.RefreshTokenReused, {
+      this.deps.logger.warn(IdentityUseCaseLogEvent.RefreshTokenReused, {
         accountId: refreshed.session.accountId.value,
         sessionId: refreshed.session.id.value,
         revokedSessions: refreshed.revokedSessions,
