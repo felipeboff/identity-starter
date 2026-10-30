@@ -89,7 +89,7 @@ export class SignInWithOAuthUseCase extends UseCase<{
     account.markAsLastSeen(at);
     await this.deps.accounts.save(account);
 
-    const issued = await this.deps.sessionIssuer.replace(
+    const issued = await this.deps.sessionIssuer.issue(
       {
         accountId: account.id.value,
         credentialId: credential.id.value,

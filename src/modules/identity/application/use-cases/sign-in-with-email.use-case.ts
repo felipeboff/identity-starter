@@ -94,7 +94,7 @@ export class SignInWithEmailUseCase extends UseCase<{
 
       await this.deps.accounts.save(account);
 
-      return this.deps.sessionIssuer.replace(
+      return this.deps.sessionIssuer.issue(
         {
           accountId: account.id.value,
           credentialId: credential.id.value,

@@ -33,13 +33,6 @@ export class MongoSessionRepository implements SessionRepository {
     return document === null ? null : sessionMapper.toDomain(document);
   }
 
-  async findByAccountId(accountId: string): Promise<Session | null> {
-    const document = await this.models.sessions
-      .findOne({ accountId, revokedAt: null })
-      .lean();
-    return document === null ? null : sessionMapper.toDomain(document);
-  }
-
   async listByAccountId(accountId: string): Promise<Session[]> {
     const documents = await this.models.sessions
       .find({ accountId })

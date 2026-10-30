@@ -4,6 +4,5 @@ export type SessionRepository = {
   save(session: Session): Promise<void>;
   findById(id: string): Promise<Session | null>;
   findByTokenHash(tokenHash: string): Promise<Session | null>;
-  findByAccountId(accountId: string): Promise<Session | null>;
   listByAccountId(accountId: string): Promise<Session[]>;
 };

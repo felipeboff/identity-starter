@@ -5,7 +5,6 @@ import { toPublicSession } from "../mappers/toPublicSession";
 
 import { ListSessionsDeps, ListSessionsOutput } from "./list-sessions.types";
 
-/** Active sessions (devices) of the authenticated account, newest first. */
 export class ListSessionsUseCase extends UseCase<{
   output: ListSessionsOutput;
   deps: ListSessionsDeps;
@@ -19,7 +18,10 @@ export class ListSessionsUseCase extends UseCase<{
       sessions: sessions
         .filter((session) => session.isActive(at))
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-        .map(toPublicSession),
+        .map((session) => ({
+          ...toPublicSession(session),
+          current: session.id.value === actor.sessionId,
+        })),
     };
   }
 }

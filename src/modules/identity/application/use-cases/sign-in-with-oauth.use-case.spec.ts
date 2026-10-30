@@ -16,7 +16,6 @@ import { SignInWithOAuthUseCase } from "./sign-in-with-oauth.use-case";
 import { AuthProvider, Credential } from "@/identity/domain/credential.entity";
 import { IdentityError } from "@/identity/domain/errors/identity.error";
 import { MembershipRole } from "@/identity/domain/membership.entity";
-import { SessionRevocationReason } from "@/identity/domain/session.entity";
 
 describe("SignInWithOAuthUseCase", () => {
   let ctx: IdentityContext;
@@ -63,7 +62,7 @@ describe("SignInWithOAuthUseCase", () => {
   });
 
   describe("when the provider identity is already linked", () => {
-    it("signs in, replaces the current session and marks the account as seen", async () => {
+    it("signs in, keeps the other sessions and marks the account as seen", async () => {
       const { profile, input } = givenGoogleLogin();
       const ana = await seedAccount(ctx, { email: profile.email });
       const google = await saveGoogleCredential(ana.accountId, profile);
@@ -78,8 +77,8 @@ describe("SignInWithOAuthUseCase", () => {
         lastSeenAt: ctx.clock.now(),
       });
 
-      const replaced = await ctx.sessions.findById(previous.id.value);
-      expect(replaced?.revokedReason).toBe(SessionRevocationReason.REPLACED);
+      const kept = await ctx.sessions.findById(previous.id.value);
+      expect(kept?.isActive(ctx.clock.now())).toBe(true);
 
       const session = await ctx.sessions.findByTokenHash(
         ctx.tokens.hash(output.refreshToken),

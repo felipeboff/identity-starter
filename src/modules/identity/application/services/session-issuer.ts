@@ -5,10 +5,7 @@ import { SessionRepository } from "../ports/session.repository";
 import { TokenIssuer } from "../ports/token-issuer";
 import { REFRESH_TOKEN_TTL_MS } from "../session.policy";
 
-import {
-  Session,
-  SessionRevocationReason,
-} from "@/identity/domain/session.entity";
+import { Session } from "@/identity/domain/session.entity";
 
 export type IssueSessionInput = {
   accountId: string;
@@ -59,16 +56,5 @@ export class SessionIssuer {
     });
 
     return { session, accessToken, refreshToken };
-  }
-
-  /** Revokes the account's current session as `REPLACED`, then issues a new one. */
-  async replace(input: IssueSessionInput, at: Date): Promise<IssuedSession> {
-    const current = await this.deps.sessions.findByAccountId(input.accountId);
-    if (current) {
-      current.revoke(SessionRevocationReason.REPLACED, at, input.accountId);
-      await this.deps.sessions.save(current);
-    }
-
-    return this.issue(input, at);
   }
 }

@@ -6,12 +6,9 @@ import {
   SeededAccount,
   createIdentityContext,
   seedAccount,
-  seedSession,
 } from "../testing/identity-context";
 
 import { SessionIssuer } from "./session-issuer";
-
-import { SessionRevocationReason } from "@/identity/domain/session.entity";
 
 describe("SessionIssuer", () => {
   let ctx: IdentityContext;
@@ -53,39 +50,6 @@ describe("SessionIssuer", () => {
       expect(issued.accessToken).toBe(
         `access:${ana.accountId}:${issued.session.id.value}`,
       );
-    });
-  });
-
-  describe("replace", () => {
-    it("revokes the current session as REPLACED and issues a new one", async () => {
-      const ana = await seedAccount(ctx);
-      const { session: current } = await seedSession(ctx, ana);
-      const now = ctx.clock.now();
-
-      const issued = await issuer.replace(sessionInputFor(ana), now);
-
-      const previous = await ctx.sessions.findById(current.id.value);
-      expect(previous?.toSnapshot()).toMatchObject({
-        revokedReason: SessionRevocationReason.REPLACED,
-        revokedAt: now,
-        acceptedByAccountId: ana.accountId,
-      });
-      const next = await ctx.sessions.findById(issued.session.id.value);
-      expect(next?.isActive(now)).toBe(true);
-    });
-
-    it("just issues a session when there is no current one", async () => {
-      const ana = await seedAccount(ctx);
-
-      const issued = await issuer.replace(
-        sessionInputFor(ana),
-        ctx.clock.now(),
-      );
-
-      const sessions = await ctx.sessions.listByAccountId(ana.accountId);
-      expect(sessions.map((session) => session.id.value)).toEqual([
-        issued.session.id.value,
-      ]);
     });
   });
 });

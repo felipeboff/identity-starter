@@ -48,7 +48,24 @@ describe("ListSessionsUseCase", () => {
 
     const { tokenHash, ...publicFields } = session.toSnapshot();
     expect(tokenHash).toBeDefined();
-    expect(output.sessions).toEqual([publicFields]);
+    expect(output.sessions).toEqual([{ ...publicFields, current: false }]);
+  });
+
+  it("marks the session of the caller as the current one", async () => {
+    const ana = await seedAccount(ctx);
+    const { session: other } = await seedSession(ctx, ana);
+    const { session: mine, actor } = await seedSession(ctx, ana);
+
+    const output = await useCase.execute(actor);
+
+    expect(
+      output.sessions.map((session) => [session.id, session.current]),
+    ).toEqual(
+      expect.arrayContaining([
+        [mine.id.value, true],
+        [other.id.value, false],
+      ]),
+    );
   });
 
   it("returns an empty list when the account has no sessions", async () => {

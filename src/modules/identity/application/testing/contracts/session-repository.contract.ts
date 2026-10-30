@@ -91,28 +91,6 @@ export const sessionRepositoryContract = (
     expect(found?.id.value).toBe(session.id.value);
   });
 
-  it("finds the active session of an account, not a revoked one", async () => {
-    const accountId = faker.database.mongodbObjectId();
-    const revoked = registerSession(accountId);
-    revoked.revoke(SessionRevocationReason.LOGOUT, faker.date.recent());
-    const active = registerSession(accountId);
-    await sessions.save(revoked);
-    await sessions.save(active);
-
-    const found = await sessions.findByAccountId(accountId);
-
-    expect(found?.id.value).toBe(active.id.value);
-  });
-
-  it("finds no active session when every session of the account is revoked", async () => {
-    const accountId = faker.database.mongodbObjectId();
-    const revoked = registerSession(accountId);
-    revoked.revoke(SessionRevocationReason.LOGOUT, faker.date.recent());
-    await sessions.save(revoked);
-
-    expect(await sessions.findByAccountId(accountId)).toBeNull();
-  });
-
   it.each([
     ["id", () => sessions.findById(faker.database.mongodbObjectId())],
     ["token hash", () => sessions.findByTokenHash(tokenHash())],

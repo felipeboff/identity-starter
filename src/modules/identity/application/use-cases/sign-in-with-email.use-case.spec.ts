@@ -16,7 +16,6 @@ import { SignInWithEmailUseCase } from "./sign-in-with-email.use-case";
 import { Account } from "@/identity/domain/account.entity";
 import { AuthProvider, Credential } from "@/identity/domain/credential.entity";
 import { IdentityError } from "@/identity/domain/errors/identity.error";
-import { SessionRevocationReason } from "@/identity/domain/session.entity";
 
 describe("SignInWithEmailUseCase", () => {
   let ctx: IdentityContext;
@@ -85,15 +84,18 @@ describe("SignInWithEmailUseCase", () => {
     );
   });
 
-  it("replaces the current session of the account", async () => {
+  it("keeps the other sessions of the account active", async () => {
     const ana = await seedAccount(ctx);
     const { session: previous } = await seedSession(ctx, ana);
 
     await useCase.execute(makeInput(ana));
 
-    const stored = await ctx.sessions.findById(previous.id.value);
-    expect(stored?.revokedReason).toBe(SessionRevocationReason.REPLACED);
-    expect(stored?.acceptedByAccountId?.value).toBe(ana.accountId);
+    const now = ctx.clock.now();
+    const sessions = await ctx.sessions.listByAccountId(ana.accountId);
+    expect(sessions.filter((session) => session.isActive(now))).toHaveLength(2);
+    expect(
+      (await ctx.sessions.findById(previous.id.value))?.isActive(now),
+    ).toBe(true);
   });
 
   it("throws AccountNotFound when no account uses the e-mail", async () => {
@@ -251,21 +253,15 @@ describe("SignInWithEmailUseCase", () => {
 
   it("writes nothing when the last write fails", async () => {
     const ana = await seedAccount(ctx);
-    const { session } = await seedSession(ctx, ana);
     const failure = new Error(faker.lorem.sentence());
-    const save = ctx.sessions.save.bind(ctx.sessions);
-    vi.spyOn(ctx.sessions, "save")
-      .mockImplementationOnce(save)
-      .mockRejectedValueOnce(failure);
+    vi.spyOn(ctx.sessions, "save").mockRejectedValueOnce(failure);
 
     await expect(
       useCase.execute(makeInput({ email: ana.email, password: ana.password })),
     ).rejects.toBe(failure);
 
     expect((await ctx.accounts.findById(ana.accountId))?.lastSeenAt).toBeNull();
-    expect((await ctx.sessions.findById(session.id.value))?.isRevoked()).toBe(
-      false,
-    );
+    expect(await ctx.sessions.listByAccountId(ana.accountId)).toStrictEqual([]);
   });
 
   it("returns the account as it was stored", async () => {

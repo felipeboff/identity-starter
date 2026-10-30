@@ -113,9 +113,27 @@ describe("identity protected routes", () => {
     expect(out.status).toBe(200);
     expect(out.body).toEqual({
       sessions: [
-        expect.objectContaining({ id: ana.session.id.value }) as unknown,
+        expect.objectContaining({
+          id: ana.session.id.value,
+          current: true,
+        }) as unknown,
       ],
     });
+  });
+
+  it("revokes every other session with 200 and keeps the current one", async () => {
+    const http = createIdentityHttp();
+    const ana = await http.signIn();
+    const other = await seedSession(http.ctx, ana);
+
+    const out = await http.call("DELETE", "/me/sessions", { token: ana.token });
+    const me = await http.call("GET", "/me", { token: ana.token });
+
+    expect(out).toMatchObject({ status: 200, body: { revokedCount: 1 } });
+    expect(me.status).toBe(200);
+    expect(
+      (await http.ctx.sessions.findById(other.session.id.value))?.isRevoked(),
+    ).toBe(true);
   });
 
   it("links an oauth provider with 201", async () => {
