@@ -1,8 +1,15 @@
-import { TokenEmail } from "../application/ports/identity-mailer";
+import {
+  EmailChangedNotice,
+  InvitationEmail,
+  TokenEmail,
+} from "../application/ports/identity-mailer";
 
 export const IdentityEmailTemplate = {
   PASSWORD_RESET: "password_reset",
   EMAIL_VERIFICATION: "email_verification",
+  INVITATION: "invitation",
+  EMAIL_CHANGE: "email_change",
+  EMAIL_CHANGED: "email_changed",
 } as const;
 
 export type IdentityEmailTemplate =
@@ -14,8 +21,8 @@ export type IdentityEmail = Readonly<{
   name: string;
   subject: string;
   text: string;
-  link: string;
-  expiresAt: Date;
+  link: string | null;
+  expiresAt: Date | null;
 }>;
 
 export type IdentityEmailComposerDeps = Readonly<{
@@ -69,6 +76,58 @@ export class IdentityEmailComposer {
       ].join("\n\n"),
       link,
       expiresAt: email.expiresAt,
+    };
+  }
+
+  invitation(email: InvitationEmail): IdentityEmail {
+    const link = this.link("accept-invitation", email.token);
+    return {
+      template: IdentityEmailTemplate.INVITATION,
+      to: email.to,
+      name: email.to,
+      subject: "Você foi convidado para o Resolve Hub",
+      text: [
+        "Olá.",
+        `${email.inviterName} convidou você para o Resolve Hub. Para criar sua conta, acesse: ${link}`,
+        `O convite vale até ${DATE_FORMAT.format(email.expiresAt)} (horário de Brasília).`,
+        "Se você não esperava este convite, ignore este e-mail.",
+      ].join("\n\n"),
+      link,
+      expiresAt: email.expiresAt,
+    };
+  }
+
+  emailChange(email: TokenEmail): IdentityEmail {
+    const link = this.link("confirm-email-change", email.token);
+    return {
+      template: IdentityEmailTemplate.EMAIL_CHANGE,
+      to: email.to,
+      name: email.name,
+      subject: "Confirme seu novo e-mail",
+      text: [
+        `Olá, ${email.name}.`,
+        `Para usar este endereço na sua conta, acesse: ${link}`,
+        `O link vale até ${DATE_FORMAT.format(email.expiresAt)} (horário de Brasília).`,
+        "Se você não pediu a troca, ignore este e-mail.",
+      ].join("\n\n"),
+      link,
+      expiresAt: email.expiresAt,
+    };
+  }
+
+  emailChanged(notice: EmailChangedNotice): IdentityEmail {
+    return {
+      template: IdentityEmailTemplate.EMAIL_CHANGED,
+      to: notice.to,
+      name: notice.name,
+      subject: "Seu e-mail foi alterado",
+      text: [
+        `Olá, ${notice.name}.`,
+        `O e-mail da sua conta foi alterado para ${notice.newEmail}.`,
+        "Se não foi você, fale com o suporte imediatamente.",
+      ].join("\n\n"),
+      link: null,
+      expiresAt: null,
     };
   }
 

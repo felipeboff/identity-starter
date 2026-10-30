@@ -6,9 +6,17 @@ import {
   credentialSchema,
 } from "./schemas/credential.schema";
 import {
+  EmailChangeDocument,
+  emailChangeSchema,
+} from "./schemas/email-change.schema";
+import {
   EmailVerificationDocument,
   emailVerificationSchema,
 } from "./schemas/email-verification.schema";
+import {
+  InvitationDocument,
+  invitationSchema,
+} from "./schemas/invitation.schema";
 import {
   MembershipDocument,
   membershipSchema,
@@ -26,6 +34,8 @@ export class IdentityModels {
   readonly sessions: Model<SessionDocument>;
   readonly passwordResets: Model<PasswordResetDocument>;
   readonly emailVerifications: Model<EmailVerificationDocument>;
+  readonly invitations: Model<InvitationDocument>;
+  readonly emailChanges: Model<EmailChangeDocument>;
 
   constructor(connection: Connection) {
     this.accounts = connection.model<AccountDocument>("Account", accountSchema);
@@ -46,6 +56,14 @@ export class IdentityModels {
       "EmailVerification",
       emailVerificationSchema,
     );
+    this.invitations = connection.model<InvitationDocument>(
+      "Invitation",
+      invitationSchema,
+    );
+    this.emailChanges = connection.model<EmailChangeDocument>(
+      "EmailChange",
+      emailChangeSchema,
+    );
   }
 
   async ready(): Promise<void> {
@@ -56,6 +74,8 @@ export class IdentityModels {
       this.sessions.init(),
       this.passwordResets.init(),
       this.emailVerifications.init(),
+      this.invitations.init(),
+      this.emailChanges.init(),
     ]);
   }
 }

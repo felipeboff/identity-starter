@@ -3,14 +3,18 @@ import { describe } from "vitest";
 
 import { accountRepositoryContract } from "./contracts/account-repository.contract";
 import { credentialRepositoryContract } from "./contracts/credential-repository.contract";
+import { emailChangeRepositoryContract } from "./contracts/email-change-repository.contract";
 import { emailVerificationRepositoryContract } from "./contracts/email-verification-repository.contract";
+import { invitationRepositoryContract } from "./contracts/invitation-repository.contract";
 import { membershipRepositoryContract } from "./contracts/membership-repository.contract";
 import { passwordResetRepositoryContract } from "./contracts/password-reset-repository.contract";
 import { sessionRepositoryContract } from "./contracts/session-repository.contract";
 import {
   InMemoryAccountRepository,
   InMemoryCredentialRepository,
+  InMemoryEmailChangeRepository,
   InMemoryEmailVerificationRepository,
+  InMemoryInvitationRepository,
   InMemoryMembershipRepository,
   InMemoryPasswordResetRepository,
   InMemorySessionRepository,
@@ -49,4 +53,12 @@ describe("InMemoryEmailVerificationRepository", () => {
   emailVerificationRepositoryContract(() =>
     inMemory(InMemoryEmailVerificationRepository),
   );
+});
+
+describe("InMemoryInvitationRepository", () => {
+  invitationRepositoryContract(() => inMemory(InMemoryInvitationRepository));
+});
+
+describe("InMemoryEmailChangeRepository", () => {
+  emailChangeRepositoryContract(() => inMemory(InMemoryEmailChangeRepository));
 });

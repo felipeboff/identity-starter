@@ -1,7 +1,9 @@
 import { Logger } from "@shared/application/ports/logger";
 
 import {
+  EmailChangedNotice,
   IdentityMailer,
+  InvitationEmail,
   TokenEmail,
 } from "../application/ports/identity-mailer";
 
@@ -24,6 +26,21 @@ export class LogIdentityMailer implements IdentityMailer {
     return Promise.resolve();
   }
 
+  sendInvitation(email: InvitationEmail): Promise<void> {
+    this.log(this.deps.composer.invitation(email));
+    return Promise.resolve();
+  }
+
+  sendEmailChange(email: TokenEmail): Promise<void> {
+    this.log(this.deps.composer.emailChange(email));
+    return Promise.resolve();
+  }
+
+  sendEmailChanged(notice: EmailChangedNotice): Promise<void> {
+    this.log(this.deps.composer.emailChanged(notice));
+    return Promise.resolve();
+  }
+
   sendEmailVerification(email: TokenEmail): Promise<void> {
     this.log(this.deps.composer.emailVerification(email));
     return Promise.resolve();
@@ -34,7 +51,7 @@ export class LogIdentityMailer implements IdentityMailer {
       template: email.template,
       to: email.to,
       link: email.link,
-      expiresAt: email.expiresAt.toISOString(),
+      expiresAt: email.expiresAt?.toISOString() ?? null,
     });
   }
 }

@@ -2,17 +2,24 @@ import type { RateLimiter } from "@shared/application/services/rate-limiter";
 import { HttpRoute } from "@shared/presentation/http/http-route";
 import { RateLimitMiddleware } from "@shared/presentation/rate-limit.middleware";
 
+import { AcceptInvitationHandler } from "./accept-invitation.handler";
 import { ChangePasswordHandler } from "./change-password.handler";
+import { ConfirmEmailChangeHandler } from "./confirm-email-change.handler";
 import { DeactivateAccountHandler } from "./deactivate-account.handler";
 import { GetMeHandler } from "./get-me.handler";
+import { InviteMemberHandler } from "./invite-member.handler";
 import { LinkOAuthHandler } from "./link-oauth.handler";
+import { ListInvitationsHandler } from "./list-invitations.handler";
 import { ListSessionsHandler } from "./list-sessions.handler";
 import { ReactivateAccountHandler } from "./reactivate-account.handler";
 import { RefreshSessionHandler } from "./refresh-session.handler";
+import { RequestEmailChangeHandler } from "./request-email-change.handler";
 import { RequestEmailVerificationHandler } from "./request-email-verification.handler";
 import { RequestPasswordResetHandler } from "./request-password-reset.handler";
 import { ResetPasswordHandler } from "./reset-password.handler";
 import { RevokeAllSessionsHandler } from "./revoke-all-sessions.handler";
+import { RevokeInvitationHandler } from "./revoke-invitation.handler";
+import { RevokeOtherSessionsHandler } from "./revoke-other-sessions.handler";
 import { RevokeSessionHandler } from "./revoke-session.handler";
 import { SignInWithEmailHandler } from "./sign-in-with-email.handler";
 import { SignInWithOAuthHandler } from "./sign-in-with-oauth.handler";
@@ -26,17 +33,24 @@ import { VerifyEmailHandler } from "./verify-email.handler";
 
 import { Actor } from "@/identity/application/actor";
 import { RateLimitPolicy } from "@/identity/application/rate-limit.policy";
+import { AcceptInvitationUseCase } from "@/identity/application/use-cases/accept-invitation.use-case";
 import { ChangePasswordUseCase } from "@/identity/application/use-cases/change-password.use-case";
+import { ConfirmEmailChangeUseCase } from "@/identity/application/use-cases/confirm-email-change.use-case";
 import { DeactivateAccountUseCase } from "@/identity/application/use-cases/deactivate-account.use-case";
 import { GetMeUseCase } from "@/identity/application/use-cases/get-me.use-case";
+import { InviteMemberUseCase } from "@/identity/application/use-cases/invite-member.use-case";
 import { LinkOAuthUseCase } from "@/identity/application/use-cases/link-oauth.use-case";
+import { ListInvitationsUseCase } from "@/identity/application/use-cases/list-invitations.use-case";
 import { ListSessionsUseCase } from "@/identity/application/use-cases/list-sessions.use-case";
 import { ReactivateAccountUseCase } from "@/identity/application/use-cases/reactivate-account.use-case";
 import { RefreshSessionUseCase } from "@/identity/application/use-cases/refresh-session.use-case";
+import { RequestEmailChangeUseCase } from "@/identity/application/use-cases/request-email-change.use-case";
 import { RequestEmailVerificationUseCase } from "@/identity/application/use-cases/request-email-verification.use-case";
 import { RequestPasswordResetUseCase } from "@/identity/application/use-cases/request-password-reset.use-case";
 import { ResetPasswordUseCase } from "@/identity/application/use-cases/reset-password.use-case";
 import { RevokeAllSessionsUseCase } from "@/identity/application/use-cases/revoke-all-sessions.use-case";
+import { RevokeInvitationUseCase } from "@/identity/application/use-cases/revoke-invitation.use-case";
+import { RevokeOtherSessionsUseCase } from "@/identity/application/use-cases/revoke-other-sessions.use-case";
 import { RevokeSessionUseCase } from "@/identity/application/use-cases/revoke-session.use-case";
 import { SignInWithEmailUseCase } from "@/identity/application/use-cases/sign-in-with-email.use-case";
 import { SignInWithOAuthUseCase } from "@/identity/application/use-cases/sign-in-with-oauth.use-case";
@@ -65,6 +79,13 @@ export type IdentityHttpDeps = {
   changePassword: ChangePasswordUseCase;
   requestEmailVerification: RequestEmailVerificationUseCase;
   listSessions: ListSessionsUseCase;
+  requestEmailChange: RequestEmailChangeUseCase;
+  confirmEmailChange: ConfirmEmailChangeUseCase;
+  inviteMember: InviteMemberUseCase;
+  listInvitations: ListInvitationsUseCase;
+  revokeInvitation: RevokeInvitationUseCase;
+  acceptInvitation: AcceptInvitationUseCase;
+  revokeOtherSessions: RevokeOtherSessionsUseCase;
   linkOAuth: LinkOAuthUseCase;
   unlinkOAuth: UnlinkOAuthUseCase;
   revokeSession: RevokeSessionUseCase;
@@ -169,6 +190,32 @@ export const createIdentityPublicRoutes = (
     ],
     handler: new VerifyEmailHandler(deps),
   },
+  {
+    method: "POST",
+    path: "/auth/invitations/accept",
+    status: 201,
+    failures: [400, 401, 422, 429],
+    middlewares: [
+      new RateLimitMiddleware({
+        limiter: deps.rateLimiter,
+        rule: RateLimitPolicy.ACCEPT_INVITATION_PER_IP,
+      }),
+    ],
+    handler: new AcceptInvitationHandler(deps),
+  },
+  {
+    method: "POST",
+    path: "/auth/email-change",
+    status: 200,
+    failures: [400, 401, 422, 429],
+    middlewares: [
+      new RateLimitMiddleware({
+        limiter: deps.rateLimiter,
+        rule: RateLimitPolicy.CONFIRM_EMAIL_CHANGE_PER_IP,
+      }),
+    ],
+    handler: new ConfirmEmailChangeHandler(deps),
+  },
 ];
 
 export const createIdentityRoutes = (
@@ -210,6 +257,19 @@ export const createIdentityRoutes = (
   },
   {
     method: "POST",
+    path: "/me/email",
+    status: 204,
+    failures: [400, 401, 422, 429],
+    middlewares: [
+      new RateLimitMiddleware({
+        limiter: deps.rateLimiter,
+        rule: RateLimitPolicy.CHANGE_EMAIL_PER_IP,
+      }),
+    ],
+    handler: new RequestEmailChangeHandler(deps),
+  },
+  {
+    method: "POST",
     path: "/me/email-verification",
     status: 204,
     failures: [401, 409, 422, 429],
@@ -227,6 +287,13 @@ export const createIdentityRoutes = (
     status: 200,
     failures: [401],
     handler: new ListSessionsHandler(deps),
+  },
+  {
+    method: "DELETE",
+    path: "/me/sessions",
+    status: 200,
+    failures: [401],
+    handler: new RevokeOtherSessionsHandler(deps),
   },
   {
     method: "POST",
@@ -289,5 +356,26 @@ export const createIdentityRoutes = (
     status: 200,
     failures: [400, 401, 403, 404, 422],
     handler: new UpdateMemberPermissionsHandler(deps),
+  },
+  {
+    method: "POST",
+    path: "/invitations",
+    status: 201,
+    failures: [400, 401, 403, 422],
+    handler: new InviteMemberHandler(deps),
+  },
+  {
+    method: "GET",
+    path: "/invitations",
+    status: 200,
+    failures: [401, 403],
+    handler: new ListInvitationsHandler(deps),
+  },
+  {
+    method: "DELETE",
+    path: "/invitations/:invitationId",
+    status: 204,
+    failures: [400, 401, 403, 404, 422],
+    handler: new RevokeInvitationHandler(deps),
   },
 ];

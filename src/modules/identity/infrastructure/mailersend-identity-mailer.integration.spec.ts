@@ -137,4 +137,35 @@ describe("MailerSendIdentityMailer", () => {
       },
     ]);
   });
+
+  it("sends invitations and e-mail changes through the MailerSend API", async () => {
+    const fetch = respondWith(202);
+    const { mailer, composer } = create(fetch);
+    const email = buildTokenEmail();
+    const invitation = {
+      to: email.to,
+      inviterName: faker.person.fullName(),
+      token: email.token,
+      expiresAt: email.expiresAt,
+    };
+    const notice = {
+      to: email.to,
+      name: email.name,
+      newEmail: faker.internet.email(),
+    };
+
+    await mailer.sendInvitation(invitation);
+    await mailer.sendEmailChange(email);
+    await mailer.sendEmailChanged(notice);
+
+    const subjects = fetch.mock.calls.map(
+      (call) =>
+        (JSON.parse(call[1]?.body as string) as { subject: string }).subject,
+    );
+    expect(subjects).toStrictEqual([
+      composer.invitation(invitation).subject,
+      composer.emailChange(email).subject,
+      composer.emailChanged(notice).subject,
+    ]);
+  });
 });

@@ -3,7 +3,9 @@ import { AppError } from "@shared/domain/errors/app-error";
 import { FetchHttpClient } from "@shared/infrastructure/http/fetch-http-client";
 
 import {
+  EmailChangedNotice,
   IdentityMailer,
+  InvitationEmail,
   TokenEmail,
 } from "../application/ports/identity-mailer";
 
@@ -34,6 +36,18 @@ export class MailerSendIdentityMailer implements IdentityMailer {
 
   sendPasswordReset(email: TokenEmail): Promise<void> {
     return this.send(this.deps.composer.passwordReset(email));
+  }
+
+  sendInvitation(email: InvitationEmail): Promise<void> {
+    return this.send(this.deps.composer.invitation(email));
+  }
+
+  sendEmailChange(email: TokenEmail): Promise<void> {
+    return this.send(this.deps.composer.emailChange(email));
+  }
+
+  sendEmailChanged(notice: EmailChangedNotice): Promise<void> {
+    return this.send(this.deps.composer.emailChanged(notice));
   }
 
   sendEmailVerification(email: TokenEmail): Promise<void> {

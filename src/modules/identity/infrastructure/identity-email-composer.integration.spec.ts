@@ -98,6 +98,75 @@ describe("IdentityEmailComposer", () => {
 
     const { link } = composer.passwordReset(buildTokenEmail({ token }));
 
-    expect(new URL(link).searchParams.get("token")).toBe(token);
+    expect(new URL(String(link)).searchParams.get("token")).toBe(token);
+  });
+
+  describe("invitation", () => {
+    it("links to the invitation page with the token and names the inviter", () => {
+      const appUrl = buildAppUrl();
+      const composer = new IdentityEmailComposer({ appUrl: new URL(appUrl) });
+      const invitation = {
+        to: faker.internet.email(),
+        inviterName: faker.person.fullName(),
+        token: faker.string.alphanumeric(43),
+        expiresAt: faker.date.future(),
+      };
+
+      const composed = composer.invitation(invitation);
+
+      expect(composed).toMatchObject({
+        template: IdentityEmailTemplate.INVITATION,
+        to: invitation.to,
+        name: invitation.to,
+        subject: "Você foi convidado para o Resolve Hub",
+        link: `${appUrl}/accept-invitation?token=${invitation.token}`,
+        expiresAt: invitation.expiresAt,
+      });
+      expect(composed.text).toContain(invitation.inviterName);
+      expect(composed.text).toContain(composed.link);
+    });
+  });
+
+  describe("emailChange", () => {
+    it("links to the confirmation page with the token", () => {
+      const appUrl = buildAppUrl();
+      const composer = new IdentityEmailComposer({ appUrl: new URL(appUrl) });
+      const email = buildTokenEmail();
+
+      const composed = composer.emailChange(email);
+
+      expect(composed).toMatchObject({
+        template: IdentityEmailTemplate.EMAIL_CHANGE,
+        to: email.to,
+        subject: "Confirme seu novo e-mail",
+        link: `${appUrl}/confirm-email-change?token=${email.token}`,
+        expiresAt: email.expiresAt,
+      });
+      expect(composed.text).toContain(composed.link);
+    });
+  });
+
+  describe("emailChanged", () => {
+    it("tells the old address which e-mail the account uses now, with no link", () => {
+      const composer = new IdentityEmailComposer({
+        appUrl: new URL(buildAppUrl()),
+      });
+      const notice = {
+        to: faker.internet.email(),
+        name: faker.person.fullName(),
+        newEmail: faker.internet.email(),
+      };
+
+      const composed = composer.emailChanged(notice);
+
+      expect(composed).toMatchObject({
+        template: IdentityEmailTemplate.EMAIL_CHANGED,
+        to: notice.to,
+        subject: "Seu e-mail foi alterado",
+        link: null,
+        expiresAt: null,
+      });
+      expect(composed.text).toContain(notice.newEmail);
+    });
   });
 });

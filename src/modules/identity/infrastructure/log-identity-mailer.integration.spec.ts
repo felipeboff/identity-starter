@@ -71,4 +71,45 @@ describe("LogIdentityMailer", () => {
       },
     ]);
   });
+
+  it("logs invitations and e-mail changes, and the notice without a link", async () => {
+    const { mailer, logger, composer } = create();
+    const email = buildTokenEmail();
+    const invitation = {
+      to: email.to,
+      inviterName: faker.person.fullName(),
+      token: email.token,
+      expiresAt: email.expiresAt,
+    };
+    const notice = {
+      to: email.to,
+      name: email.name,
+      newEmail: faker.internet.email(),
+    };
+
+    await mailer.sendInvitation(invitation);
+    await mailer.sendEmailChange(email);
+    await mailer.sendEmailChanged(notice);
+
+    expect(logger.entries.map((entry) => entry.fields)).toStrictEqual([
+      {
+        template: IdentityEmailTemplate.INVITATION,
+        to: email.to,
+        link: composer.invitation(invitation).link,
+        expiresAt: email.expiresAt.toISOString(),
+      },
+      {
+        template: IdentityEmailTemplate.EMAIL_CHANGE,
+        to: email.to,
+        link: composer.emailChange(email).link,
+        expiresAt: email.expiresAt.toISOString(),
+      },
+      {
+        template: IdentityEmailTemplate.EMAIL_CHANGED,
+        to: email.to,
+        link: null,
+        expiresAt: null,
+      },
+    ]);
+  });
 });

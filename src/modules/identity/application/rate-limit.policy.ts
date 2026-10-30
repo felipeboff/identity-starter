@@ -54,6 +54,21 @@ export const RateLimitPolicy = {
     limit: 5,
     windowMs: HOUR_MS,
   },
+  ACCEPT_INVITATION_PER_IP: {
+    name: "identity:accept-invitation:ip",
+    limit: 10,
+    windowMs: HOUR_MS,
+  },
+  CHANGE_EMAIL_PER_IP: {
+    name: "identity:change-email:ip",
+    limit: 5,
+    windowMs: HOUR_MS,
+  },
+  CONFIRM_EMAIL_CHANGE_PER_IP: {
+    name: "identity:confirm-email-change:ip",
+    limit: 10,
+    windowMs: HOUR_MS,
+  },
   CHANGE_PASSWORD_PER_IP: {
     name: "identity:change-password:ip",
     limit: 10,

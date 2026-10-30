@@ -3,7 +3,9 @@ import { InMemoryRepository } from "@shared/testing/in-memory-repository";
 
 import { AccountRepository } from "../ports/account.repository";
 import { CredentialRepository } from "../ports/credential.repository";
+import { EmailChangeRepository } from "../ports/email-change.repository";
 import { EmailVerificationRepository } from "../ports/email-verification.repository";
+import { InvitationRepository } from "../ports/invitation.repository";
 import { MembershipRepository } from "../ports/memberships.repository";
 import { PasswordResetRepository } from "../ports/password-reset.repository";
 import { SessionRepository } from "../ports/session.repository";
@@ -15,10 +17,18 @@ import {
   CredentialSnapshot,
 } from "@/identity/domain/credential.entity";
 import {
+  EmailChange,
+  EmailChangeSnapshot,
+} from "@/identity/domain/email-change.entity";
+import {
   EmailVerification,
   EmailVerificationSnapshot,
 } from "@/identity/domain/email-verification.entity";
 import { IdentityError } from "@/identity/domain/errors/identity.error";
+import {
+  Invitation,
+  InvitationSnapshot,
+} from "@/identity/domain/invitation.entity";
 import {
   Membership,
   MembershipSnapshot,
@@ -192,15 +202,6 @@ export class InMemorySessionRepository
     return Promise.resolve(found ? this.restore(found) : null);
   }
 
-  /** The account's current (not revoked) session. */
-  findByAccountId(accountId: string) {
-    const found = [...this.snapshots.values()].find(
-      (snapshot) =>
-        snapshot.accountId === accountId && snapshot.revokedAt === null,
-    );
-    return Promise.resolve(found ? this.restore(found) : null);
-  }
-
   listByAccountId(accountId: string) {
     const matches = [...this.snapshots.values()].filter(
       (snapshot) => snapshot.accountId === accountId,
@@ -260,6 +261,83 @@ export class InMemoryEmailVerificationRepository
 
   save(emailVerification: EmailVerification) {
     return this.store(emailVerification);
+  }
+
+  findByTokenHash(tokenHash: string) {
+    const found = [...this.snapshots.values()].find(
+      (snapshot) => snapshot.tokenHash === tokenHash,
+    );
+    return Promise.resolve(found ? this.restore(found) : null);
+  }
+
+  listByAccountId(accountId: string) {
+    const matches = [...this.snapshots.values()].filter(
+      (snapshot) => snapshot.accountId === accountId,
+    );
+    return Promise.resolve(this.inCreationOrder(matches));
+  }
+}
+
+export class InMemoryInvitationRepository
+  extends InMemoryRepository<{
+    entity: Invitation;
+    snapshot: InvitationSnapshot;
+  }>
+  implements InvitationRepository
+{
+  protected toSnapshot(invitation: Invitation) {
+    return invitation.toSnapshot();
+  }
+
+  protected restore(snapshot: InvitationSnapshot) {
+    return Invitation.restore(snapshot);
+  }
+
+  save(invitation: Invitation) {
+    return this.store(invitation);
+  }
+
+  findById(id: string) {
+    const found = this.snapshots.get(id);
+    return Promise.resolve(found ? this.restore(found) : null);
+  }
+
+  findByTokenHash(tokenHash: string) {
+    const found = [...this.snapshots.values()].find(
+      (snapshot) => snapshot.tokenHash === tokenHash,
+    );
+    return Promise.resolve(found ? this.restore(found) : null);
+  }
+
+  listByEmail(email: string) {
+    const matches = [...this.snapshots.values()].filter(
+      (snapshot) => snapshot.email === email,
+    );
+    return Promise.resolve(this.inCreationOrder(matches));
+  }
+
+  list() {
+    return Promise.resolve(this.inCreationOrder([...this.snapshots.values()]));
+  }
+}
+
+export class InMemoryEmailChangeRepository
+  extends InMemoryRepository<{
+    entity: EmailChange;
+    snapshot: EmailChangeSnapshot;
+  }>
+  implements EmailChangeRepository
+{
+  protected toSnapshot(emailChange: EmailChange) {
+    return emailChange.toSnapshot();
+  }
+
+  protected restore(snapshot: EmailChangeSnapshot) {
+    return EmailChange.restore(snapshot);
+  }
+
+  save(emailChange: EmailChange) {
+    return this.store(emailChange);
   }
 
   findByTokenHash(tokenHash: string) {

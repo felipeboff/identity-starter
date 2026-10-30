@@ -11,14 +11,19 @@ import { seedAccount } from "@/identity/application/testing/identity-context";
 import { ChangePasswordUseCase } from "@/identity/application/use-cases/change-password.use-case";
 import { DeactivateAccountUseCase } from "@/identity/application/use-cases/deactivate-account.use-case";
 import { GetMeUseCase } from "@/identity/application/use-cases/get-me.use-case";
+import { InviteMemberUseCase } from "@/identity/application/use-cases/invite-member.use-case";
 import { LinkOAuthUseCase } from "@/identity/application/use-cases/link-oauth.use-case";
+import { ListInvitationsUseCase } from "@/identity/application/use-cases/list-invitations.use-case";
 import { ListSessionsUseCase } from "@/identity/application/use-cases/list-sessions.use-case";
 import { ReactivateAccountUseCase } from "@/identity/application/use-cases/reactivate-account.use-case";
 import { RefreshSessionUseCase } from "@/identity/application/use-cases/refresh-session.use-case";
+import { RequestEmailChangeUseCase } from "@/identity/application/use-cases/request-email-change.use-case";
 import { RequestEmailVerificationUseCase } from "@/identity/application/use-cases/request-email-verification.use-case";
 import { RequestPasswordResetUseCase } from "@/identity/application/use-cases/request-password-reset.use-case";
 import { ResetPasswordUseCase } from "@/identity/application/use-cases/reset-password.use-case";
 import { RevokeAllSessionsUseCase } from "@/identity/application/use-cases/revoke-all-sessions.use-case";
+import { RevokeInvitationUseCase } from "@/identity/application/use-cases/revoke-invitation.use-case";
+import { RevokeOtherSessionsUseCase } from "@/identity/application/use-cases/revoke-other-sessions.use-case";
 import { RevokeSessionUseCase } from "@/identity/application/use-cases/revoke-session.use-case";
 import { SignInWithEmailUseCase } from "@/identity/application/use-cases/sign-in-with-email.use-case";
 import { SignInWithOAuthUseCase } from "@/identity/application/use-cases/sign-in-with-oauth.use-case";
@@ -56,6 +61,9 @@ const RATE_LIMITED = new Set([
   "PUT /me/password",
   "POST /me/email-verification",
   "POST /me/oauth/:provider",
+  "POST /auth/invitations/accept",
+  "POST /auth/email-change",
+  "POST /me/email",
 ]);
 
 const PROTECTED_ROUTES: [HttpMethod, string, UseCaseClass][] = [
@@ -63,8 +71,10 @@ const PROTECTED_ROUTES: [HttpMethod, string, UseCaseClass][] = [
   ["GET", "/me", GetMeUseCase],
   ["PATCH", "/me", UpdateAccountNameUseCase],
   ["PUT", "/me/password", ChangePasswordUseCase],
+  ["POST", "/me/email", RequestEmailChangeUseCase],
   ["POST", "/me/email-verification", RequestEmailVerificationUseCase],
   ["GET", "/me/sessions", ListSessionsUseCase],
+  ["DELETE", "/me/sessions", RevokeOtherSessionsUseCase],
   ["POST", "/me/oauth/:provider", LinkOAuthUseCase],
   ["DELETE", "/me/oauth/:provider", UnlinkOAuthUseCase],
   ["DELETE", "/sessions/:sessionId", RevokeSessionUseCase],
@@ -73,6 +83,9 @@ const PROTECTED_ROUTES: [HttpMethod, string, UseCaseClass][] = [
   ["POST", "/accounts/:accountId/reactivate", ReactivateAccountUseCase],
   ["PUT", "/members/:accountId/role", UpdateMemberRoleUseCase],
   ["PUT", "/members/:accountId/permissions", UpdateMemberPermissionsUseCase],
+  ["POST", "/invitations", InviteMemberUseCase],
+  ["GET", "/invitations", ListInvitationsUseCase],
+  ["DELETE", "/invitations/:invitationId", RevokeInvitationUseCase],
 ];
 
 const PUBLIC_ROUTES: [HttpMethod, string][] = [
@@ -83,6 +96,8 @@ const PUBLIC_ROUTES: [HttpMethod, string][] = [
   ["POST", "/auth/password-reset/request"],
   ["POST", "/auth/password-reset"],
   ["POST", "/auth/email-verification"],
+  ["POST", "/auth/invitations/accept"],
+  ["POST", "/auth/email-change"],
 ];
 
 const anyId = faker.database.mongodbObjectId();
@@ -158,7 +173,7 @@ describe("identity routes", () => {
     vi.restoreAllMocks();
   });
 
-  it("declares the 21 routes with authentication only on the protected ones", () => {
+  it("declares the 28 routes with authentication only on the protected ones", () => {
     const { routes } = createIdentityHttp();
 
     expect(
@@ -253,6 +268,7 @@ describe("identity routes", () => {
           provider: AuthProvider.GOOGLE,
           sessionId: anyId,
           accountId: anyId,
+          invitationId: anyId,
         },
       });
 

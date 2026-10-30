@@ -101,6 +101,34 @@ export const IdentityError = {
     "identity.token_hash_required",
     "invalid_input",
   ),
+  EmailChangeNeedsPassword: defineError<{ accountId: string }>(
+    "identity.email_change_needs_password",
+    "precondition_failed",
+  ),
+  InvalidEmailChangeToken: defineError(
+    "identity.invalid_email_change_token",
+    "unauthenticated",
+  ),
+  EmailChangeExpired: defineError(
+    "identity.email_change_expired",
+    "precondition_failed",
+  ),
+  EmailChangeDeleted: defineError(
+    "identity.email_change_deleted",
+    "precondition_failed",
+  ),
+  EmailChangeAlreadyConsumed: defineError(
+    "identity.email_change_already_consumed",
+    "precondition_failed",
+  ),
+  InvitationNotFound: defineError<{ invitationId: string }>(
+    "identity.invitation_not_found",
+    "not_found",
+  ),
+  InvalidInvitationToken: defineError(
+    "identity.invalid_invitation_token",
+    "unauthenticated",
+  ),
   InvitationAlreadyAccepted: defineError(
     "identity.invitation_already_accepted",
     "precondition_failed",

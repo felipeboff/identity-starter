@@ -3,7 +3,12 @@ import { Clock } from "@shared/application/ports/clock";
 import { IdGenerator } from "@shared/application/ports/id-generator";
 
 import { AccessToken, AccessTokenClaims } from "../ports/access-token";
-import { IdentityMailer, TokenEmail } from "../ports/identity-mailer";
+import {
+  EmailChangedNotice,
+  IdentityMailer,
+  InvitationEmail,
+  TokenEmail,
+} from "../ports/identity-mailer";
 import {
   OAuthCodeExchange,
   OAuthGateway,
@@ -71,6 +76,9 @@ export class FakeAccessToken implements AccessToken {
 export class FakeIdentityMailer implements IdentityMailer {
   readonly passwordResets: TokenEmail[] = [];
   readonly emailVerifications: TokenEmail[] = [];
+  readonly invitations: InvitationEmail[] = [];
+  readonly emailChanges: TokenEmail[] = [];
+  readonly emailChangedNotices: EmailChangedNotice[] = [];
 
   sendPasswordReset(email: TokenEmail): Promise<void> {
     this.passwordResets.push(email);
@@ -79,6 +87,21 @@ export class FakeIdentityMailer implements IdentityMailer {
 
   sendEmailVerification(email: TokenEmail): Promise<void> {
     this.emailVerifications.push(email);
+    return Promise.resolve();
+  }
+
+  sendInvitation(email: InvitationEmail): Promise<void> {
+    this.invitations.push(email);
+    return Promise.resolve();
+  }
+
+  sendEmailChange(email: TokenEmail): Promise<void> {
+    this.emailChanges.push(email);
+    return Promise.resolve();
+  }
+
+  sendEmailChanged(notice: EmailChangedNotice): Promise<void> {
+    this.emailChangedNotices.push(notice);
     return Promise.resolve();
   }
 }

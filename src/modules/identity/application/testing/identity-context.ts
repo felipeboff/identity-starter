@@ -8,6 +8,7 @@ import { InMemoryTransactionRunner } from "@shared/testing/in-memory-transaction
 import { Actor } from "../actor";
 import { AccessPolicy } from "../policies/access.policy";
 import { AccountResolver } from "../services/account-resolver";
+import { EmailVerificationIssuer } from "../services/email-verification-issuer";
 import { MembershipResolver } from "../services/membership-resolver";
 import { SessionIssuer } from "../services/session-issuer";
 import { SessionRevoker } from "../services/session-revoker";
@@ -26,7 +27,9 @@ import {
 import {
   InMemoryAccountRepository,
   InMemoryCredentialRepository,
+  InMemoryEmailChangeRepository,
   InMemoryEmailVerificationRepository,
+  InMemoryInvitationRepository,
   InMemoryMembershipRepository,
   InMemoryPasswordResetRepository,
   InMemorySessionRepository,
@@ -36,6 +39,7 @@ import { Account } from "@/identity/domain/account.entity";
 import { AuthProvider, Credential } from "@/identity/domain/credential.entity";
 import {
   Membership,
+  MembershipPermission,
   MembershipRole,
 } from "@/identity/domain/membership.entity";
 import { Session } from "@/identity/domain/session.entity";
@@ -53,6 +57,8 @@ export const createIdentityContext = () => {
   const emailVerifications = new InMemoryEmailVerificationRepository(
     transactions,
   );
+  const invitations = new InMemoryInvitationRepository(transactions);
+  const emailChanges = new InMemoryEmailChangeRepository(transactions);
 
   const clock = new FakeClock();
   const ids = new FakeIdGenerator();
@@ -74,6 +80,12 @@ export const createIdentityContext = () => {
   });
   const sessionRevoker = new SessionRevoker({ sessions });
   const signInThrottle = new SignInThrottle({ rateLimiter });
+  const emailVerificationIssuer = new EmailVerificationIssuer({
+    emailVerifications,
+    tokens,
+    clock,
+    ids,
+  });
   const accountResolver = new AccountResolver({ accounts });
   const membershipResolver = new MembershipResolver({ memberships });
   const accessPolicy = new AccessPolicy();
@@ -86,6 +98,8 @@ export const createIdentityContext = () => {
     sessions,
     passwordResets,
     emailVerifications,
+    invitations,
+    emailChanges,
     clock,
     ids,
     passwordHasher,
@@ -100,6 +114,7 @@ export const createIdentityContext = () => {
     sessionIssuer,
     sessionRevoker,
     signInThrottle,
+    emailVerificationIssuer,
     accountResolver,
     membershipResolver,
     accessPolicy,
@@ -111,6 +126,7 @@ export type SeedAccountOptions = {
   email?: string;
   password?: string;
   role?: MembershipRole;
+  permissions?: MembershipPermission[];
 };
 
 export type SeededAccount = {
@@ -160,7 +176,7 @@ export const seedAccount = async (
       accountId,
       createdBy: accountId,
       role: options.role ?? MembershipRole.USER,
-      permissions: [],
+      permissions: options.permissions ?? [],
     },
     at,
   );

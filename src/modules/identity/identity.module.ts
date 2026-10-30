@@ -19,8 +19,10 @@ import { AccessPolicy } from "./application/policies/access.policy";
 import { AccessToken } from "./application/ports/access-token";
 import { AccountRepository } from "./application/ports/account.repository";
 import { CredentialRepository } from "./application/ports/credential.repository";
+import { EmailChangeRepository } from "./application/ports/email-change.repository";
 import { EmailVerificationRepository } from "./application/ports/email-verification.repository";
 import { IdentityMailer } from "./application/ports/identity-mailer";
+import { InvitationRepository } from "./application/ports/invitation.repository";
 import { MembershipRepository } from "./application/ports/memberships.repository";
 import { OAuthGateway } from "./application/ports/oauth-gateway";
 import { PasswordHasher } from "./application/ports/password-hasher";
@@ -28,22 +30,30 @@ import { PasswordResetRepository } from "./application/ports/password-reset.repo
 import { SessionRepository } from "./application/ports/session.repository";
 import { TokenIssuer } from "./application/ports/token-issuer";
 import { AccountResolver } from "./application/services/account-resolver";
+import { EmailVerificationIssuer } from "./application/services/email-verification-issuer";
 import { MembershipResolver } from "./application/services/membership-resolver";
 import { SessionIssuer } from "./application/services/session-issuer";
 import { SessionRevoker } from "./application/services/session-revoker";
 import { SignInThrottle } from "./application/services/sign-in-throttle";
+import { AcceptInvitationUseCase } from "./application/use-cases/accept-invitation.use-case";
 import { AuthenticateUseCase } from "./application/use-cases/authenticate.use-case";
 import { ChangePasswordUseCase } from "./application/use-cases/change-password.use-case";
+import { ConfirmEmailChangeUseCase } from "./application/use-cases/confirm-email-change.use-case";
 import { DeactivateAccountUseCase } from "./application/use-cases/deactivate-account.use-case";
 import { GetMeUseCase } from "./application/use-cases/get-me.use-case";
+import { InviteMemberUseCase } from "./application/use-cases/invite-member.use-case";
 import { LinkOAuthUseCase } from "./application/use-cases/link-oauth.use-case";
+import { ListInvitationsUseCase } from "./application/use-cases/list-invitations.use-case";
 import { ListSessionsUseCase } from "./application/use-cases/list-sessions.use-case";
 import { ReactivateAccountUseCase } from "./application/use-cases/reactivate-account.use-case";
 import { RefreshSessionUseCase } from "./application/use-cases/refresh-session.use-case";
+import { RequestEmailChangeUseCase } from "./application/use-cases/request-email-change.use-case";
 import { RequestEmailVerificationUseCase } from "./application/use-cases/request-email-verification.use-case";
 import { RequestPasswordResetUseCase } from "./application/use-cases/request-password-reset.use-case";
 import { ResetPasswordUseCase } from "./application/use-cases/reset-password.use-case";
 import { RevokeAllSessionsUseCase } from "./application/use-cases/revoke-all-sessions.use-case";
+import { RevokeInvitationUseCase } from "./application/use-cases/revoke-invitation.use-case";
+import { RevokeOtherSessionsUseCase } from "./application/use-cases/revoke-other-sessions.use-case";
 import { RevokeSessionUseCase } from "./application/use-cases/revoke-session.use-case";
 import { SignInWithEmailUseCase } from "./application/use-cases/sign-in-with-email.use-case";
 import { SignInWithOAuthUseCase } from "./application/use-cases/sign-in-with-oauth.use-case";
@@ -70,7 +80,9 @@ import {
 import { IdentityModels } from "./infrastructure/persistence/identity-models";
 import { MongoAccountRepository } from "./infrastructure/persistence/mongo-account.repository";
 import { MongoCredentialRepository } from "./infrastructure/persistence/mongo-credential.repository";
+import { MongoEmailChangeRepository } from "./infrastructure/persistence/mongo-email-change.repository";
 import { MongoEmailVerificationRepository } from "./infrastructure/persistence/mongo-email-verification.repository";
+import { MongoInvitationRepository } from "./infrastructure/persistence/mongo-invitation.repository";
 import { MongoMembershipRepository } from "./infrastructure/persistence/mongo-membership.repository";
 import { MongoPasswordResetRepository } from "./infrastructure/persistence/mongo-password-reset.repository";
 import { MongoSessionRepository } from "./infrastructure/persistence/mongo-session.repository";
@@ -87,6 +99,8 @@ export type IdentityModuleDeps = {
   sessions: SessionRepository;
   passwordResets: PasswordResetRepository;
   emailVerifications: EmailVerificationRepository;
+  invitations: InvitationRepository;
+  emailChanges: EmailChangeRepository;
   transactions: TransactionRunner;
 
   passwordHasher: PasswordHasher;
@@ -141,6 +155,7 @@ export const assembleIdentityModule = (
     sessionIssuer: new SessionIssuer(adapters),
     sessionRevoker: new SessionRevoker(adapters),
     signInThrottle: new SignInThrottle({ rateLimiter }),
+    emailVerificationIssuer: new EmailVerificationIssuer(adapters),
     accountResolver: new AccountResolver(adapters),
     membershipResolver: new MembershipResolver(adapters),
     accessPolicy: new AccessPolicy(),
@@ -166,6 +181,13 @@ export const assembleIdentityModule = (
     changePassword: new ChangePasswordUseCase(deps),
     requestEmailVerification: new RequestEmailVerificationUseCase(deps),
     listSessions: new ListSessionsUseCase(deps),
+    revokeOtherSessions: new RevokeOtherSessionsUseCase(deps),
+    inviteMember: new InviteMemberUseCase(deps),
+    listInvitations: new ListInvitationsUseCase(deps),
+    revokeInvitation: new RevokeInvitationUseCase(deps),
+    acceptInvitation: new AcceptInvitationUseCase(deps),
+    requestEmailChange: new RequestEmailChangeUseCase(deps),
+    confirmEmailChange: new ConfirmEmailChangeUseCase(deps),
     linkOAuth: new LinkOAuthUseCase(deps),
     unlinkOAuth: new UnlinkOAuthUseCase(deps),
     revokeSession: new RevokeSessionUseCase(deps),
@@ -206,6 +228,8 @@ export const createIdentityModule = async (
       models,
       transactions,
     ),
+    invitations: new MongoInvitationRepository(models, transactions),
+    emailChanges: new MongoEmailChangeRepository(models, transactions),
     transactions,
 
     passwordHasher: new Argon2PasswordHasher(),
