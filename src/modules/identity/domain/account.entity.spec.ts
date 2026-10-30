@@ -235,4 +235,25 @@ describe("Account", () => {
       expect([afterFirst, entity.version]).toStrictEqual([1, 2]);
     });
   });
+
+  describe("changeEmail", () => {
+    it("moves the account to the new e-mail, already verified", () => {
+      const account = makeAccount();
+      const newEmail = faker.internet.email().toLowerCase();
+
+      account.changeEmail(newEmail, LATER);
+
+      expect(account.email.value).toBe(newEmail);
+      expect(account.emailVerifiedAt).toBe(LATER);
+      expect(account.updatedAt).toBe(LATER);
+    });
+
+    it("throws AccountDeleted on a deleted account", () => {
+      const account = makeDeletedAccount();
+
+      expect(() => account.changeEmail(faker.internet.email(), LATER)).toThrow(
+        IdentityError.AccountDeleted.code,
+      );
+    });
+  });
 });

@@ -7,8 +7,8 @@ export const IdentityLogEvent = {
   EmailLogged: defineLogEvent<{
     template: string;
     to: string;
-    link: string;
-    expiresAt: string;
+    link: string | null;
+    expiresAt: string | null;
   }>("identity.email_logged"),
   EmailDeliveryFailed: defineLogEvent<{
     template: string;

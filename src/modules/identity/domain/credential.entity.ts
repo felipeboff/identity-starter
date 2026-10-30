@@ -48,7 +48,7 @@ export type CredentialState = {
   readonly id: Id;
   readonly accountId: Id;
   readonly provider: AuthProvider;
-  readonly subject: string | Email;
+  subject: string | Email;
   passwordHash: PasswordHash | null;
   providerEmail: Email | null;
   version: number;
@@ -212,6 +212,19 @@ export class Credential {
 
     this.ensureValidEmailCredential(nextProviderEmail);
     this.state.providerEmail = nextProviderEmail;
+    this.touch(at);
+  }
+
+  public changeEmail(email: string, at: Date): void {
+    this.ensureNotDeleted();
+    if (this.state.provider !== AuthProvider.EMAIL) {
+      throw new AppError(IdentityError.EmailChangeNeedsPassword, {
+        accountId: this.state.accountId.value,
+      });
+    }
+
+    this.state.subject = Email.create(email);
+    this.state.providerEmail = Email.create(email);
     this.touch(at);
   }
 

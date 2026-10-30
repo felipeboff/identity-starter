@@ -343,4 +343,35 @@ describe("Credential", () => {
       expect([afterFirst, entity.version]).toStrictEqual([1, 2]);
     });
   });
+
+  describe("changeEmail", () => {
+    it("moves an e-mail credential's subject and provider e-mail together", () => {
+      const credential = makeEmailCredential();
+      const newEmail = fakeEmail();
+
+      credential.changeEmail(newEmail, LATER);
+
+      expect(credential.toSnapshot()).toMatchObject({
+        subject: newEmail,
+        providerEmail: newEmail,
+        updatedAt: LATER,
+      });
+    });
+
+    it("throws EmailChangeNeedsPassword on an OAuth credential", () => {
+      const credential = makeOAuthCredential();
+
+      expect(() => credential.changeEmail(fakeEmail(), LATER)).toThrow(
+        IdentityError.EmailChangeNeedsPassword.code,
+      );
+    });
+
+    it("throws CredentialDeleted on a deleted credential", () => {
+      const credential = makeDeletedEmailCredential();
+
+      expect(() => credential.changeEmail(fakeEmail(), LATER)).toThrow(
+        IdentityError.CredentialDeleted.code,
+      );
+    });
+  });
 });

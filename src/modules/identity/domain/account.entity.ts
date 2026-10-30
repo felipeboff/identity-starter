@@ -25,7 +25,7 @@ export type AccountSnapshot = AccountRestore;
 export type AccountState = {
   readonly id: Id;
   name: string;
-  readonly email: Email;
+  email: Email;
   version: number;
   readonly createdBy: Id;
   readonly createdAt: Date;
@@ -162,6 +162,13 @@ export class Account {
   public markAsLastSeen(at: Date): void {
     this.ensureNotDeleted();
     this.state.lastSeenAt = at;
+    this.touch(at);
+  }
+
+  public changeEmail(email: string, at: Date): void {
+    this.ensureNotDeleted();
+    this.state.email = Email.create(email);
+    this.state.emailVerifiedAt = at;
     this.touch(at);
   }
 
