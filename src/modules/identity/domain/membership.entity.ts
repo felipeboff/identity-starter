@@ -8,6 +8,7 @@ export const MembershipPermission = {
   WRITE: "write",
   DELETE: "delete",
   ADMIN: "admin",
+  INVITE: "invite",
 } as const;
 
 export type MembershipPermission =

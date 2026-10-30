@@ -35,7 +35,7 @@ export type InvitationState = {
   readonly tokenHash: TokenHash;
   readonly expiresAt: Date;
   readonly createdBy: Id;
-  readonly version: number;
+  version: number;
   readonly createdAt: Date;
   updatedAt: Date;
   acceptedAt: Date | null;
@@ -137,6 +137,10 @@ export class Invitation {
 
   public get version(): number {
     return this.state.version;
+  }
+
+  public markAsSaved(): void {
+    this.state.version += 1;
   }
 
   public get createdAt(): Date {

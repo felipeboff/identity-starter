@@ -6,7 +6,10 @@ import { Actor } from "../actor";
 import { AccessPolicy } from "./access.policy";
 
 import { IdentityError } from "@/identity/domain/errors/identity.error";
-import { MembershipRole } from "@/identity/domain/membership.entity";
+import {
+  MembershipPermission,
+  MembershipRole,
+} from "@/identity/domain/membership.entity";
 
 const makeActor = (overrides: Partial<Actor> = {}): Actor => ({
   accountId: faker.database.mongodbObjectId(),
@@ -59,6 +62,63 @@ describe("AccessPolicy", () => {
       expect(() =>
         policy.ensureCanManageAccount(user, faker.database.mongodbObjectId()),
       ).toThrow(IdentityError.Forbidden.code);
+    });
+  });
+
+  describe("ensureCanInvite", () => {
+    it.each([
+      ["an admin", makeActor({ role: MembershipRole.ADMIN })],
+      [
+        "a user with the invite permission",
+        makeActor({ permissions: [MembershipPermission.INVITE] }),
+      ],
+    ])("lets %s invite", (_, actor) => {
+      expect(() => policy.ensureCanInvite(actor)).not.toThrow();
+    });
+
+    it("throws Forbidden for a user without the invite permission", () => {
+      expect(() => policy.ensureCanInvite(makeActor())).toThrow(
+        IdentityError.Forbidden.code,
+      );
+    });
+  });
+
+  describe("ensureCanGrant", () => {
+    const inviter = makeActor({
+      permissions: [MembershipPermission.INVITE, MembershipPermission.READ],
+    });
+
+    it("lets an admin grant any role and permission", () => {
+      const admin = makeActor({ role: MembershipRole.ADMIN });
+
+      expect(() =>
+        policy.ensureCanGrant(
+          admin,
+          MembershipRole.ADMIN,
+          Object.values(MembershipPermission),
+        ),
+      ).not.toThrow();
+    });
+
+    it("lets a user grant the user role with permissions they have", () => {
+      expect(() =>
+        policy.ensureCanGrant(inviter, MembershipRole.USER, [
+          MembershipPermission.READ,
+        ]),
+      ).not.toThrow();
+    });
+
+    it.each([
+      ["the admin role", MembershipRole.ADMIN, []],
+      [
+        "a permission they do not have",
+        MembershipRole.USER,
+        [MembershipPermission.DELETE],
+      ],
+    ])("throws Forbidden when a user grants %s", (_, role, permissions) => {
+      expect(() => policy.ensureCanGrant(inviter, role, permissions)).toThrow(
+        IdentityError.Forbidden.code,
+      );
     });
   });
 });
