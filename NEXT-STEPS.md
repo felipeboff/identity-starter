@@ -34,7 +34,7 @@ Contrato para o front em [docs/auth-front-end-contract.md](docs/auth-front-end-c
 
 - [x] **Política de senha:** 12 a 128 caracteres em `sign-up`, `password-reset` e `me/password`
       (`application/password.policy.ts`); `sign-in` aceita até 128
-  - [ ] Opcional: recusar senha vazada (HaveIBeenPwned por k-anonimato, com timeout)
+  - [-] Opcional: recusar senha vazada (HaveIBeenPwned por k-anonimato, com timeout)
 - [x] **Rate limiting** por IP no Redis (`RateLimitMiddleware` + `RateLimiter` sobre o port
       `Cache`/`RedisCache`, janela fixa com `INCR`/`PEXPIRE` em Lua) em sign-up, sign-in, oauth,
       refresh, pedido e troca de reset, verificação de e-mail, troca de senha e vínculo OAuth.
@@ -54,20 +54,26 @@ Contrato para o front em [docs/auth-front-end-contract.md](docs/auth-front-end-c
 
 ## 3. Funcionalidades esperadas
 
-- [ ] **Várias sessões por conta:** hoje cada login revoga a sessão anterior
-      (`SessionIssuer.replace`), e logar no celular desloga o notebook. Decidir: várias sessões
-      com limite por conta (ex.: 10, revogando a mais antiga)
-- [ ] **E-mail de verificação no sign-up:** hoje o usuário precisa pedir em
-      `POST /me/email-verification`
-- [ ] **Convites:** a entidade `Invitation` existe, mas não tem use case nem rota (convidar,
-      aceitar, revogar)
-- [ ] **Trocar e-mail**, com confirmação no e-mail novo e aviso no antigo
-- [ ] **Apagar a conta de verdade:** hoje só existe desativar. Definir o que some e o que fica
-      anonimizado
-- [ ] **MFA com TOTP** (opcional): cadastrar, confirmar, códigos de recuperação e passo extra no
-      sign-in
-- [ ] **Apple** como provedor OAuth (hoje responde `oauth_provider_not_supported`)
-- [ ] Testar na mão o login com Google (conta precisa estar nos usuários de teste)
+- [x] **Várias sessões por conta, sem limite:** o sign-in não revoga mais a sessão anterior
+      (`SessionIssuer.replace` e `SessionRepository.findByAccountId` removidos).
+      `GET /me/sessions` marca a sessão atual (`current`), `DELETE /sessions/:sessionId` encerra
+      uma e `DELETE /me/sessions` encerra todas menos a atual
+- [x] **E-mail de verificação no sign-up:** o sign-up envia o link (`EmailVerificationIssuer`,
+      compartilhado com `POST /me/email-verification`); se o envio falhar, o cadastro segue e
+      loga `identity.verification_email_not_sent`
+- [x] **Convites:** quem tem papel `admin` ou a permissão `invite` convida (`POST /invitations`),
+      lista (`GET /invitations`) e revoga (`DELETE /invitations/:invitationId`); sem `admin`, só
+      dá o papel `user` e permissões que já tem. O convidado aceita em
+      `POST /auth/invitations/accept` com nome e senha, e a conta nasce verificada com a
+      membership do convite. Convite vale 7 dias e um novo substitui o pendente
+- [x] **Trocar e-mail:** `POST /me/email` com a senha atual manda um link de 1 hora para o e-mail
+      novo; `POST /auth/email-change` confirma, troca o e-mail da conta e da credencial de senha,
+      encerra todas as sessões (motivo `email_changed`) e avisa o e-mail antigo. Conta só com OAuth
+      recebe `422 identity.email_change_needs_password`
+- [-] Testar na mão o login com Google (conta precisa estar nos usuários de teste)
+
+Decidido não fazer: apagar a conta de verdade (fica só desativar), MFA com TOTP e Apple como
+provedor OAuth.
 
 ## 4. Operação
 
@@ -89,7 +95,7 @@ Contrato para o front em [docs/auth-front-end-contract.md](docs/auth-front-end-c
       por baixo do `FetchHttpClient` (complemento do ADR-004)
 - [ ] **Sentry** para erros e **OpenTelemetry** para métricas e traces (_planned_)
 - [ ] **Dockerfile da API** e serviço no `docker-compose.yml` (hoje o compose sobe Mongo e Redis)
-- [ ] **CI no GitHub Actions:** lint, typecheck e as quatro coberturas
+- [-] **CI no GitHub Actions:** lint, typecheck e as quatro coberturas
 
 ## 5. Efeitos colaterais, eventos e jobs
 

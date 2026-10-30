@@ -68,6 +68,45 @@ On top of that:
 
 Show "try again in N seconds" from `retryAfterSeconds`; do not retry automatically.
 
+## Sign-up and e-mail verification
+
+`POST /auth/sign-up` e-mails a verification link to the new address (`<APP_URL>/verify-email?token=`).
+The sign-up answers `201` even if that e-mail fails; `POST /me/email-verification` sends a new
+link. The `/verify-email` page posts the token to `POST /auth/email-verification`. Accounts
+created through OAuth or an invitation start verified.
+
+## Invitations
+
+Inviting needs the `admin` role or the `invite` permission. Without `admin`, an inviter may only
+give the `user` role and permissions they already have (`403 identity.forbidden` otherwise).
+
+| Route                               | What it does                                                                                                                                     |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `POST /invitations`                 | `{ email, role, permissions }`; e-mails a 7-day link (`<APP_URL>/accept-invitation?token=`) and replaces a pending invitation to the same e-mail |
+| `GET /invitations`                  | pending invitations, newest first                                                                                                                |
+| `DELETE /invitations/:invitationId` | revokes one (`204`); an accepted one answers `422`                                                                                               |
+| `POST /auth/invitations/accept`     | `{ token, name, password }`; creates the account with the invited role, already verified, and signs it in (`201`, same body as sign-up)          |
+
+## Changing the e-mail
+
+1. `POST /me/email` with `{ newEmail, password }` (the current password). A 1-hour link goes to
+   the new address (`<APP_URL>/confirm-email-change?token=`). Accounts that only sign in with
+   OAuth answer `422 identity.email_change_needs_password`.
+2. The `/confirm-email-change` page posts `{ token }` to `POST /auth/email-change`, signed in or
+   not. The account and its password sign-in move to the new e-mail, **every session ends**, and
+   the old address gets a notice. The client must sign in again with the new e-mail.
+
+## Sessions
+
+Each sign-in opens a new session; the others stay active, with no limit per account.
+
+| Route                         | What it does                                                                 |
+| ----------------------------- | ---------------------------------------------------------------------------- |
+| `GET /me/sessions`            | active sessions, newest first; `current: true` marks the one making the call |
+| `DELETE /sessions/:sessionId` | ends one session (`204`)                                                     |
+| `DELETE /me/sessions`         | ends every session except the current one; answers `{ revokedCount }`        |
+| `POST /auth/sign-out`         | ends the current session                                                     |
+
 ## Refresh tokens
 
 Every refresh rotates the token: keep only the newest one. Sending an older token again is
