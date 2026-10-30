@@ -1,4 +1,4 @@
-import type { RateLimiter } from "@shared/application/ports/rate-limiter";
+import type { RateLimiter } from "@shared/application/services/rate-limiter";
 import { HttpRoute } from "@shared/presentation/http/http-route";
 import { RateLimitMiddleware } from "@shared/presentation/rate-limit.middleware";
 

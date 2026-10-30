@@ -1,7 +1,7 @@
 import { Clock } from "@shared/application/ports/clock";
 import { IdGenerator } from "@shared/application/ports/id-generator";
-import type { RateLimiter } from "@shared/application/ports/rate-limiter";
 import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
+import type { RateLimiter } from "@shared/application/services/rate-limiter";
 
 import { AccountRepository } from "../ports/account.repository";
 import { CredentialRepository } from "../ports/credential.repository";

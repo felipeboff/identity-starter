@@ -1,7 +1,7 @@
 import type {
   RateLimitRule,
   RateLimiter,
-} from "../application/ports/rate-limiter";
+} from "../application/services/rate-limiter";
 import { AppError } from "../domain/errors/app-error";
 import { SharedError } from "../domain/errors/shared.error";
 
@@ -20,10 +20,10 @@ export class RateLimitMiddleware extends Middleware<{
     inbound: Inbound<unknown>,
     next: Next<unknown>,
   ): Promise<unknown> {
-    const hit = await this.deps.limiter.increment(this.deps.rule, inbound.ip);
-    if (hit.count > this.deps.rule.limit) {
+    const decision = await this.deps.limiter.hit(this.deps.rule, inbound.ip);
+    if (decision.limited) {
       throw new AppError(SharedError.RateLimited, {
-        retryAfterSeconds: Math.max(1, Math.ceil(hit.resetInMs / 1000)),
+        retryAfterSeconds: decision.retryAfterSeconds,
       });
     }
     return next(inbound);

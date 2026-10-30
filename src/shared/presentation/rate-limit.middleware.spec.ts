@@ -1,9 +1,11 @@
 import { faker } from "@faker-js/faker";
 import { describe, expect, it, vi } from "vitest";
 
+import { RateLimiter } from "../application/services/rate-limiter";
 import { SharedError } from "../domain/errors/shared.error";
 import { expectAppError } from "../testing/expect-app-error";
-import { InMemoryRateLimiter } from "../testing/in-memory-rate-limiter";
+import { FakeLogger } from "../testing/fake-logger";
+import { InMemoryCache } from "../testing/in-memory-cache";
 
 import type { Inbound } from "./handler";
 import { RateLimitMiddleware } from "./rate-limit.middleware";
@@ -17,17 +19,16 @@ const buildInbound = (ip = faker.internet.ip()): Inbound<unknown> => ({
 
 const create = () => {
   const clock = { now: () => new Date() };
-  const limiter = new InMemoryRateLimiter(clock);
+  const limiter = new RateLimiter({
+    cache: new InMemoryCache(clock),
+    logger: new FakeLogger(),
+  });
   const rule = {
     name: faker.lorem.slug(),
     limit: faker.number.int({ min: 1, max: 5 }),
     windowMs: faker.number.int({ min: 1_500, max: 60_000 }),
   };
-  return {
-    middleware: new RateLimitMiddleware({ limiter, rule }),
-    limiter,
-    rule,
-  };
+  return { middleware: new RateLimitMiddleware({ limiter, rule }), rule };
 };
 
 describe("RateLimitMiddleware", () => {
@@ -58,21 +59,6 @@ describe("RateLimitMiddleware", () => {
       { retryAfterSeconds: Math.ceil(rule.windowMs / 1000) },
     );
     expect(next).toHaveBeenCalledTimes(rule.limit);
-  });
-
-  it("never asks to retry in less than a second", async () => {
-    const { middleware, limiter, rule } = create();
-    const inbound = buildInbound();
-    vi.spyOn(limiter, "increment").mockResolvedValue({
-      count: rule.limit + 1,
-      resetInMs: 0,
-    });
-
-    await expectAppError(
-      middleware.handle(inbound, vi.fn()),
-      SharedError.RateLimited,
-      { retryAfterSeconds: 1 },
-    );
   });
 
   it("counts each IP on its own", async () => {

@@ -1,13 +1,14 @@
+import type { Cache } from "@shared/application/ports/cache";
 import { Clock } from "@shared/application/ports/clock";
 import { IdGenerator } from "@shared/application/ports/id-generator";
 import type { LogContext } from "@shared/application/ports/log-context";
 import type { Logger } from "@shared/application/ports/logger";
-import type { RateLimiter } from "@shared/application/ports/rate-limiter";
 import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
+import { RateLimiter } from "@shared/application/services/rate-limiter";
 import { FetchHttpClient } from "@shared/infrastructure/http/fetch-http-client";
 import { MongoTransactionRunner } from "@shared/infrastructure/mongo/mongo-transaction-runner";
 import { ObjectIdGenerator } from "@shared/infrastructure/mongo/object-id-generator";
-import { RedisRateLimiter } from "@shared/infrastructure/redis/redis-rate-limiter";
+import { RedisCache } from "@shared/infrastructure/redis/redis-cache";
 import { SystemClock } from "@shared/infrastructure/time/system-clock";
 import { HttpRoute } from "@shared/presentation/http/http-route";
 import type { Redis } from "ioredis";
@@ -93,7 +94,7 @@ export type IdentityModuleDeps = {
   accessToken: AccessToken;
   mailer: IdentityMailer;
   oauth: OAuthGateway;
-  rateLimiter: RateLimiter;
+  cache: Cache;
 
   clock: Clock;
   ids: IdGenerator;
@@ -133,11 +134,13 @@ export type IdentityModule = {
 export const assembleIdentityModule = (
   adapters: IdentityModuleDeps,
 ): IdentityModule => {
+  const rateLimiter = new RateLimiter(adapters);
   const deps = {
     ...adapters,
+    rateLimiter,
     sessionIssuer: new SessionIssuer(adapters),
     sessionRevoker: new SessionRevoker(adapters),
-    signInThrottle: new SignInThrottle(adapters),
+    signInThrottle: new SignInThrottle({ rateLimiter }),
     accountResolver: new AccountResolver(adapters),
     membershipResolver: new MembershipResolver(adapters),
     accessPolicy: new AccessPolicy(),
@@ -175,14 +178,8 @@ export const assembleIdentityModule = (
 
   return {
     authenticate,
-    publicRoutes: createIdentityPublicRoutes({
-      ...useCases,
-      rateLimiter: adapters.rateLimiter,
-    }),
-    routes: createIdentityRoutes({
-      ...useCases,
-      rateLimiter: adapters.rateLimiter,
-    }),
+    publicRoutes: createIdentityPublicRoutes({ ...useCases, rateLimiter }),
+    routes: createIdentityRoutes({ ...useCases, rateLimiter }),
   };
 };
 
@@ -234,10 +231,7 @@ export const createIdentityModule = async (
     clock,
     ids: new ObjectIdGenerator(),
 
-    rateLimiter: new RedisRateLimiter({
-      client: runtime.redis,
-      logger: runtime.logger,
-    }),
+    cache: new RedisCache({ client: runtime.redis }),
 
     logContext: runtime.logContext,
     logger: runtime.logger,

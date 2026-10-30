@@ -1,4 +1,4 @@
-import type { RateLimitRule } from "@shared/application/ports/rate-limiter";
+import type { RateLimitRule } from "@shared/application/services/rate-limiter";
 
 const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;

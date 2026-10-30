@@ -1,4 +1,4 @@
-import type { RateLimiter } from "@shared/application/ports/rate-limiter";
+import type { RateLimiter } from "@shared/application/services/rate-limiter";
 import { AppError } from "@shared/domain/errors/app-error";
 
 import { RateLimitPolicy } from "../rate-limit.policy";
@@ -15,19 +15,19 @@ export class SignInThrottle {
   constructor(private readonly deps: SignInThrottleDeps) {}
 
   async ensureAllowed(email: string): Promise<void> {
-    const failures = await this.deps.rateLimiter.read(RULE, email);
-    if (failures.count >= RULE.limit) {
+    const decision = await this.deps.rateLimiter.check(RULE, email);
+    if (decision.limited) {
       throw new AppError(IdentityError.SignInLocked, {
-        retryAfterSeconds: Math.max(1, Math.ceil(failures.resetInMs / 1000)),
+        retryAfterSeconds: decision.retryAfterSeconds,
       });
     }
   }
 
   async recordFailure(email: string): Promise<void> {
-    await this.deps.rateLimiter.increment(RULE, email);
+    await this.deps.rateLimiter.hit(RULE, email);
   }
 
   async reset(email: string): Promise<void> {
-    await this.deps.rateLimiter.clear(RULE, email);
+    await this.deps.rateLimiter.reset(RULE, email);
   }
 }

@@ -1,7 +1,8 @@
 import { faker } from "@faker-js/faker";
+import { RateLimiter } from "@shared/application/services/rate-limiter";
 import { FakeLogContext } from "@shared/testing/fake-log-context";
 import { FakeLogger } from "@shared/testing/fake-logger";
-import { InMemoryRateLimiter } from "@shared/testing/in-memory-rate-limiter";
+import { InMemoryCache } from "@shared/testing/in-memory-cache";
 import { InMemoryTransactionRunner } from "@shared/testing/in-memory-transaction-runner";
 
 import { Actor } from "../actor";
@@ -62,7 +63,8 @@ export const createIdentityContext = () => {
   const oauth = new FakeOAuthGateway();
   const logContext = new FakeLogContext();
   const logger = new FakeLogger();
-  const rateLimiter = new InMemoryRateLimiter(clock);
+  const cache = new InMemoryCache(clock);
+  const rateLimiter = new RateLimiter({ cache, logger });
 
   const sessionIssuer = new SessionIssuer({
     sessions,
@@ -93,6 +95,7 @@ export const createIdentityContext = () => {
     oauth,
     logContext,
     logger,
+    cache,
     rateLimiter,
     sessionIssuer,
     sessionRevoker,

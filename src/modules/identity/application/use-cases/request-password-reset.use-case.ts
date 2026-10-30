@@ -20,13 +20,11 @@ export class RequestPasswordResetUseCase extends UseCase<{
   deps: RequestPasswordResetDeps;
 }> {
   async execute(input: RequestPasswordResetInput): Promise<void> {
-    const requests = await this.deps.rateLimiter.increment(
+    const decision = await this.deps.rateLimiter.hit(
       RateLimitPolicy.PASSWORD_RESET_REQUEST_PER_EMAIL,
       input.email,
     );
-    if (
-      requests.count > RateLimitPolicy.PASSWORD_RESET_REQUEST_PER_EMAIL.limit
-    ) {
+    if (decision.limited) {
       return;
     }
 

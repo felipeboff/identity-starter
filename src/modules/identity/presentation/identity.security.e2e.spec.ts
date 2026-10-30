@@ -1,5 +1,5 @@
 import { faker } from "@faker-js/faker";
-import type { RateLimitRule } from "@shared/application/ports/rate-limiter";
+import type { RateLimitRule } from "@shared/application/services/rate-limiter";
 import { SharedError } from "@shared/domain/errors/shared.error";
 import type { HttpMethod } from "@shared/presentation/http/http-route";
 import { describe, expect, it } from "vitest";

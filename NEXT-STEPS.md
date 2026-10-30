@@ -35,11 +35,11 @@ Contrato para o front em [docs/auth-front-end-contract.md](docs/auth-front-end-c
 - [x] **Política de senha:** 12 a 128 caracteres em `sign-up`, `password-reset` e `me/password`
       (`application/password.policy.ts`); `sign-in` aceita até 128
   - [ ] Opcional: recusar senha vazada (HaveIBeenPwned por k-anonimato, com timeout)
-- [x] **Rate limiting** por IP no Redis (`RateLimitMiddleware` + `RedisRateLimiter`, janela fixa
-      com `INCR`/`PEXPIRE` em Lua) em sign-up, sign-in, oauth, refresh, pedido e troca de reset,
-      verificação de e-mail, troca de senha e vínculo OAuth. Passou do limite:
-      `429 shared.rate_limited` com `retryAfterSeconds`. Redis fora do ar deixa passar e loga
-      `shared.rate_limiter_unavailable`; Redis fora no boot impede a subida
+- [x] **Rate limiting** por IP no Redis (`RateLimitMiddleware` + `RateLimiter` sobre o port
+      `Cache`/`RedisCache`, janela fixa com `INCR`/`PEXPIRE` em Lua) em sign-up, sign-in, oauth,
+      refresh, pedido e troca de reset, verificação de e-mail, troca de senha e vínculo OAuth.
+      Passou do limite: `429 shared.rate_limited` com `retryAfterSeconds`. Redis fora do ar deixa
+      passar e loga `shared.rate_limiter_unavailable`; Redis fora no boot impede a subida
       (`shared.cache_unavailable`)
 - [x] **Bloqueio por força bruta:** 5 senhas erradas por e-mail em 15 min bloqueiam o sign-in desse
       e-mail (`429 identity.sign_in_locked`), mesmo com a senha certa; acertar zera a contagem
