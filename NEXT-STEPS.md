@@ -77,20 +77,24 @@ provedor OAuth.
 
 ## 4. Operação
 
-- [ ] **Cache no middleware de autenticação:** hoje toda requisição autenticada lê sessão, conta e
-      membership no Mongo (`AuthenticateUseCase`), e o `GET /me` relê as três
-  - [ ] Medir antes: latência do `AuthenticateMiddleware` e leituras por requisição
-  - [ ] Porta `ActorCache` no identity, implementada no Redis (um cache em memória não vê
-        revogações feitas em outra instância) e com um fake em memória para os testes
-  - [ ] Cachear só conta e membership por `accountId`, com TTL curto (30–60 s); a sessão continua
-        sendo lida sempre, para uma revogação valer na hora
-  - [ ] Invalidar explicitamente nos use cases que mudam conta ou membership: desativar,
-        reativar, nome, papel e permissões, com um teste por caminho
-  - [ ] Redis fora do ar: cair para a leitura no Mongo, sem derrubar a autenticação
-- [ ] **Limpeza de expirados:** índice TTL no Mongo para sessões, resets de senha e verificações
-      de e-mail vencidas
-- [ ] **Eventos de segurança no log:** sign-in com sucesso e com falha, troca de senha, revogação de
-      sessão e reuso de refresh token
+- [x] **Cache de conta e membership:** decorators `CachedAccountRepository` e
+      `CachedMembershipRepository` na infraestrutura, sobre o `EntityCache` compartilhado (Redis,
+      TTL de 30 s); os use cases não sabem que existe cache. A entidade fica uma vez, por id, e cada
+      busca por outro campo (`email`, `accountId`) é um índice que aponta para o id e é conferido na
+      leitura. Todo `save` apaga a entrada depois do commit; dentro de uma transação a leitura vai
+      direto ao Mongo; Redis fora do ar cai para o Mongo e loga `shared.cache_call_failed`. A
+      sessão nunca entra no cache. Medido com Mongo e Redis em memória, sem rede: autenticação de 3
+      para 1 leitura no Mongo (+3 `GET` no Redis), média de 0,90 para 0,55 ms
+- [x] **`commandTimeout` no `RedisConnection`** (500 ms): um Redis que trava sem recusar a conexão
+      falha o comando em vez de segurar a requisição
+- [x] **Limpeza de expirados:** índice TTL (`expiresAt`, `expireAfterSeconds: 0`) em sessões,
+      resets de senha e verificações de e-mail
+  - [ ] Decidir se trocas de e-mail e convites também expiram do banco (hoje guardam histórico)
+- [x] **Eventos de segurança no log:** `identity.signed_in` e `identity.sign_in_failed` (motivo é
+      o código do erro, com IP e, no e-mail, o endereço tentado), `identity.password_changed`,
+      `identity.password_reset` e `identity.sessions_revoked` (toda revogação passa pelo
+      `SessionRevoker` e loga depois do commit; a rotação do refresh não loga). O reuso de refresh
+      token já logava `identity.refresh_token_reused`
 - [ ] **Retry nas chamadas externas** (`GET` do GitHub e do Google) com backoff; avaliar `ky`
       por baixo do `FetchHttpClient` (complemento do ADR-004)
 - [ ] **Sentry** para erros e **OpenTelemetry** para métricas e traces (_planned_)
