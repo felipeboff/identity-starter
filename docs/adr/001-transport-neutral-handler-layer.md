@@ -1,7 +1,7 @@
 # ADR-001: Transport-Neutral Handler Layer with Per-Transport Bindings
 
 - **Date**: 2026-10-24
-- **Status**: Accepted
+- **Status**: Accepted; input validation lines superseded by [ADR-005](005-typebox-input-schemas-declared-on-the-handler.md)
 - **Deciders**: Felipe Boff
 - **Tags**: architecture, http, mcp, messaging, api-contract, errors
 

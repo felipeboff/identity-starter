@@ -42,6 +42,10 @@ The `redirect_uri` the front end sends must be the one in the API config
 Shorter or longer answers `400 shared.input_invalid` with the field in `data.violations`. Show
 the limits in the form instead of discovering them from the error.
 
+Every `400 shared.input_invalid` lists `data.violations` as `{ field, reason }`: `field` is the
+dotted path of the input (`permissions.1`) and `reason` is the JSON Schema keyword that failed
+(`required`, `minLength`, `maxLength`, `format`, `enum`, `pattern`, `type`).
+
 ## Too many requests
 
 Sensitive routes answer `429 shared.rate_limited` with `data.retryAfterSeconds` once one IP

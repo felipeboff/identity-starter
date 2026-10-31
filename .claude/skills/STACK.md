@@ -16,7 +16,10 @@ file deserve an ADR (`create-adr`).
   `McpTool` and `MessageConsumer` are _planned_.
 - **Dependency injection: manual.** One composition root per module instantiates adapters and
   use cases; no DI container, no decorators.
-- **Input validation:** the project's own validator in `src/shared/application/validator`.
+- **Input validation:** TypeBox (`typebox`, [ADR-005](../../docs/adr/005-typebox-input-schemas-declared-on-the-handler.md)).
+  Each handler declares `name` and `input` (a TypeBox schema); the dispatcher interprets it
+  through `SchemaParser` (`src/shared/presentation`) after the middlewares. Application and
+  domain import no library; TypeBox stays in presentation, infrastructure and `src/app`.
 - **API style:** REST, documented with OpenAPI (Swagger UI). _planned_
 - **Real-time:** SSE for server → client notifications, when the notifications module needs it.
   _planned_
