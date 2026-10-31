@@ -1,6 +1,32 @@
 import { defineLogEvent } from "@shared/application/logging/log-event";
 
+import { SessionRevocationReason } from "@/identity/domain/session.entity";
+
 export const IdentityUseCaseLogEvent = {
+  SignedIn: defineLogEvent<{
+    accountId: string;
+    sessionId: string;
+    provider: string;
+    ipAddress: string;
+  }>("identity.signed_in"),
+  SignInFailed: defineLogEvent<{
+    provider: string;
+    reason: string;
+    ipAddress: string;
+    email?: string;
+  }>("identity.sign_in_failed"),
+  PasswordChanged: defineLogEvent<{ accountId: string }>(
+    "identity.password_changed",
+  ),
+  PasswordReset: defineLogEvent<{ accountId: string }>(
+    "identity.password_reset",
+  ),
+  SessionsRevoked: defineLogEvent<{
+    accountId: string;
+    reason: SessionRevocationReason;
+    revokedBy: string | null;
+    sessionIds: string[];
+  }>("identity.sessions_revoked"),
   RefreshTokenReused: defineLogEvent<{
     accountId: string;
     sessionId: string;

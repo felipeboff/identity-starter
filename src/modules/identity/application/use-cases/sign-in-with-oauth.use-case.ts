@@ -4,6 +4,7 @@ import { AppError } from "@shared/domain/errors/app-error";
 import { toOutputAccount } from "../mappers/toOutputAccount";
 import { OAuthProfile } from "../ports/oauth-gateway";
 import { IssuedSession } from "../services/session-issuer";
+import { IdentityUseCaseLogEvent } from "../use-case.log-event";
 
 import {
   Device,
@@ -40,6 +41,23 @@ export class SignInWithOAuthUseCase extends UseCase<{
   deps: SignInWithOAuthDeps;
 }> {
   async execute(input: SignInWithOAuthInput): Promise<SignInWithOAuthOutput> {
+    try {
+      return await this.signInOrUp(input);
+    } catch (error) {
+      if (error instanceof AppError) {
+        this.deps.logger.warn(IdentityUseCaseLogEvent.SignInFailed, {
+          provider: input.provider,
+          reason: error.code,
+          ipAddress: input.ipAddress,
+        });
+      }
+      throw error;
+    }
+  }
+
+  private async signInOrUp(
+    input: SignInWithOAuthInput,
+  ): Promise<SignInWithOAuthOutput> {
     const provider = OAuthProvider.create(input.provider).value;
 
     const profile = await this.deps.oauth.exchangeCode({
@@ -58,6 +76,12 @@ export class SignInWithOAuthUseCase extends UseCase<{
       return credential
         ? this.signIn(credential, input, at)
         : this.signUp(provider, profile, input, at);
+    });
+    this.deps.logger.info(IdentityUseCaseLogEvent.SignedIn, {
+      accountId: signedIn.account.id.value,
+      sessionId: signedIn.issued.session.id.value,
+      provider,
+      ipAddress: input.ipAddress,
     });
 
     return {

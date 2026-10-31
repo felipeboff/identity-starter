@@ -2,6 +2,7 @@ import { UseCase } from "@shared/application/use-cases";
 import { AppError } from "@shared/domain/errors/app-error";
 
 import { Actor } from "../actor";
+import { IdentityUseCaseLogEvent } from "../use-case.log-event";
 
 import {
   ChangePasswordDeps,
@@ -59,7 +60,7 @@ export class ChangePasswordUseCase extends UseCase<{
     const passwordHash = await this.deps.passwordHasher.hash(input.newPassword);
 
     credential.updatePasswordHash(passwordHash, at);
-    return this.deps.transactions.run(async () => {
+    await this.deps.transactions.run(async () => {
       await this.deps.credentials.save(credential);
 
       await this.deps.sessionRevoker.revokeActive(account.id.value, {
@@ -67,6 +68,9 @@ export class ChangePasswordUseCase extends UseCase<{
         at,
         revokedBy: account.id.value,
       });
+    });
+    this.deps.logger.info(IdentityUseCaseLogEvent.PasswordChanged, {
+      accountId: account.id.value,
     });
   }
 }

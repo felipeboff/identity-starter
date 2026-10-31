@@ -29,11 +29,10 @@ export class RevokeSessionUseCase extends UseCase<{
       MembershipPermission.SESSION_REVOKE,
     );
 
-    session.revoke(
-      SessionRevocationReason.SECURITY,
-      this.deps.clock.now(),
-      actor.accountId,
-    );
-    await this.deps.sessions.save(session);
+    await this.deps.sessionRevoker.revoke(session, {
+      reason: SessionRevocationReason.SECURITY,
+      at: this.deps.clock.now(),
+      revokedBy: actor.accountId,
+    });
   }
 }

@@ -2,6 +2,7 @@ import { UseCase } from "@shared/application/use-cases";
 import { AppError } from "@shared/domain/errors/app-error";
 
 import { toOutputAccount } from "../mappers/toOutputAccount";
+import { IdentityUseCaseLogEvent } from "../use-case.log-event";
 
 import {
   SignInWithEmailDeps,
@@ -18,6 +19,24 @@ export class SignInWithEmailUseCase extends UseCase<{
   deps: SignInWithEmailDeps;
 }> {
   async execute(input: SignInWithEmailInput): Promise<SignInWithEmailOutput> {
+    try {
+      return await this.signIn(input);
+    } catch (error) {
+      if (error instanceof AppError) {
+        this.deps.logger.warn(IdentityUseCaseLogEvent.SignInFailed, {
+          provider: AuthProvider.EMAIL,
+          reason: error.code,
+          ipAddress: input.ipAddress,
+          email: input.email,
+        });
+      }
+      throw error;
+    }
+  }
+
+  private async signIn(
+    input: SignInWithEmailInput,
+  ): Promise<SignInWithEmailOutput> {
     await this.deps.signInThrottle.ensureAllowed(input.email);
 
     const account = await this.deps.accounts.findByEmail(input.email);
@@ -104,6 +123,12 @@ export class SignInWithEmailUseCase extends UseCase<{
         },
         at,
       );
+    });
+    this.deps.logger.info(IdentityUseCaseLogEvent.SignedIn, {
+      accountId: account.id.value,
+      sessionId: issued.session.id.value,
+      provider: AuthProvider.EMAIL,
+      ipAddress: input.ipAddress,
     });
 
     return {

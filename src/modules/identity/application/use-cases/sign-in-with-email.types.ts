@@ -1,4 +1,5 @@
 import { Clock } from "@shared/application/ports/clock";
+import type { Logger } from "@shared/application/ports/logger";
 import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
 
 import { AccountRepository } from "../ports/account.repository";
@@ -35,4 +36,5 @@ export type SignInWithEmailDeps = {
   signInThrottle: SignInThrottle;
 
   clock: Clock;
+  logger: Logger;
 };

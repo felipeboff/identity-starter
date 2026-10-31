@@ -21,7 +21,9 @@ export class SignOutUseCase extends UseCase<{
       });
     }
 
-    session.revoke(SessionRevocationReason.LOGOUT, this.deps.clock.now());
-    await this.deps.sessions.save(session);
+    await this.deps.sessionRevoker.revoke(session, {
+      reason: SessionRevocationReason.LOGOUT,
+      at: this.deps.clock.now(),
+    });
   }
 }

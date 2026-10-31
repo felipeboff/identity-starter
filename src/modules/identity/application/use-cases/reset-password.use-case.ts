@@ -1,6 +1,8 @@
 import { UseCase } from "@shared/application/use-cases";
 import { AppError } from "@shared/domain/errors/app-error";
 
+import { IdentityUseCaseLogEvent } from "../use-case.log-event";
+
 import { ResetPasswordDeps, ResetPasswordInput } from "./reset-password.types";
 
 import { IdentityError } from "@/identity/domain/errors/identity.error";
@@ -41,7 +43,7 @@ export class ResetPasswordUseCase extends UseCase<{
     const passwordHash = await this.deps.passwordHasher.hash(input.newPassword);
     credential.updatePasswordHash(passwordHash, at);
 
-    return this.deps.transactions.run(async () => {
+    await this.deps.transactions.run(async () => {
       await this.deps.credentials.save(credential);
       await this.deps.passwordResets.save(passwordReset);
 
@@ -49,6 +51,9 @@ export class ResetPasswordUseCase extends UseCase<{
         reason: SessionRevocationReason.PASSWORD_CHANGED,
         at,
       });
+    });
+    this.deps.logger.info(IdentityUseCaseLogEvent.PasswordReset, {
+      accountId: account.id.value,
     });
   }
 }

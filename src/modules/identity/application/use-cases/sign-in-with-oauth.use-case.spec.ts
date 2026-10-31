@@ -1,4 +1,5 @@
 import { faker } from "@faker-js/faker";
+import { LogLevel } from "@shared/application/ports/logger";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -10,6 +11,7 @@ import {
   seedAccount,
   seedSession,
 } from "../testing/identity-context";
+import { IdentityUseCaseLogEvent } from "../use-case.log-event";
 
 import { SignInWithOAuthUseCase } from "./sign-in-with-oauth.use-case";
 
@@ -294,5 +296,59 @@ describe("SignInWithOAuthUseCase", () => {
     expect(ctx.oauth.exchanges).toStrictEqual([
       { provider: AuthProvider.GOOGLE, code: input.code, codeVerifier },
     ]);
+  });
+
+  describe("security log", () => {
+    it("logs identity.signed_in with the provider and the new session", async () => {
+      const { input } = givenGoogleLogin();
+
+      const output = await useCase.execute(input);
+
+      const session = await ctx.sessions.findByTokenHash(
+        ctx.tokens.hash(output.refreshToken),
+      );
+      expect(ctx.logger.entries).toStrictEqual([
+        {
+          level: LogLevel.INFO,
+          event: IdentityUseCaseLogEvent.SignedIn.name,
+          fields: {
+            accountId: output.account.id,
+            sessionId: session?.id.value,
+            provider: AuthProvider.GOOGLE,
+            ipAddress: input.ipAddress,
+          },
+        },
+      ]);
+    });
+
+    it("logs identity.sign_in_failed with the error code as reason", async () => {
+      const { profile, input } = givenGoogleLogin();
+      await seedAccount(ctx, { email: profile.email });
+
+      await useCase.execute(input).catch(() => undefined);
+
+      expect(ctx.logger.entries).toStrictEqual([
+        {
+          level: LogLevel.WARN,
+          event: IdentityUseCaseLogEvent.SignInFailed.name,
+          fields: {
+            provider: AuthProvider.GOOGLE,
+            reason: IdentityError.AccountEmailTaken.code,
+            ipAddress: input.ipAddress,
+          },
+        },
+      ]);
+    });
+
+    it("does not log an unexpected failure as a failed sign-in", async () => {
+      const { input } = givenGoogleLogin();
+      vi.spyOn(ctx.sessions, "save").mockRejectedValueOnce(
+        new Error(faker.lorem.sentence()),
+      );
+
+      await useCase.execute(input).catch(() => undefined);
+
+      expect(ctx.logger.entries).toStrictEqual([]);
+    });
   });
 });

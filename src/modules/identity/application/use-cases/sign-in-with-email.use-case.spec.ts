@@ -1,4 +1,5 @@
 import { faker } from "@faker-js/faker";
+import { LogLevel } from "@shared/application/ports/logger";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -10,6 +11,7 @@ import {
   seedAccount,
   seedSession,
 } from "../testing/identity-context";
+import { IdentityUseCaseLogEvent } from "../use-case.log-event";
 
 import { SignInWithEmailUseCase } from "./sign-in-with-email.use-case";
 
@@ -310,5 +312,64 @@ describe("SignInWithEmailUseCase", () => {
     const output = await useCase.execute(makeInput(ana));
 
     expect(output.account.id).toBe(ana.accountId);
+  });
+
+  describe("security log", () => {
+    it("logs identity.signed_in with the new session", async () => {
+      const ana = await seedAccount(ctx);
+      const input = makeInput(ana);
+
+      const output = await useCase.execute(input);
+
+      const session = await ctx.sessions.findByTokenHash(
+        ctx.tokens.hash(output.refreshToken),
+      );
+      expect(ctx.logger.entries).toStrictEqual([
+        {
+          level: LogLevel.INFO,
+          event: IdentityUseCaseLogEvent.SignedIn.name,
+          fields: {
+            accountId: ana.accountId,
+            sessionId: session?.id.value,
+            provider: AuthProvider.EMAIL,
+            ipAddress: input.ipAddress,
+          },
+        },
+      ]);
+    });
+
+    it("logs identity.sign_in_failed with the error code as reason", async () => {
+      const ana = await seedAccount(ctx);
+      const input = makeInput({
+        email: ana.email,
+        password: `${ana.password}-wrong`,
+      });
+
+      await useCase.execute(input).catch(() => undefined);
+
+      expect(ctx.logger.entries).toStrictEqual([
+        {
+          level: LogLevel.WARN,
+          event: IdentityUseCaseLogEvent.SignInFailed.name,
+          fields: {
+            provider: AuthProvider.EMAIL,
+            reason: IdentityError.InvalidCredentials.code,
+            ipAddress: input.ipAddress,
+            email: input.email,
+          },
+        },
+      ]);
+    });
+
+    it("does not log an unexpected failure as a failed sign-in", async () => {
+      const ana = await seedAccount(ctx);
+      vi.spyOn(ctx.sessions, "save").mockRejectedValueOnce(
+        new Error(faker.lorem.sentence()),
+      );
+
+      await useCase.execute(makeInput(ana)).catch(() => undefined);
+
+      expect(ctx.logger.entries).toStrictEqual([]);
+    });
   });
 });

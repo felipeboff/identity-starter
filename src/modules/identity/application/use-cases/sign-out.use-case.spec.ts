@@ -1,4 +1,5 @@
 import { faker } from "@faker-js/faker";
+import { LogLevel } from "@shared/application/ports/logger";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -8,6 +9,7 @@ import {
   seedAccount,
   seedSession,
 } from "../testing/identity-context";
+import { IdentityUseCaseLogEvent } from "../use-case.log-event";
 
 import { SignOutUseCase } from "./sign-out.use-case";
 
@@ -43,5 +45,25 @@ describe("SignOutUseCase", () => {
       IdentityError.SessionNotFound,
       { sessionId },
     );
+  });
+
+  it("logs the revoked session", async () => {
+    const ana = await seedAccount(ctx);
+    const { session, actor } = await seedSession(ctx, ana);
+
+    await useCase.execute(actor);
+
+    expect(ctx.logger.entries).toStrictEqual([
+      {
+        level: LogLevel.INFO,
+        event: IdentityUseCaseLogEvent.SessionsRevoked.name,
+        fields: {
+          accountId: ana.accountId,
+          reason: SessionRevocationReason.LOGOUT,
+          revokedBy: null,
+          sessionIds: [session.id.value],
+        },
+      },
+    ]);
   });
 });

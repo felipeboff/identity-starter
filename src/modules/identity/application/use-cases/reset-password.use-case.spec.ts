@@ -1,4 +1,5 @@
 import { faker } from "@faker-js/faker";
+import { LogLevel } from "@shared/application/ports/logger";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -10,6 +11,7 @@ import {
   seedSession,
 } from "../testing/identity-context";
 import { PASSWORD_RESET_TTL_MS } from "../token.policy";
+import { IdentityUseCaseLogEvent } from "../use-case.log-event";
 
 import { ResetPasswordUseCase } from "./reset-password.use-case";
 
@@ -178,5 +180,18 @@ describe("ResetPasswordUseCase", () => {
         await ctx.passwordResets.findByTokenHash(reset.toSnapshot().tokenHash)
       )?.isConsumed(),
     ).toBe(false);
+  });
+
+  it("logs identity.password_reset", async () => {
+    const ana = await seedAccount(ctx);
+    const { token } = await saveReset(ana);
+
+    await useCase.execute({ token, newPassword: faker.internet.password() });
+
+    expect(ctx.logger.entries).toContainEqual({
+      level: LogLevel.INFO,
+      event: IdentityUseCaseLogEvent.PasswordReset.name,
+      fields: { accountId: ana.accountId },
+    });
   });
 });

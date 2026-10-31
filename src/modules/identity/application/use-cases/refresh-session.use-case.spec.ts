@@ -226,6 +226,16 @@ describe("RefreshSessionUseCase", () => {
     expect(next?.revokedReason).toBe(SessionRevocationReason.SECURITY);
     expect(ctx.logger.entries).toStrictEqual([
       {
+        level: LogLevel.INFO,
+        event: IdentityUseCaseLogEvent.SessionsRevoked.name,
+        fields: {
+          accountId: ana.accountId,
+          reason: SessionRevocationReason.SECURITY,
+          revokedBy: null,
+          sessionIds: [next?.id.value],
+        },
+      },
+      {
         level: LogLevel.WARN,
         event: IdentityUseCaseLogEvent.RefreshTokenReused.name,
         fields: {

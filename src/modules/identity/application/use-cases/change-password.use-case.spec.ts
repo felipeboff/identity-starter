@@ -1,4 +1,5 @@
 import { faker } from "@faker-js/faker";
+import { LogLevel } from "@shared/application/ports/logger";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -8,6 +9,7 @@ import {
   seedAccount,
   seedSession,
 } from "../testing/identity-context";
+import { IdentityUseCaseLogEvent } from "../use-case.log-event";
 
 import { ChangePasswordUseCase } from "./change-password.use-case";
 
@@ -196,5 +198,20 @@ describe("ChangePasswordUseCase", () => {
     expect(credential?.passwordHash?.value).toBe(
       ana.credential.passwordHash?.value,
     );
+  });
+
+  it("logs identity.password_changed", async () => {
+    const ana = await seedAccount(ctx);
+
+    await useCase.execute(
+      { oldPassword: ana.password, newPassword: faker.internet.password() },
+      ana.actor,
+    );
+
+    expect(ctx.logger.entries).toContainEqual({
+      level: LogLevel.INFO,
+      event: IdentityUseCaseLogEvent.PasswordChanged.name,
+      fields: { accountId: ana.accountId },
+    });
   });
 });

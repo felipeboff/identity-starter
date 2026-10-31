@@ -78,7 +78,11 @@ export const createIdentityContext = () => {
     tokens,
     ids,
   });
-  const sessionRevoker = new SessionRevoker({ sessions });
+  const sessionRevoker = new SessionRevoker({
+    sessions,
+    transactions,
+    logger,
+  });
   const signInThrottle = new SignInThrottle({ rateLimiter });
   const emailVerificationIssuer = new EmailVerificationIssuer({
     emailVerifications,
