@@ -1,15 +1,14 @@
-import { v } from "@shared/application/validator";
 import { Handler, Inbound } from "@shared/presentation/handler";
+import Type from "typebox";
 
-import {
-  VerifyEmailInput,
-  VerifyEmailOutput,
-} from "@/identity/application/use-cases/verify-email.types";
+import { VerifyEmailOutput } from "@/identity/application/use-cases/verify-email.types";
 import { VerifyEmailUseCase } from "@/identity/application/use-cases/verify-email.use-case";
 
-const inputSchema = v.object<VerifyEmailInput>({
-  token: v.string(),
+const inputSchema = Type.Object({
+  token: Type.String(),
 });
+
+type Input = Type.StaticDecode<typeof inputSchema>;
 
 export type VerifyEmailHandlerDeps = {
   verifyEmail: VerifyEmailUseCase;
@@ -17,10 +16,13 @@ export type VerifyEmailHandlerDeps = {
 
 export class VerifyEmailHandler extends Handler<{
   deps: VerifyEmailHandlerDeps;
+  input: typeof inputSchema;
   output: VerifyEmailOutput;
 }> {
-  async handle(inbound: Inbound): Promise<VerifyEmailOutput> {
-    const input = inputSchema.probe(inbound.input);
-    return this.deps.verifyEmail.execute(input);
+  readonly name = "identity.verify_email";
+  readonly input = inputSchema;
+
+  async handle(inbound: Inbound<undefined, Input>): Promise<VerifyEmailOutput> {
+    return this.deps.verifyEmail.execute(inbound.input);
   }
 }

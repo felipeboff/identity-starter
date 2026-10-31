@@ -6,16 +6,27 @@ import { Dispatcher } from "@shared/presentation/dispatcher";
 import { Handler, Inbound } from "@shared/presentation/handler";
 import { HttpErrorMapper } from "@shared/presentation/http/http-error-mapper";
 import { HttpMethod, HttpRoute } from "@shared/presentation/http/http-route";
+import { SchemaParser } from "@shared/presentation/schema-parser";
 import { FakeLogger } from "@shared/testing/fake-logger";
 import express, { RequestHandler } from "express";
 import request from "supertest";
+import Type from "typebox";
 import { describe, expect, it, vi } from "vitest";
 
 import { AsyncLocalLogContext } from "../logging/async-local-log-context";
 
 import { ExpressAdapter } from "./express-adapter";
 
-class EchoHandler extends Handler<{ actor: unknown; output: unknown }> {
+const anyInput = Type.Record(Type.String(), Type.Unknown());
+
+class EchoHandler extends Handler<{
+  actor: unknown;
+  input: typeof anyInput;
+  output: unknown;
+}> {
+  readonly name = "test.echo";
+  readonly input = anyInput;
+
   handle(inbound: Inbound<unknown>): Promise<unknown> {
     return Promise.resolve(inbound);
   }
@@ -26,6 +37,8 @@ class FailingHandler extends Handler<{
   actor: unknown;
   output: unknown;
 }> {
+  readonly name = "test.failing";
+
   handle(): Promise<unknown> {
     return Promise.reject(this.deps.error);
   }
@@ -47,6 +60,8 @@ class ContextHandler extends Handler<{
   actor: unknown;
   output: unknown;
 }> {
+  readonly name = "test.context";
+
   handle(): Promise<unknown> {
     return Promise.resolve(this.deps.logContext.get());
   }
@@ -59,7 +74,7 @@ const createApp = (
 ) => {
   const logger = new FakeLogger();
   const adapter = new ExpressAdapter({
-    dispatcher: new Dispatcher(),
+    dispatcher: new Dispatcher({ parser: new SchemaParser() }),
     errorMapper: new HttpErrorMapper({ logger }),
     logger,
     logContext,
@@ -301,7 +316,7 @@ describe("ExpressAdapter", () => {
       expect(response.headers["x-request-id"]).toMatch(UUID);
     });
 
-    it("runs the handler with the request id, method and route template", async () => {
+    it("runs the handler with the request id, method, route template and operation", async () => {
       const logContext = new AsyncLocalLogContext();
       const route = buildRoute({
         path: "/things/:thingId",
@@ -317,6 +332,7 @@ describe("ExpressAdapter", () => {
         requestId: response.headers["x-request-id"],
         method: "POST",
         route: "/things/:thingId",
+        operation: "test.context",
       });
     });
 
@@ -340,6 +356,7 @@ describe("ExpressAdapter", () => {
           requestId: response.headers["x-request-id"],
           method: "POST",
           route: route.path,
+          operation: "test.echo",
         },
       ]);
     });

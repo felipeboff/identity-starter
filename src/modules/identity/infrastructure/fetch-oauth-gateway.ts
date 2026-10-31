@@ -1,5 +1,4 @@
 import { Logger } from "@shared/application/ports/logger";
-import { Schema, v } from "@shared/application/validator";
 import { AppError } from "@shared/domain/errors/app-error";
 import {
   FetchHttpClient,
@@ -7,6 +6,8 @@ import {
   HttpHeaders,
   HttpRequest,
 } from "@shared/infrastructure/http/fetch-http-client";
+import Type, { type StaticDecode, type TSchema } from "typebox";
+import Value from "typebox/value";
 
 import {
   OAuthCodeExchange,
@@ -49,53 +50,37 @@ type ProviderResponse = Readonly<{ status: number; body: unknown }>;
 
 type CodeExchange = (exchange: OAuthCodeExchange) => Promise<OAuthProfile>;
 
-type TokenResponse = { access_token: string };
+const trimmedTextSchema = Type.Codec(Type.String())
+  .Decode((value) => value.trim())
+  .Encode(String);
 
-type ProviderErrorResponse = { error: string };
-
-type GoogleUser = {
-  sub: string;
-  email: string;
-  email_verified: boolean;
-  name: string | undefined;
-};
-
-type GitHubUser = {
-  id: number;
-  login: string;
-  name: string | null;
-  email: string | null;
-};
-
-type GitHubEmail = { email: string; primary: boolean; verified: boolean };
-
-const tokenSchema = v.object<TokenResponse>({
-  access_token: v.string({ minLength: 1 }),
+const tokenSchema = Type.Object({
+  access_token: Type.String({ minLength: 1 }),
 });
 
-const providerErrorSchema = v.object<ProviderErrorResponse>({
-  error: v.string({ minLength: 1 }),
+const providerErrorSchema = Type.Object({
+  error: Type.String({ minLength: 1 }),
 });
 
-const googleUserSchema = v.object<GoogleUser>({
-  sub: v.string({ minLength: 1 }),
-  email: v.email(),
-  email_verified: v.boolean(),
-  name: v.string({ trim: true, optional: true }),
+const googleUserSchema = Type.Object({
+  sub: Type.String({ minLength: 1 }),
+  email: Type.String({ format: "email" }),
+  email_verified: Type.Boolean(),
+  name: Type.Optional(trimmedTextSchema),
 });
 
-const githubUserSchema = v.object<GitHubUser>({
-  id: v.number({ integer: true, min: 1 }),
-  login: v.string({ minLength: 1 }),
-  name: v.string({ trim: true, nullable: true }),
-  email: v.email({ nullable: true }),
+const githubUserSchema = Type.Object({
+  id: Type.Integer({ minimum: 1 }),
+  login: Type.String({ minLength: 1 }),
+  name: Type.Union([trimmedTextSchema, Type.Null()]),
+  email: Type.Union([Type.String({ format: "email" }), Type.Null()]),
 });
 
-const githubEmailsSchema = v.array(
-  v.object<GitHubEmail>({
-    email: v.email(),
-    primary: v.boolean(),
-    verified: v.boolean(),
+const githubEmailsSchema = Type.Array(
+  Type.Object({
+    email: Type.String({ format: "email" }),
+    primary: Type.Boolean(),
+    verified: Type.Boolean(),
   }),
 );
 
@@ -245,20 +230,19 @@ export class FetchOAuthGateway implements OAuthGateway {
     return result;
   }
 
-  private read<T>(
+  private read<S extends TSchema>(
     provider: OAuthProviderName,
     step: OAuthStep,
     response: ProviderResponse,
-    schema: Schema<T>,
-  ): T {
+    schema: S,
+  ): StaticDecode<S> {
     if (response.status !== OK) {
       return this.fail(provider, step, "unexpected_status", response);
     }
-    const parsed = schema.parse(response.body);
-    if (!parsed.ok) {
+    if (!Value.Check(schema, response.body)) {
       return this.fail(provider, step, "unexpected_body", response);
     }
-    return parsed.data;
+    return Value.Decode(schema, response.body);
   }
 
   private verifierOf(exchange: OAuthCodeExchange): HttpForm {
@@ -268,8 +252,7 @@ export class FetchOAuthGateway implements OAuthGateway {
   }
 
   private providerError(body: unknown): string | undefined {
-    const parsed = providerErrorSchema.parse(body);
-    return parsed.ok ? parsed.data.error : undefined;
+    return Value.Check(providerErrorSchema, body) ? body.error : undefined;
   }
 
   private fail(

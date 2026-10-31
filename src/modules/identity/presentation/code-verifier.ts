@@ -1,7 +1,5 @@
-import type { StringOptions } from "@shared/application/validator";
+import Type from "typebox";
 
-export const CODE_VERIFIER: StringOptions = {
-  optional: true,
-  minLength: 43,
-  maxLength: 128,
-};
+export const codeVerifierSchema = Type.Optional(
+  Type.String({ minLength: 43, maxLength: 128 }),
+);

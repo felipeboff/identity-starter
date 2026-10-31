@@ -12,6 +12,8 @@ export class SignOutHandler extends Handler<{
   actor: Actor;
   output: void;
 }> {
+  readonly name = "identity.sign_out";
+
   async handle(inbound: Inbound<Actor>): Promise<void> {
     await this.deps.signOut.execute(inbound.actor);
   }

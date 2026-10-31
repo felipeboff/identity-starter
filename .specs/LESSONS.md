@@ -35,6 +35,27 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: src/shared/infrastructure/http/http-server-shutdown.ts (http-shutdown)
 - last seen: 2026-10-24T23:31:51Z
 
+### L-004 - Prove a public error body at the HTTP edge by asserting the whole response, not only through unit tests of the code that builds it
+
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `routes` · harmful: 0
+- features: typebox-handler
+- evidence: verification.md round 1 G1 (C10-C13/C15, identity.routes.e2e.spec.ts:293-299) (routes)
+- last seen: 2026-10-31T00:09:33Z
+
+### L-005 - When a check claims every route of a set, cover every member in the table or name each exempt route with its reason
+
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `routes` · harmful: 0
+- features: typebox-handler
+- evidence: verification.md round 1 G2 (C15, identity.routes.e2e.spec.ts:110-172) (routes)
+- last seen: 2026-10-31T00:09:33Z
+
+### L-006 - Assert the payload on every branch a check names, including the branch that swaps the error definition
+
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `shared` · harmful: 0
+- features: typebox-handler
+- evidence: verification.md round 1 G3 (C14, schema-parser.spec.ts:182-184) (shared)
+- last seen: 2026-10-31T00:09:33Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

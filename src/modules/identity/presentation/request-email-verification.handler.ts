@@ -12,6 +12,8 @@ export class RequestEmailVerificationHandler extends Handler<{
   actor: Actor;
   output: void;
 }> {
+  readonly name = "identity.request_email_verification";
+
   async handle(inbound: Inbound<Actor>): Promise<void> {
     await this.deps.requestEmailVerification.execute(inbound.actor);
   }

@@ -3,6 +3,7 @@ import { ExpressAdapter } from "@shared/infrastructure/http/express-adapter";
 import type { AsyncLocalLogContext } from "@shared/infrastructure/logging/async-local-log-context";
 import { Dispatcher } from "@shared/presentation/dispatcher";
 import { HttpErrorMapper } from "@shared/presentation/http/http-error-mapper";
+import { SchemaParser } from "@shared/presentation/schema-parser";
 import cors from "cors";
 import express, { type Express } from "express";
 import helmet from "helmet";
@@ -27,7 +28,7 @@ export const createServer = ({
   corsOrigins,
 }: CreateServerOptions): Express => {
   const adapter = new ExpressAdapter({
-    dispatcher: new Dispatcher(),
+    dispatcher: new Dispatcher({ parser: new SchemaParser() }),
     errorMapper: new HttpErrorMapper({ logger }),
     logger,
     logContext,

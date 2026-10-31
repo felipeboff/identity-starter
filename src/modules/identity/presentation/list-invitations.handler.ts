@@ -13,6 +13,8 @@ export class ListInvitationsHandler extends Handler<{
   actor: Actor;
   output: ListInvitationsOutput;
 }> {
+  readonly name = "identity.list_invitations";
+
   async handle(inbound: Inbound<Actor>): Promise<ListInvitationsOutput> {
     return this.deps.listInvitations.execute(inbound.actor);
   }

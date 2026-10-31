@@ -1,5 +1,6 @@
 import { LogLevel } from "@shared/application/ports/logger";
-import { v } from "@shared/application/validator";
+import { SchemaParser } from "@shared/presentation/schema-parser";
+import Type from "typebox";
 
 import type { IdentitySettings } from "@/identity/identity.module";
 
@@ -18,65 +19,69 @@ export const MailerKind = {
 
 export type MailerKind = (typeof MailerKind)[keyof typeof MailerKind];
 
-export type Env = {
-  NODE_ENV: NodeEnv;
-  PORT: number;
-  TRUST_PROXY: number;
-  LOG_LEVEL: LogLevel;
-  MONGO_URL: string;
-  REDIS_URL: URL;
-  CORS_ORIGINS: URL[];
-  JWT_SECRET: string;
-  APP_URL: URL;
-  MAILER: MailerKind;
-  MAIL_FROM_EMAIL: string;
-  MAIL_FROM_NAME: string;
-  MAILERSEND_API_KEY: string;
-  GITHUB_CLIENT_ID: string;
-  GITHUB_CLIENT_SECRET: string;
-  GITHUB_REDIRECT_URI: URL;
-  GOOGLE_CLIENT_ID: string;
-  GOOGLE_CLIENT_SECRET: string;
-  GOOGLE_REDIRECT_URI: URL;
-};
+const NOT_BLANK = "\\S";
+const HTTP_URL = "^https?://[^\\s/?#]+\\S*$";
 
-const envSchema = v.object<Env>({
-  NODE_ENV: v.enum({ values: Object.values(NodeEnv), default: "develop" }),
-  PORT: v.number({ integer: true, min: 1, max: 65_535, default: 3000 }),
-  TRUST_PROXY: v.number({ integer: true, min: 0, default: 0 }),
-  LOG_LEVEL: v.enum({ values: Object.values(LogLevel), default: "info" }),
-  MONGO_URL: v.string({ trim: true, minLength: 1 }),
-  REDIS_URL: v.url({
-    protocols: ["redis", "rediss"],
-    default: new URL("redis://localhost:6379"),
+const toUrl = (value: string): URL => new URL(value);
+
+const httpUrlSchema = Type.Codec(Type.String({ pattern: HTTP_URL }))
+  .Decode(toUrl)
+  .Encode(String);
+
+const envSchema = Type.Object({
+  NODE_ENV: Type.Enum(Object.values(NodeEnv), { default: NodeEnv.DEVELOP }),
+  PORT: Type.Number({
+    multipleOf: 1,
+    minimum: 1,
+    maximum: 65_535,
+    default: 3000,
   }),
-  CORS_ORIGINS: v.array(v.url(), {
-    csv: true,
-    minLength: 1,
-    default: [new URL("http://localhost:5173")],
+  TRUST_PROXY: Type.Number({ multipleOf: 1, minimum: 0, default: 0 }),
+  LOG_LEVEL: Type.Enum(Object.values(LogLevel), { default: "info" }),
+  MONGO_URL: Type.String({ pattern: NOT_BLANK }),
+  REDIS_URL: Type.Codec(
+    Type.String({
+      pattern: "^rediss?://[^\\s/?#]+\\S*$",
+      default: "redis://localhost:6379",
+    }),
+  )
+    .Decode(toUrl)
+    .Encode(String),
+  CORS_ORIGINS: Type.Array(httpUrlSchema, {
+    minItems: 1,
+    default: ["http://localhost:5173"],
   }),
-  JWT_SECRET: v.string({ minLength: 32 }),
-  APP_URL: v.url({ default: new URL("http://localhost:5173") }),
-  MAILER: v.enum({ values: Object.values(MailerKind), default: "log" }),
-  MAIL_FROM_EMAIL: v.email(),
-  MAIL_FROM_NAME: v.string({
-    trim: true,
-    minLength: 1,
-    default: "Resolve Hub",
-  }),
-  MAILERSEND_API_KEY: v.string({ trim: true, minLength: 1 }),
-  GITHUB_CLIENT_ID: v.string({ minLength: 20 }),
-  GITHUB_CLIENT_SECRET: v.string({ minLength: 40 }),
-  GITHUB_REDIRECT_URI: v.url(),
-  GOOGLE_CLIENT_ID: v.string({ minLength: 30 }),
-  GOOGLE_CLIENT_SECRET: v.string({ minLength: 30 }),
-  GOOGLE_REDIRECT_URI: v.url(),
+  JWT_SECRET: Type.String({ minLength: 32 }),
+  APP_URL: Type.Codec(
+    Type.String({ pattern: HTTP_URL, default: "http://localhost:5173" }),
+  )
+    .Decode(toUrl)
+    .Encode(String),
+  MAILER: Type.Enum(Object.values(MailerKind), { default: MailerKind.LOG }),
+  MAIL_FROM_EMAIL: Type.String({ format: "email" }),
+  MAIL_FROM_NAME: Type.String({ pattern: NOT_BLANK, default: "Resolve Hub" }),
+  MAILERSEND_API_KEY: Type.String({ pattern: NOT_BLANK }),
+  GITHUB_CLIENT_ID: Type.String({ minLength: 20 }),
+  GITHUB_CLIENT_SECRET: Type.String({ minLength: 40 }),
+  GITHUB_REDIRECT_URI: httpUrlSchema,
+  GOOGLE_CLIENT_ID: Type.String({ minLength: 30 }),
+  GOOGLE_CLIENT_SECRET: Type.String({ minLength: 30 }),
+  GOOGLE_REDIRECT_URI: httpUrlSchema,
 });
+
+export type Env = Type.StaticDecode<typeof envSchema>;
+
+const parser = new SchemaParser();
 
 export type EnvSource = Readonly<Record<string, string | undefined>>;
 
 export const loadEnv = (source: EnvSource): Env =>
-  envSchema.probe({ ...source });
+  parser.parse(envSchema, {
+    ...source,
+    CORS_ORIGINS: source.CORS_ORIGINS?.split(",")
+      .map((origin) => origin.trim())
+      .filter((origin) => origin !== ""),
+  });
 
 export const EXTERNAL_CALL_TIMEOUT_MS = 10_000;
 

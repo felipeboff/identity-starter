@@ -13,6 +13,8 @@ export class RevokeOtherSessionsHandler extends Handler<{
   actor: Actor;
   output: RevokeOtherSessionsOutput;
 }> {
+  readonly name = "identity.revoke_other_sessions";
+
   async handle(inbound: Inbound<Actor>): Promise<RevokeOtherSessionsOutput> {
     return this.deps.revokeOtherSessions.execute(inbound.actor);
   }

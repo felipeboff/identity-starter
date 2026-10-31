@@ -13,6 +13,8 @@ class NamedMiddleware extends Middleware<{ deps: { name: string } }> {
 }
 
 class NoopHandler extends Handler<{ output: void }> {
+  readonly name = "test.noop";
+
   handle(): Promise<void> {
     return Promise.resolve();
   }

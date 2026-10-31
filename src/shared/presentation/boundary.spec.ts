@@ -28,7 +28,7 @@ const staysInShared = (file: string, specifier: string): boolean =>
       .startsWith(sharedDir + path.sep));
 
 describe("src/shared/presentation", () => {
-  it("imports nothing outside src/shared, so it stays transport and framework neutral", () => {
+  it("imports nothing outside src/shared and typebox, so it stays transport and framework neutral", () => {
     expect(sourceFiles).toStrictEqual([
       "dispatcher.ts",
       "handler.ts",
@@ -37,11 +37,16 @@ describe("src/shared/presentation", () => {
       path.join("http", "http-route.ts"),
       path.join("http", "http-router.ts"),
       "rate-limit.middleware.ts",
+      "schema-parser.ts",
     ]);
 
     const outside = sourceFiles.flatMap((file) =>
       importsOf(file)
-        .filter((specifier) => !staysInShared(file, specifier))
+        .filter(
+          (specifier) =>
+            !/^typebox(\/|$)/.test(specifier) &&
+            !staysInShared(file, specifier),
+        )
         .map((specifier) => `${file} -> ${specifier}`),
     );
 

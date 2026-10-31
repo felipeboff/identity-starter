@@ -91,7 +91,10 @@ export class ExpressAdapter {
     req: Request,
     res: Response,
   ): Promise<void> {
-    this.deps.logContext.add({ route: route.path });
+    this.deps.logContext.add({
+      route: route.path,
+      operation: route.handler.name,
+    });
     try {
       const output = await this.deps.dispatcher.dispatch(
         route,

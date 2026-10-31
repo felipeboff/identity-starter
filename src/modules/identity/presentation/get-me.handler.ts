@@ -13,6 +13,8 @@ export class GetMeHandler extends Handler<{
   actor: Actor;
   output: GetMeOutput;
 }> {
+  readonly name = "identity.get_me";
+
   async handle(inbound: Inbound<Actor>): Promise<GetMeOutput> {
     return this.deps.getMe.execute(inbound.actor);
   }

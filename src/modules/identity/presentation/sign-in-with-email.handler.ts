@@ -1,19 +1,18 @@
-import { v } from "@shared/application/validator";
 import { Handler, Inbound } from "@shared/presentation/handler";
+import Type from "typebox";
 
 import { toSessionOrigin } from "./mappers/toSessionOrigin";
 
 import { PASSWORD_MAX_LENGTH } from "@/identity/application/password.policy";
-import {
-  SignInWithEmailInput,
-  SignInWithEmailOutput,
-} from "@/identity/application/use-cases/sign-in-with-email.types";
+import { SignInWithEmailOutput } from "@/identity/application/use-cases/sign-in-with-email.types";
 import { SignInWithEmailUseCase } from "@/identity/application/use-cases/sign-in-with-email.use-case";
 
-const inputSchema = v.object<Pick<SignInWithEmailInput, "email" | "password">>({
-  email: v.email(),
-  password: v.string({ minLength: 1, maxLength: PASSWORD_MAX_LENGTH }),
+const inputSchema = Type.Object({
+  email: Type.String({ format: "email" }),
+  password: Type.String({ minLength: 1, maxLength: PASSWORD_MAX_LENGTH }),
 });
+
+type Input = Type.StaticDecode<typeof inputSchema>;
 
 export type SignInWithEmailHandlerDeps = {
   signInWithEmail: SignInWithEmailUseCase;
@@ -21,12 +20,17 @@ export type SignInWithEmailHandlerDeps = {
 
 export class SignInWithEmailHandler extends Handler<{
   deps: SignInWithEmailHandlerDeps;
+  input: typeof inputSchema;
   output: SignInWithEmailOutput;
 }> {
-  async handle(inbound: Inbound): Promise<SignInWithEmailOutput> {
-    const input = inputSchema.probe(inbound.input);
+  readonly name = "identity.sign_in_with_email";
+  readonly input = inputSchema;
+
+  async handle(
+    inbound: Inbound<undefined, Input>,
+  ): Promise<SignInWithEmailOutput> {
     return this.deps.signInWithEmail.execute({
-      ...input,
+      ...inbound.input,
       ...toSessionOrigin(inbound),
     });
   }

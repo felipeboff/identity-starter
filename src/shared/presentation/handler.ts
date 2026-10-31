@@ -1,17 +1,25 @@
-export type Inbound<TActor = undefined> = Readonly<{
+import Type, { type StaticDecode, type TSchema } from "typebox";
+
+export type Inbound<TActor = undefined, TInput = unknown> = Readonly<{
   /** HTTP params + query + body, MCP tool arguments or message payload. */
-  input: unknown;
+  input: TInput;
   metadata: Readonly<Record<string, string | undefined>>;
   ip: string;
   actor: TActor;
 }>;
 
+export const NO_INPUT = Type.Object({});
+
 type ResolveDeps<S> = S extends { deps: infer D } ? D : void;
 type ResolveActor<S> = S extends { actor: infer A } ? A : undefined;
+type ResolveInput<S> = S extends { input: infer I extends TSchema }
+  ? I
+  : typeof NO_INPUT;
 
 export type HandlerShape = Readonly<{
   deps?: unknown;
   actor?: unknown;
+  input?: TSchema;
   output?: unknown;
 }>;
 
@@ -19,7 +27,11 @@ type ResolveOutput<S> = S extends { output: infer O } ? O : unknown;
 
 export abstract class Handler<S extends HandlerShape = Record<string, never>> {
   constructor(protected readonly deps: ResolveDeps<S>) {}
-  abstract handle(inbound: Inbound<ResolveActor<S>>): Promise<ResolveOutput<S>>;
+  abstract readonly name: string;
+  readonly input?: ResolveInput<S>;
+  abstract handle(
+    inbound: Inbound<ResolveActor<S>, StaticDecode<ResolveInput<S>>>,
+  ): Promise<ResolveOutput<S>>;
 }
 
 export type Next<TActor = undefined> = (
@@ -52,5 +64,10 @@ export type Entry<TActor = undefined> = Readonly<{
     actor: never;
     nextActor: unknown;
   }>[];
-  handler: Handler<{ deps: unknown; actor: TActor; output: unknown }>;
+  handler: Handler<{
+    deps: unknown;
+    actor: TActor;
+    input: TSchema;
+    output: unknown;
+  }>;
 }>;

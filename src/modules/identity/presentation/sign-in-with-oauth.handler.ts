@@ -1,22 +1,19 @@
-import { v } from "@shared/application/validator";
 import { Handler, Inbound } from "@shared/presentation/handler";
+import Type from "typebox";
 
-import { CODE_VERIFIER } from "./code-verifier";
+import { codeVerifierSchema } from "./code-verifier";
 import { toSessionOrigin } from "./mappers/toSessionOrigin";
 
-import {
-  SignInWithOAuthInput,
-  SignInWithOAuthOutput,
-} from "@/identity/application/use-cases/sign-in-with-oauth.types";
+import { SignInWithOAuthOutput } from "@/identity/application/use-cases/sign-in-with-oauth.types";
 import { SignInWithOAuthUseCase } from "@/identity/application/use-cases/sign-in-with-oauth.use-case";
 
-const inputSchema = v.object<
-  Pick<SignInWithOAuthInput, "provider" | "code" | "codeVerifier">
->({
-  provider: v.string(),
-  code: v.string(),
-  codeVerifier: v.string(CODE_VERIFIER),
+const inputSchema = Type.Object({
+  provider: Type.String(),
+  code: Type.String(),
+  codeVerifier: codeVerifierSchema,
 });
+
+type Input = Type.StaticDecode<typeof inputSchema>;
 
 export type SignInWithOAuthHandlerDeps = {
   signInWithOAuth: SignInWithOAuthUseCase;
@@ -24,12 +21,17 @@ export type SignInWithOAuthHandlerDeps = {
 
 export class SignInWithOAuthHandler extends Handler<{
   deps: SignInWithOAuthHandlerDeps;
+  input: typeof inputSchema;
   output: SignInWithOAuthOutput;
 }> {
-  async handle(inbound: Inbound): Promise<SignInWithOAuthOutput> {
-    const input = inputSchema.probe(inbound.input);
+  readonly name = "identity.sign_in_with_oauth";
+  readonly input = inputSchema;
+
+  async handle(
+    inbound: Inbound<undefined, Input>,
+  ): Promise<SignInWithOAuthOutput> {
     return this.deps.signInWithOAuth.execute({
-      ...input,
+      ...inbound.input,
       ...toSessionOrigin(inbound),
     });
   }

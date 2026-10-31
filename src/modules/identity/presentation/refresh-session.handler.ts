@@ -1,17 +1,16 @@
-import { v } from "@shared/application/validator";
 import { Handler, Inbound } from "@shared/presentation/handler";
+import Type from "typebox";
 
 import { toSessionOrigin } from "./mappers/toSessionOrigin";
 
-import {
-  RefreshSessionInput,
-  RefreshSessionOutput,
-} from "@/identity/application/use-cases/refresh-session.types";
+import { RefreshSessionOutput } from "@/identity/application/use-cases/refresh-session.types";
 import { RefreshSessionUseCase } from "@/identity/application/use-cases/refresh-session.use-case";
 
-const inputSchema = v.object<Pick<RefreshSessionInput, "refreshToken">>({
-  refreshToken: v.string(),
+const inputSchema = Type.Object({
+  refreshToken: Type.String(),
 });
+
+type Input = Type.StaticDecode<typeof inputSchema>;
 
 export type RefreshSessionHandlerDeps = {
   refreshSession: RefreshSessionUseCase;
@@ -19,12 +18,17 @@ export type RefreshSessionHandlerDeps = {
 
 export class RefreshSessionHandler extends Handler<{
   deps: RefreshSessionHandlerDeps;
+  input: typeof inputSchema;
   output: RefreshSessionOutput;
 }> {
-  async handle(inbound: Inbound): Promise<RefreshSessionOutput> {
-    const input = inputSchema.probe(inbound.input);
+  readonly name = "identity.refresh_session";
+  readonly input = inputSchema;
+
+  async handle(
+    inbound: Inbound<undefined, Input>,
+  ): Promise<RefreshSessionOutput> {
     return this.deps.refreshSession.execute({
-      ...input,
+      ...inbound.input,
       ...toSessionOrigin(inbound),
     });
   }

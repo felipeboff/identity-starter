@@ -1,13 +1,14 @@
-import { v } from "@shared/application/validator";
 import { Handler, Inbound } from "@shared/presentation/handler";
+import Type from "typebox";
 
 import { Actor } from "@/identity/application/actor";
-import { UnlinkOAuthInput } from "@/identity/application/use-cases/unlink-oauth.types";
 import { UnlinkOAuthUseCase } from "@/identity/application/use-cases/unlink-oauth.use-case";
 
-const inputSchema = v.object<UnlinkOAuthInput>({
-  provider: v.string(),
+const inputSchema = Type.Object({
+  provider: Type.String(),
 });
+
+type Input = Type.StaticDecode<typeof inputSchema>;
 
 export type UnlinkOAuthHandlerDeps = {
   unlinkOAuth: UnlinkOAuthUseCase;
@@ -16,10 +17,13 @@ export type UnlinkOAuthHandlerDeps = {
 export class UnlinkOAuthHandler extends Handler<{
   deps: UnlinkOAuthHandlerDeps;
   actor: Actor;
+  input: typeof inputSchema;
   output: void;
 }> {
-  async handle(inbound: Inbound<Actor>): Promise<void> {
-    const input = inputSchema.probe(inbound.input);
-    await this.deps.unlinkOAuth.execute(input, inbound.actor);
+  readonly name = "identity.unlink_oauth";
+  readonly input = inputSchema;
+
+  async handle(inbound: Inbound<Actor, Input>): Promise<void> {
+    await this.deps.unlinkOAuth.execute(inbound.input, inbound.actor);
   }
 }

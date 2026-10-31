@@ -1,8 +1,10 @@
 import { AppError } from "../errors/app-error";
 import { SharedError } from "../errors/shared.error";
 
+export const OBJECT_ID_PATTERN = "^[0-9a-fA-F]{24}$";
+
 export class Id {
-  private readonly OBJECT_ID_REGEX = /^[0-9a-f]{24}$/;
+  private readonly OBJECT_ID_REGEX = new RegExp(OBJECT_ID_PATTERN);
 
   private constructor(private readonly state: string) {
     this.state = this.validate(state);

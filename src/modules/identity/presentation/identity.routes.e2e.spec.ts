@@ -1,5 +1,6 @@
 import { faker } from "@faker-js/faker";
 import { SharedError } from "@shared/domain/errors/shared.error";
+import { NO_INPUT } from "@shared/presentation/handler";
 import { HttpMethod } from "@shared/presentation/http/http-route";
 import { RateLimitMiddleware } from "@shared/presentation/rate-limit.middleware";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -8,7 +9,9 @@ import { AuthenticateMiddleware } from "./authenticate.middleware";
 import { CallOptions, createIdentityHttp } from "./testing/identity-http";
 
 import { seedAccount } from "@/identity/application/testing/identity-context";
+import { AcceptInvitationUseCase } from "@/identity/application/use-cases/accept-invitation.use-case";
 import { ChangePasswordUseCase } from "@/identity/application/use-cases/change-password.use-case";
+import { ConfirmEmailChangeUseCase } from "@/identity/application/use-cases/confirm-email-change.use-case";
 import { DeactivateAccountUseCase } from "@/identity/application/use-cases/deactivate-account.use-case";
 import { GetMeUseCase } from "@/identity/application/use-cases/get-me.use-case";
 import { InviteMemberUseCase } from "@/identity/application/use-cases/invite-member.use-case";
@@ -100,6 +103,8 @@ const PUBLIC_ROUTES: [HttpMethod, string][] = [
   ["POST", "/auth/email-change"],
 ];
 
+const OPERATION_NAME = /^[a-z][a-z0-9]*\.[a-z][a-z0-9_]*$/;
+
 const anyId = faker.database.mongodbObjectId();
 const notAnId = faker.string.alpha(5);
 const unknownValue = faker.string.alpha(12);
@@ -165,6 +170,60 @@ const INVALID_INPUTS: [HttpMethod, string, UseCaseClass, CallOptions][] = [
     "/members/:accountId/permissions",
     UpdateMemberPermissionsUseCase,
     { params: { accountId: anyId }, body: { permissions: [unknownValue] } },
+  ],
+  ["POST", "/invitations", InviteMemberUseCase, { body: {} }],
+  [
+    "DELETE",
+    "/invitations/:invitationId",
+    RevokeInvitationUseCase,
+    { params: { invitationId: notAnId } },
+  ],
+  ["POST", "/me/email", RequestEmailChangeUseCase, { body: {} }],
+  ["POST", "/auth/invitations/accept", AcceptInvitationUseCase, { body: {} }],
+  ["POST", "/auth/email-change", ConfirmEmailChangeUseCase, { body: {} }],
+];
+
+type Violation = { field: string; reason: string };
+
+const REFUSED_INPUTS: [HttpMethod, string, CallOptions, Violation[]][] = [
+  [
+    "POST",
+    "/auth/sign-up",
+    {
+      body: {
+        name: faker.person.fullName(),
+        email: faker.internet.email(),
+        password: faker.string.alphanumeric({ length: { min: 1, max: 11 } }),
+      },
+    },
+    [{ field: "password", reason: "minLength" }],
+  ],
+  [
+    "POST",
+    "/auth/sign-in",
+    { body: {} },
+    [
+      { field: "email", reason: "required" },
+      { field: "password", reason: "required" },
+    ],
+  ],
+  [
+    "POST",
+    "/auth/password-reset/request",
+    { body: { email: faker.lorem.word() } },
+    [{ field: "email", reason: "format" }],
+  ],
+  [
+    "PUT",
+    "/members/:accountId/role",
+    { params: { accountId: anyId }, body: { role: unknownValue } },
+    [{ field: "role", reason: "enum" }],
+  ],
+  [
+    "DELETE",
+    "/sessions/:sessionId",
+    { params: { sessionId: notAnId } },
+    [{ field: "sessionId", reason: "pattern" }],
   ],
 ];
 
@@ -296,6 +355,62 @@ describe("identity routes", () => {
         },
       });
       expect(execute).not.toHaveBeenCalled();
+    },
+  );
+
+  it("answers 401 before reading the input", async () => {
+    const http = createIdentityHttp();
+    const execute = spyOnUseCase(UpdateAccountNameUseCase);
+
+    const out = await http.call("PATCH", "/me", { body: {} });
+
+    expect(out.status).toBe(401);
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("names every handler as module.operation, once", () => {
+    const { routes } = createIdentityHttp();
+    const names = routes.map((route) => route.handler.name);
+
+    expect(names).toHaveLength(28);
+    expect(names.filter((name) => !OPERATION_NAME.test(name))).toStrictEqual(
+      [],
+    );
+    expect(new Set(names).size).toBe(names.length);
+  });
+
+  it("describes every input as a JSON object schema", () => {
+    const { routes } = createIdentityHttp();
+    const schemas = routes.map((route) => route.handler.input ?? NO_INPUT);
+
+    expect(schemas).toHaveLength(28);
+    for (const schema of schemas) {
+      const json: unknown = JSON.parse(JSON.stringify(schema));
+
+      expect(json).toEqual(schema);
+      expect(json).toMatchObject({ type: "object" });
+    }
+  });
+
+  it.each(REFUSED_INPUTS)(
+    "answers 400 with each field and the JSON Schema keyword that failed on %s %s",
+    async (method, path, options, violations) => {
+      const http = createIdentityHttp();
+      const { token } = await http.signIn();
+
+      const out = await http.call(method, path, { ...options, token });
+
+      expect(out).toStrictEqual({
+        status: 400,
+        headers: PROBLEM_HEADERS,
+        body: {
+          type: `tag:resolve-hub,2026:${SharedError.InputInvalid.code}`,
+          title: "Input invalid",
+          status: 400,
+          code: SharedError.InputInvalid.code,
+          data: { violations },
+        },
+      });
     },
   );
 });

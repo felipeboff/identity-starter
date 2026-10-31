@@ -1,15 +1,14 @@
-import { v } from "@shared/application/validator";
 import { Handler, Inbound } from "@shared/presentation/handler";
+import Type from "typebox";
 
-import {
-  ConfirmEmailChangeInput,
-  ConfirmEmailChangeOutput,
-} from "@/identity/application/use-cases/confirm-email-change.types";
+import { ConfirmEmailChangeOutput } from "@/identity/application/use-cases/confirm-email-change.types";
 import { ConfirmEmailChangeUseCase } from "@/identity/application/use-cases/confirm-email-change.use-case";
 
-const inputSchema = v.object<ConfirmEmailChangeInput>({
-  token: v.string({ minLength: 1 }),
+const inputSchema = Type.Object({
+  token: Type.String({ minLength: 1 }),
 });
+
+type Input = Type.StaticDecode<typeof inputSchema>;
 
 export type ConfirmEmailChangeHandlerDeps = {
   confirmEmailChange: ConfirmEmailChangeUseCase;
@@ -17,10 +16,15 @@ export type ConfirmEmailChangeHandlerDeps = {
 
 export class ConfirmEmailChangeHandler extends Handler<{
   deps: ConfirmEmailChangeHandlerDeps;
+  input: typeof inputSchema;
   output: ConfirmEmailChangeOutput;
 }> {
-  async handle(inbound: Inbound): Promise<ConfirmEmailChangeOutput> {
-    const input = inputSchema.probe(inbound.input);
-    return this.deps.confirmEmailChange.execute(input);
+  readonly name = "identity.confirm_email_change";
+  readonly input = inputSchema;
+
+  async handle(
+    inbound: Inbound<undefined, Input>,
+  ): Promise<ConfirmEmailChangeOutput> {
+    return this.deps.confirmEmailChange.execute(inbound.input);
   }
 }

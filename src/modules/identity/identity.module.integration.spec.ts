@@ -2,6 +2,7 @@ import { faker } from "@faker-js/faker";
 import { SharedError } from "@shared/domain/errors/shared.error";
 import { RedisConnection } from "@shared/infrastructure/redis/redis-connection";
 import { Dispatcher } from "@shared/presentation/dispatcher";
+import { SchemaParser } from "@shared/presentation/schema-parser";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { FakeLogContext } from "@shared/testing/fake-log-context";
 import { FakeLogger } from "@shared/testing/fake-logger";
@@ -75,7 +76,7 @@ const create = async (settings = buildSettings()) => {
     logger,
     logContext: new FakeLogContext(),
   });
-  const dispatcher = new Dispatcher();
+  const dispatcher = new Dispatcher({ parser: new SchemaParser() });
 
   const call = (
     path: string,

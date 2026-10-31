@@ -13,6 +13,8 @@ export class ListSessionsHandler extends Handler<{
   actor: Actor;
   output: ListSessionsOutput;
 }> {
+  readonly name = "identity.list_sessions";
+
   async handle(inbound: Inbound<Actor>): Promise<ListSessionsOutput> {
     return this.deps.listSessions.execute(inbound.actor);
   }

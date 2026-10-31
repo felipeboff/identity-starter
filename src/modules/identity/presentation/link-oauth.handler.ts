@@ -1,20 +1,19 @@
-import { v } from "@shared/application/validator";
 import { Handler, Inbound } from "@shared/presentation/handler";
+import Type from "typebox";
 
-import { CODE_VERIFIER } from "./code-verifier";
+import { codeVerifierSchema } from "./code-verifier";
 
 import { Actor } from "@/identity/application/actor";
-import {
-  LinkOAuthInput,
-  LinkOAuthOutput,
-} from "@/identity/application/use-cases/link-oauth.types";
+import { LinkOAuthOutput } from "@/identity/application/use-cases/link-oauth.types";
 import { LinkOAuthUseCase } from "@/identity/application/use-cases/link-oauth.use-case";
 
-const inputSchema = v.object<LinkOAuthInput>({
-  provider: v.string(),
-  code: v.string(),
-  codeVerifier: v.string(CODE_VERIFIER),
+const inputSchema = Type.Object({
+  provider: Type.String(),
+  code: Type.String(),
+  codeVerifier: codeVerifierSchema,
 });
+
+type Input = Type.StaticDecode<typeof inputSchema>;
 
 export type LinkOAuthHandlerDeps = {
   linkOAuth: LinkOAuthUseCase;
@@ -23,10 +22,13 @@ export type LinkOAuthHandlerDeps = {
 export class LinkOAuthHandler extends Handler<{
   deps: LinkOAuthHandlerDeps;
   actor: Actor;
+  input: typeof inputSchema;
   output: LinkOAuthOutput;
 }> {
-  async handle(inbound: Inbound<Actor>): Promise<LinkOAuthOutput> {
-    const input = inputSchema.probe(inbound.input);
-    return this.deps.linkOAuth.execute(input, inbound.actor);
+  readonly name = "identity.link_oauth";
+  readonly input = inputSchema;
+
+  async handle(inbound: Inbound<Actor, Input>): Promise<LinkOAuthOutput> {
+    return this.deps.linkOAuth.execute(inbound.input, inbound.actor);
   }
 }
