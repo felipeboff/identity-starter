@@ -72,6 +72,10 @@ export default defineConfig(
     ],
     rules: {
       "no-restricted-imports": ["error", { patterns: [NO_LOCAL_EXTENSION] }],
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_" },
+      ],
       "import-x/order": [
         "error",
         {

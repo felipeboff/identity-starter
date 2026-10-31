@@ -75,7 +75,6 @@ export class ExpressAdapter {
 
   errorHandler(): ErrorRequestHandler {
     // Express treats a handler as an error handler only when it declares four parameters.
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     return (error: unknown, _req, res, _next) => {
       this.answerError(
         res,
