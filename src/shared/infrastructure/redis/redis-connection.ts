@@ -8,6 +8,7 @@ export type RedisConnectionOptions = Readonly<{
   url: string;
   logger: Logger;
   connectTimeoutMs?: number;
+  commandTimeoutMs?: number;
 }>;
 
 export class RedisConnection {
@@ -18,6 +19,7 @@ export class RedisConnection {
     this.client = new Redis(options.url, {
       lazyConnect: true,
       connectTimeout: options.connectTimeoutMs ?? 10_000,
+      commandTimeout: options.commandTimeoutMs ?? 500,
       enableOfflineQueue: false,
       maxRetriesPerRequest: 1,
       retryStrategy: (attempt) =>

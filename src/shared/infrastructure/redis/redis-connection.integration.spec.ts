@@ -1,6 +1,7 @@
 import { once } from "node:events";
 import { type AddressInfo, createServer } from "node:net";
 
+import { faker } from "@faker-js/faker";
 import { SharedLogEvent } from "@shared/application/logging/shared.log-event";
 import { LogLevel } from "@shared/application/ports/logger";
 import { SharedError } from "@shared/domain/errors/shared.error";
@@ -52,6 +53,24 @@ describe("RedisConnection", () => {
     await once(connection.client, "ready");
 
     expect(await connection.client.ping()).toBe("PONG");
+    await admin.quit();
+    await connection.close();
+  });
+
+  it("fails a command Redis holds past commandTimeoutMs", async () => {
+    const connection = new RedisConnection({
+      url: redis.url(),
+      logger: new FakeLogger(),
+      commandTimeoutMs: faker.number.int({ min: 20, max: 50 }),
+    });
+    await connection.connect();
+    const admin = new Redis(redis.url());
+    await admin.call("CLIENT", "PAUSE", "300", "ALL");
+
+    await expect(
+      connection.client.get(faker.string.alphanumeric(16)),
+    ).rejects.toThrow("Command timed out");
+
     await admin.quit();
     await connection.close();
   });
