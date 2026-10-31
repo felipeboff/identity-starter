@@ -1,13 +1,20 @@
 {
-  "cursor.cpp.enablePartialAccepts": false,
   "editor.inlineSuggest.enabled": false,
   "json.schemaDownload.enable": true,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "editor.formatOnSave": true,
   "eslint.validate": ["javascript", "typescript"],
   "editor.codeActionsOnSave": {
+    "source.removeUnusedImports": "explicit",
     "source.fixAll.eslint": "explicit",
     "source.organizeImports": "never"
   },
-  "cSpell.words": ["flushall", "healthcheck", "MAILERSEND", "pttl", "rediss"]
+  "cSpell.words": [
+    "flushall",
+    "healthcheck",
+    "MAILERSEND",
+    "pttl",
+    "rediss",
+    "typebox"
+  ]
 }
