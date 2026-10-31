@@ -33,4 +33,8 @@ export class MongoTransactionRunner implements TransactionRunner {
     if (attempt) attempt.committed.push(callback);
     else callback();
   }
+
+  isRunning(): boolean {
+    return this.attempts.getStore() !== undefined;
+  }
 }

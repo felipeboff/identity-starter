@@ -143,4 +143,16 @@ describe("MongoTransactionRunner", () => {
 
     expect(callback).toHaveBeenCalledOnce();
   });
+
+  it("tells whether a run is in progress", async () => {
+    let inside: boolean | undefined;
+
+    await transactions.run(() => {
+      inside = transactions.isRunning();
+      return Promise.resolve();
+    });
+
+    expect(inside).toBe(true);
+    expect(transactions.isRunning()).toBe(false);
+  });
 });
