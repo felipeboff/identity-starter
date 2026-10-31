@@ -5,6 +5,7 @@ import type { LogContext } from "@shared/application/ports/log-context";
 import type { Logger } from "@shared/application/ports/logger";
 import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
 import { RateLimiter } from "@shared/application/services/rate-limiter";
+import { FailOpenCache } from "@shared/infrastructure/cache/fail-open-cache";
 import { FetchHttpClient } from "@shared/infrastructure/http/fetch-http-client";
 import { MongoTransactionRunner } from "@shared/infrastructure/mongo/mongo-transaction-runner";
 import { ObjectIdGenerator } from "@shared/infrastructure/mongo/object-id-generator";
@@ -77,6 +78,8 @@ import {
   type MailSender,
   MailerSendIdentityMailer,
 } from "./infrastructure/mailersend-identity-mailer";
+import { CachedAccountRepository } from "./infrastructure/persistence/cached-account.repository";
+import { CachedMembershipRepository } from "./infrastructure/persistence/cached-membership.repository";
 import { IdentityModels } from "./infrastructure/persistence/identity-models";
 import { MongoAccountRepository } from "./infrastructure/persistence/mongo-account.repository";
 import { MongoCredentialRepository } from "./infrastructure/persistence/mongo-credential.repository";
@@ -91,6 +94,8 @@ import {
   createIdentityPublicRoutes,
   createIdentityRoutes,
 } from "./presentation/identity.routes";
+
+const REPOSITORY_CACHE_TTL_MS = 30 * 1000;
 
 export type IdentityModuleDeps = {
   accounts: AccountRepository;
@@ -217,11 +222,23 @@ export const createIdentityModule = async (
     timeoutMs: settings.externalCallTimeoutMs,
   });
   const composer = new IdentityEmailComposer({ appUrl: settings.appUrl });
+  const cache = new RedisCache({ client: runtime.redis });
+  const repositoryCache = new FailOpenCache({ cache, logger: runtime.logger });
 
   return assembleIdentityModule({
-    accounts: new MongoAccountRepository(models, transactions),
+    accounts: new CachedAccountRepository({
+      inner: new MongoAccountRepository(models, transactions),
+      cache: repositoryCache,
+      transactions,
+      ttlMs: REPOSITORY_CACHE_TTL_MS,
+    }),
     credentials: new MongoCredentialRepository(models, transactions),
-    memberships: new MongoMembershipRepository(models, transactions),
+    memberships: new CachedMembershipRepository({
+      inner: new MongoMembershipRepository(models, transactions),
+      cache: repositoryCache,
+      transactions,
+      ttlMs: REPOSITORY_CACHE_TTL_MS,
+    }),
     sessions: new MongoSessionRepository(models, transactions),
     passwordResets: new MongoPasswordResetRepository(models, transactions),
     emailVerifications: new MongoEmailVerificationRepository(
@@ -255,7 +272,7 @@ export const createIdentityModule = async (
     clock,
     ids: new ObjectIdGenerator(),
 
-    cache: new RedisCache({ client: runtime.redis }),
+    cache,
 
     logContext: runtime.logContext,
     logger: runtime.logger,
