@@ -61,3 +61,5 @@ export const passwordResetSchema = new Schema<PasswordResetDocument>(
     versionKey: false,
   },
 );
+
+passwordResetSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });

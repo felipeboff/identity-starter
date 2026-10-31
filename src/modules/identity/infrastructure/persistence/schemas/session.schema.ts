@@ -77,3 +77,4 @@ export const sessionSchema = new Schema<SessionDocument>(
 );
 
 sessionSchema.index({ accountId: 1, revokedAt: 1 });
+sessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });

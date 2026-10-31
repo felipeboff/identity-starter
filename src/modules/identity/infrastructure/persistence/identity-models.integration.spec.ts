@@ -135,6 +135,20 @@ describe("IdentityModels", () => {
     );
   });
 
+  it.each<ModelKey>(["sessions", "passwordResets", "emailVerifications"])(
+    "removes %s once their expiresAt passes",
+    async (key) => {
+      const indexes = await models[key].collection.indexes();
+
+      expect(indexes).toContainEqual(
+        expect.objectContaining({
+          key: { expiresAt: 1 },
+          expireAfterSeconds: 0,
+        }),
+      );
+    },
+  );
+
   it.each<[string, () => Promise<unknown>]>([
     [
       "an account with an email already taken",

@@ -56,3 +56,5 @@ export const emailVerificationSchema = new Schema<EmailVerificationDocument>(
     versionKey: false,
   },
 );
+
+emailVerificationSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
