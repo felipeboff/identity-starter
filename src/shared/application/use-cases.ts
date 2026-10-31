@@ -1,3 +1,6 @@
+import { AppError } from "@shared/domain/errors/app-error";
+import { SharedError } from "@shared/domain/errors/shared.error";
+
 /**
  * Mini contract of a use case:
  * - `input`: what to do (omit when there is nothing to pass)
@@ -27,7 +30,43 @@ type ExecuteArgs<S> = S extends { input: infer I }
     ? [actor: A]
     : [];
 
+type ResolvePermissions<S> = S extends {
+  actor: { permissions: readonly (infer P)[] };
+}
+  ? readonly P[]
+  : never;
+
+type PermissionHolder = Readonly<{ permissions?: readonly string[] }>;
+
 export abstract class UseCase<S extends UseCaseShape = Record<string, never>> {
-  constructor(protected readonly deps: ResolveDeps<S>) {}
+  /** Every code the actor must hold; checked before `execute` runs. */
+  readonly permissions?: ResolvePermissions<S>;
+  /** At least one code the actor must hold; checked after `permissions`. */
+  readonly anyPermissions?: ResolvePermissions<S>;
+
+  constructor(protected readonly deps: ResolveDeps<S>) {
+    const prototype = Object.getPrototypeOf(this) as UseCase<S>;
+    this.execute = async (...args: ExecuteArgs<S>) => {
+      this.ensurePermissions(args.at(-1) as PermissionHolder | undefined);
+      return await prototype.execute.apply(this, args);
+    };
+  }
+
   abstract execute(...args: ExecuteArgs<S>): Promise<ResolveOutput<S>>;
+
+  private ensurePermissions(actor: PermissionHolder | undefined): void {
+    const holds = (permission: string) =>
+      actor?.permissions?.includes(permission) === true;
+
+    const required = (this.permissions ?? []) as readonly string[];
+    const missing = required.find((permission) => !holds(permission));
+    if (missing !== undefined) {
+      throw new AppError(SharedError.PermissionMissing, { required: missing });
+    }
+
+    const anyOf = (this.anyPermissions ?? []) as readonly string[];
+    if (anyOf.length > 0 && !anyOf.some(holds)) {
+      throw new AppError(SharedError.PermissionMissing, { anyOf });
+    }
+  }
 }

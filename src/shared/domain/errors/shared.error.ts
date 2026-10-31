@@ -36,6 +36,10 @@ export const SharedError = {
     "conflict",
   ),
 
+  PermissionMissing: defineError<
+    { required: string } | { anyOf: readonly string[] }
+  >("shared.permission_missing", "forbidden"),
+
   RouteNotFound: defineError<{ method: string; path: string }>(
     "shared.route_not_found",
     "not_found",
