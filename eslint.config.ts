@@ -17,6 +17,36 @@ const NO_TEST_HELPERS = {
     "Production code must not import fakes or test helpers from a testing/ folder.",
 };
 
+const NO_LIBRARY_IN_DOMAIN_OR_APPLICATION = {
+  regex: "^(?!\\.|@/|@shared/)",
+  message:
+    "Domain and application import no library: depend on a port, or move the code to presentation or infrastructure.",
+};
+
+const NO_OUTER_LAYER_IN_DOMAIN = {
+  regex: "(^|/)(application|presentation|infrastructure)(/|$)",
+  message:
+    "Domain imports only domain code: the other layers depend on it, never the other way.",
+};
+
+const NO_OUTER_LAYER_IN_APPLICATION = {
+  regex: "(^|/)(presentation|infrastructure)(/|$)",
+  message:
+    "Application never imports presentation or infrastructure: depend on a port instead.",
+};
+
+const ONLY_TYPEBOX_IN_PRESENTATION = {
+  regex: "^(?!\\.|@/|@shared/|typebox(/|$))",
+  message:
+    "Presentation is transport-neutral (ADR-001): typebox is its only library; transports live in infrastructure.",
+};
+
+const NO_INFRASTRUCTURE_IN_PRESENTATION = {
+  regex: "(^|/)infrastructure(/|$)",
+  message:
+    "Presentation never imports infrastructure: infrastructure adapters drive presentation, not the other way.",
+};
+
 const NO_REAL_IO_IN_UNIT_SPECS = {
   regex:
     "^(supertest|express|mongodb-memory-server|redis-memory-server|ioredis|node:http|node:net)$|(^|/)testing/(memory-mongo|memory-redis|[\\w-]+-http)$",
@@ -130,6 +160,57 @@ export default defineConfig(
             'CallExpression[callee.object.name="Promise"][callee.property.name="reject"] > NewExpression[callee.name!="AppError"]',
           message:
             "Reject with an AppError with a definition from defineError instead.",
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/**/domain/**/*.ts"],
+    ignores: ["**/*.spec.ts", "**/testing/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            NO_LOCAL_EXTENSION,
+            NO_TEST_HELPERS,
+            NO_LIBRARY_IN_DOMAIN_OR_APPLICATION,
+            NO_OUTER_LAYER_IN_DOMAIN,
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/**/application/**/*.ts"],
+    ignores: ["**/*.spec.ts", "**/testing/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            NO_LOCAL_EXTENSION,
+            NO_TEST_HELPERS,
+            NO_LIBRARY_IN_DOMAIN_OR_APPLICATION,
+            NO_OUTER_LAYER_IN_APPLICATION,
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/**/presentation/**/*.ts"],
+    ignores: ["**/*.spec.ts", "**/testing/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            NO_LOCAL_EXTENSION,
+            NO_TEST_HELPERS,
+            ONLY_TYPEBOX_IN_PRESENTATION,
+            NO_INFRASTRUCTURE_IN_PRESENTATION,
+          ],
         },
       ],
     },
