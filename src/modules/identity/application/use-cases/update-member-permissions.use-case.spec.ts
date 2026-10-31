@@ -1,4 +1,5 @@
 import { faker } from "@faker-js/faker";
+import { SharedError } from "@shared/domain/errors/shared.error";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -20,57 +21,85 @@ describe("UpdateMemberPermissionsUseCase", () => {
   let ctx: IdentityContext;
   let useCase: UpdateMemberPermissionsUseCase;
 
+  const seedAdmin = () =>
+    seedAccount(ctx, {
+      permissions: [MembershipPermission.MEMBER_PERMISSIONS_UPDATE],
+    });
+
   beforeEach(() => {
     ctx = createIdentityContext();
     useCase = new UpdateMemberPermissionsUseCase(ctx);
   });
 
-  it("lets an admin replace another member's permissions", async () => {
-    const admin = await seedAccount(ctx, { role: MembershipRole.ADMIN });
+  it("lets a holder of member.permissions.update replace another member's permissions", async () => {
+    const admin = await seedAdmin();
     const ana = await seedAccount(ctx);
     ctx.clock.advance(60_000);
 
     const output = await useCase.execute(
       {
         accountId: ana.accountId,
-        permissions: [MembershipPermission.READ, MembershipPermission.WRITE],
+        permissions: [
+          MembershipPermission.INVITATION_READ,
+          MembershipPermission.INVITATION_REVOKE,
+        ],
       },
       admin.actor,
     );
 
     expect(output.membership).toMatchObject({
       accountId: ana.accountId,
-      permissions: [MembershipPermission.READ, MembershipPermission.WRITE],
+      permissions: [
+        MembershipPermission.INVITATION_READ,
+        MembershipPermission.INVITATION_REVOKE,
+      ],
       updatedAt: ctx.clock.now(),
     });
     const membership = await ctx.memberships.findByAccountId(ana.accountId);
     expect(membership?.permissions).toEqual([
-      MembershipPermission.READ,
-      MembershipPermission.WRITE,
+      MembershipPermission.INVITATION_READ,
+      MembershipPermission.INVITATION_REVOKE,
     ]);
   });
 
-  it("lets an admin update their own permissions", async () => {
-    const admin = await seedAccount(ctx, { role: MembershipRole.ADMIN });
+  it("throws Forbidden when the actor changes their own permissions", async () => {
+    const admin = await seedAdmin();
 
-    const output = await useCase.execute(
-      { accountId: admin.accountId, permissions: [MembershipPermission.ADMIN] },
-      admin.actor,
+    await expectAppError(
+      useCase.execute(
+        { accountId: admin.accountId, permissions: [] },
+        admin.actor,
+      ),
+      IdentityError.Forbidden,
+      { actorAccountId: admin.accountId },
     );
 
-    expect(output.membership.permissions).toEqual([MembershipPermission.ADMIN]);
+    const membership = await ctx.memberships.findByAccountId(admin.accountId);
+    expect(membership?.permissions).toEqual([
+      MembershipPermission.MEMBER_PERMISSIONS_UPDATE,
+    ]);
   });
 
-  it("throws Forbidden when the actor is not an admin", async () => {
+  it("refuses permission_missing without member.permissions.update, even with the admin role", async () => {
+    const bruno = await seedAccount(ctx, {
+      role: MembershipRole.ADMIN,
+      permissions: Object.values(MembershipPermission).filter(
+        (permission) =>
+          permission !== MembershipPermission.MEMBER_PERMISSIONS_UPDATE,
+      ),
+    });
     const ana = await seedAccount(ctx);
 
     await expectAppError(
       useCase.execute(
-        { accountId: ana.accountId, permissions: [MembershipPermission.ADMIN] },
-        ana.actor,
+        {
+          accountId: ana.accountId,
+          permissions: [MembershipPermission.MEMBER_PERMISSIONS_UPDATE],
+        },
+        bruno.actor,
       ),
-      IdentityError.Forbidden,
-      { actorAccountId: ana.accountId },
+      SharedError.PermissionMissing,
+      { required: MembershipPermission.MEMBER_PERMISSIONS_UPDATE },
     );
 
     const membership = await ctx.memberships.findByAccountId(ana.accountId);
@@ -78,7 +107,7 @@ describe("UpdateMemberPermissionsUseCase", () => {
   });
 
   it("throws MembershipNotFound when the member does not exist", async () => {
-    const admin = await seedAccount(ctx, { role: MembershipRole.ADMIN });
+    const admin = await seedAdmin();
     const missingId = faker.database.mongodbObjectId();
 
     await expectAppError(
@@ -89,7 +118,7 @@ describe("UpdateMemberPermissionsUseCase", () => {
   });
 
   it("throws InvalidMembershipPermissions when a permission is unknown", async () => {
-    const admin = await seedAccount(ctx, { role: MembershipRole.ADMIN });
+    const admin = await seedAdmin();
     const ana = await seedAccount(ctx);
     const permission = faker.string.alpha(12);
 

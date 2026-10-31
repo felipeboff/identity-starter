@@ -1,4 +1,5 @@
 import { faker } from "@faker-js/faker";
+import { SharedError } from "@shared/domain/errors/shared.error";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -12,7 +13,10 @@ import { InviteMemberUseCase } from "./invite-member.use-case";
 import { RevokeInvitationUseCase } from "./revoke-invitation.use-case";
 
 import { IdentityError } from "@/identity/domain/errors/identity.error";
-import { MembershipRole } from "@/identity/domain/membership.entity";
+import {
+  MembershipPermission,
+  MembershipRole,
+} from "@/identity/domain/membership.entity";
 
 describe("RevokeInvitationUseCase", () => {
   let ctx: IdentityContext;
@@ -24,7 +28,12 @@ describe("RevokeInvitationUseCase", () => {
   });
 
   const inviteAs = async () => {
-    const admin = await seedAccount(ctx, { role: MembershipRole.ADMIN });
+    const admin = await seedAccount(ctx, {
+      permissions: [
+        MembershipPermission.INVITATION_CREATE,
+        MembershipPermission.INVITATION_REVOKE,
+      ],
+    });
     const { invitation } = await new InviteMemberUseCase(ctx).execute(
       {
         email: faker.internet.email().toLowerCase(),
@@ -57,14 +66,22 @@ describe("RevokeInvitationUseCase", () => {
     );
   });
 
-  it("throws Forbidden for an actor who cannot invite", async () => {
+  it("refuses permission_missing without invitation.revoke, even with the admin role", async () => {
     const { invitationId } = await inviteAs();
-    const ana = await seedAccount(ctx);
+    const ana = await seedAccount(ctx, {
+      role: MembershipRole.ADMIN,
+      permissions: Object.values(MembershipPermission).filter(
+        (permission) => permission !== MembershipPermission.INVITATION_REVOKE,
+      ),
+    });
 
     await expectAppError(
       useCase.execute({ invitationId }, ana.actor),
-      IdentityError.Forbidden,
-      { actorAccountId: ana.accountId },
+      SharedError.PermissionMissing,
+      { required: MembershipPermission.INVITATION_REVOKE },
+    );
+    expect((await ctx.invitations.findById(invitationId))?.revokedAt).toBe(
+      null,
     );
   });
 });

@@ -11,20 +11,21 @@ import {
 } from "./reactivate-account.types";
 
 import { IdentityError } from "@/identity/domain/errors/identity.error";
+import { MembershipPermission } from "@/identity/domain/membership.entity";
 
-/** Admin-only: a deactivated account cannot sign in to reactivate itself. */
+/** A deactivated account cannot sign in to reactivate itself. */
 export class ReactivateAccountUseCase extends UseCase<{
   input: ReactivateAccountInput;
   output: ReactivateAccountOutput;
   deps: ReactivateAccountDeps;
   actor: Actor;
 }> {
+  readonly permissions = [MembershipPermission.ACCOUNT_REACTIVATE];
+
   async execute(
     input: ReactivateAccountInput,
-    actor: Actor,
+    _actor: Actor,
   ): Promise<ReactivateAccountOutput> {
-    this.deps.accessPolicy.ensureAdmin(actor);
-
     const account = await this.deps.accounts.findById(input.accountId);
     if (!account) {
       throw new AppError(IdentityError.AccountNotFound, {

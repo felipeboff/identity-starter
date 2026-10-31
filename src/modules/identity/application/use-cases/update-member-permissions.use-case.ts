@@ -1,4 +1,5 @@
 import { UseCase } from "@shared/application/use-cases";
+import { AppError } from "@shared/domain/errors/app-error";
 
 import { Actor } from "../actor";
 import { toOutputMembership } from "../mappers/toOutputMembership";
@@ -9,17 +10,27 @@ import {
   UpdateMemberPermissionsOutput,
 } from "./update-member-permissions.types";
 
+import { IdentityError } from "@/identity/domain/errors/identity.error";
+import { MembershipPermission } from "@/identity/domain/membership.entity";
+
+/** Nobody changes their own permissions, so nobody locks themselves out. */
 export class UpdateMemberPermissionsUseCase extends UseCase<{
   input: UpdateMemberPermissionsInput;
   output: UpdateMemberPermissionsOutput;
   deps: UpdateMemberPermissionsDeps;
   actor: Actor;
 }> {
+  readonly permissions = [MembershipPermission.MEMBER_PERMISSIONS_UPDATE];
+
   async execute(
     input: UpdateMemberPermissionsInput,
     actor: Actor,
   ): Promise<UpdateMemberPermissionsOutput> {
-    this.deps.accessPolicy.ensureAdmin(actor);
+    if (actor.accountId === input.accountId) {
+      throw new AppError(IdentityError.Forbidden, {
+        actorAccountId: actor.accountId,
+      });
+    }
 
     const membership = await this.deps.membershipResolver.resolveActive(
       input.accountId,

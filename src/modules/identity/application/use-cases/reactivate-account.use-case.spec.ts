@@ -1,4 +1,5 @@
 import { faker } from "@faker-js/faker";
+import { SharedError } from "@shared/domain/errors/shared.error";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -11,7 +12,10 @@ import {
 import { ReactivateAccountUseCase } from "./reactivate-account.use-case";
 
 import { IdentityError } from "@/identity/domain/errors/identity.error";
-import { MembershipRole } from "@/identity/domain/membership.entity";
+import {
+  MembershipPermission,
+  MembershipRole,
+} from "@/identity/domain/membership.entity";
 
 describe("ReactivateAccountUseCase", () => {
   let ctx: IdentityContext;
@@ -22,8 +26,11 @@ describe("ReactivateAccountUseCase", () => {
     useCase = new ReactivateAccountUseCase(ctx);
   });
 
-  it("lets an admin reactivate a deactivated account", async () => {
-    const admin = await seedAccount(ctx, { role: MembershipRole.ADMIN });
+  it("reactivates for a user-role member holding account.reactivate", async () => {
+    const admin = await seedAccount(ctx, {
+      role: MembershipRole.USER,
+      permissions: [MembershipPermission.ACCOUNT_REACTIVATE],
+    });
     const ana = await seedAccount(ctx);
     ana.account.markAsDeleted(ctx.clock.now());
     await ctx.accounts.save(ana.account);
@@ -43,15 +50,20 @@ describe("ReactivateAccountUseCase", () => {
     expect(account?.isDeleted()).toBe(false);
   });
 
-  it("throws Forbidden when a non-admin tries, even on their own account", async () => {
-    const ana = await seedAccount(ctx);
+  it("refuses permission_missing without account.reactivate, even with the admin role", async () => {
+    const ana = await seedAccount(ctx, {
+      role: MembershipRole.ADMIN,
+      permissions: Object.values(MembershipPermission).filter(
+        (permission) => permission !== MembershipPermission.ACCOUNT_REACTIVATE,
+      ),
+    });
     ana.account.markAsDeleted(ctx.clock.now());
     await ctx.accounts.save(ana.account);
 
     await expectAppError(
       useCase.execute({ accountId: ana.accountId }, ana.actor),
-      IdentityError.Forbidden,
-      { actorAccountId: ana.accountId },
+      SharedError.PermissionMissing,
+      { required: MembershipPermission.ACCOUNT_REACTIVATE },
     );
 
     const account = await ctx.accounts.findById(ana.accountId);
@@ -59,7 +71,9 @@ describe("ReactivateAccountUseCase", () => {
   });
 
   it("throws AccountNotFound when the account does not exist", async () => {
-    const admin = await seedAccount(ctx, { role: MembershipRole.ADMIN });
+    const admin = await seedAccount(ctx, {
+      permissions: [MembershipPermission.ACCOUNT_REACTIVATE],
+    });
     const missingId = faker.database.mongodbObjectId();
 
     await expectAppError(

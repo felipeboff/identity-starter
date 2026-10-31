@@ -61,9 +61,9 @@ Contrato para o front em [docs/auth-front-end-contract.md](docs/auth-front-end-c
 - [x] **E-mail de verificação no sign-up:** o sign-up envia o link (`EmailVerificationIssuer`,
       compartilhado com `POST /me/email-verification`); se o envio falhar, o cadastro segue e
       loga `identity.verification_email_not_sent`
-- [x] **Convites:** quem tem papel `admin` ou a permissão `invite` convida (`POST /invitations`),
-      lista (`GET /invitations`) e revoga (`DELETE /invitations/:invitationId`); sem `admin`, só
-      dá o papel `user` e permissões que já tem. O convidado aceita em
+- [x] **Convites:** `invitation.create` convida (`POST /invitations`), `invitation.read` lista
+      (`GET /invitations`) e `invitation.revoke` revoga (`DELETE /invitations/:invitationId`);
+      quem convida só dá permissões que já tem (o papel é só um rótulo). O convidado aceita em
       `POST /auth/invitations/accept` com nome e senha, e a conta nasce verificada com a
       membership do convite. Convite vale 7 dias e um novo substitui o pendente
 - [x] **Trocar e-mail:** `POST /me/email` com a senha atual manda um link de 1 hora para o e-mail

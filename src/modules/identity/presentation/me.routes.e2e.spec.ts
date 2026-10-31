@@ -207,7 +207,10 @@ describe("identity protected routes", () => {
 
   it("deactivates an account with 204", async () => {
     const http = createIdentityHttp();
-    const admin = await http.signIn({ role: MembershipRole.ADMIN });
+    const admin = await http.signIn({
+      role: MembershipRole.USER,
+      permissions: [MembershipPermission.ACCOUNT_DEACTIVATE],
+    });
     const bruno = await seedAccount(http.ctx);
 
     const out = await http.call("POST", "/accounts/:accountId/deactivate", {
@@ -222,7 +225,10 @@ describe("identity protected routes", () => {
 
   it("reactivates an account with 200", async () => {
     const http = createIdentityHttp();
-    const admin = await http.signIn({ role: MembershipRole.ADMIN });
+    const admin = await http.signIn({
+      role: MembershipRole.USER,
+      permissions: [MembershipPermission.ACCOUNT_REACTIVATE],
+    });
     const bruno = await seedAccount(http.ctx);
     bruno.account.markAsDeleted(http.ctx.clock.now());
     await http.ctx.accounts.save(bruno.account);
@@ -243,7 +249,10 @@ describe("identity protected routes", () => {
 
   it("changes a member role with 200", async () => {
     const http = createIdentityHttp();
-    const admin = await http.signIn({ role: MembershipRole.ADMIN });
+    const admin = await http.signIn({
+      role: MembershipRole.USER,
+      permissions: [MembershipPermission.MEMBER_ROLE_UPDATE],
+    });
     const bruno = await seedAccount(http.ctx);
 
     const out = await http.call("PUT", "/members/:accountId/role", {
@@ -263,9 +272,15 @@ describe("identity protected routes", () => {
 
   it("changes member permissions with 200", async () => {
     const http = createIdentityHttp();
-    const admin = await http.signIn({ role: MembershipRole.ADMIN });
+    const admin = await http.signIn({
+      role: MembershipRole.USER,
+      permissions: [MembershipPermission.MEMBER_PERMISSIONS_UPDATE],
+    });
     const bruno = await seedAccount(http.ctx);
-    const permissions = [MembershipPermission.READ, MembershipPermission.WRITE];
+    const permissions = [
+      MembershipPermission.INVITATION_READ,
+      MembershipPermission.INVITATION_REVOKE,
+    ];
 
     const out = await http.call("PUT", "/members/:accountId/permissions", {
       token: admin.token,

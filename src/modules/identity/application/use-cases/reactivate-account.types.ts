@@ -1,6 +1,5 @@
 import { Clock } from "@shared/application/ports/clock";
 
-import { AccessPolicy } from "../policies/access.policy";
 import { AccountRepository } from "../ports/account.repository";
 
 import { AccountSnapshot } from "@/identity/domain/account.entity";
@@ -16,6 +15,4 @@ export type ReactivateAccountOutput = {
 export type ReactivateAccountDeps = {
   accounts: AccountRepository;
   clock: Clock;
-
-  accessPolicy: AccessPolicy;
 };

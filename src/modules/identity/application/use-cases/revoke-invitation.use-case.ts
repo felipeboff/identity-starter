@@ -9,15 +9,16 @@ import {
 } from "./revoke-invitation.types";
 
 import { IdentityError } from "@/identity/domain/errors/identity.error";
+import { MembershipPermission } from "@/identity/domain/membership.entity";
 
 export class RevokeInvitationUseCase extends UseCase<{
   input: RevokeInvitationInput;
   deps: RevokeInvitationDeps;
   actor: Actor;
 }> {
-  async execute(input: RevokeInvitationInput, actor: Actor): Promise<void> {
-    this.deps.accessPolicy.ensureCanInvite(actor);
+  readonly permissions = [MembershipPermission.INVITATION_REVOKE];
 
+  async execute(input: RevokeInvitationInput, _actor: Actor): Promise<void> {
     const invitation = await this.deps.invitations.findById(input.invitationId);
     if (!invitation) {
       throw new AppError(IdentityError.InvitationNotFound, {

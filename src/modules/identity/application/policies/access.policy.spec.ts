@@ -20,103 +20,74 @@ const makeActor = (overrides: Partial<Actor> = {}): Actor => ({
   ...overrides,
 });
 
+const required = MembershipPermission.ACCOUNT_DEACTIVATE;
+
 describe("AccessPolicy", () => {
   const policy = new AccessPolicy();
 
-  describe("ensureAdmin", () => {
-    it("passes for an admin", () => {
-      const admin = makeActor({ role: MembershipRole.ADMIN });
-
-      expect(() => policy.ensureAdmin(admin)).not.toThrow();
-    });
-
-    it("throws Forbidden for a regular user", () => {
-      const user = makeActor({ role: MembershipRole.USER });
-
-      expect(() => policy.ensureAdmin(user)).toThrow(
-        IdentityError.Forbidden.code,
-      );
-    });
-  });
-
   describe("ensureCanManageAccount", () => {
-    it("lets a regular user manage their own account", () => {
-      const user = makeActor({ role: MembershipRole.USER });
+    it("lets the owner manage their own account", () => {
+      const owner = makeActor();
 
       expect(() =>
-        policy.ensureCanManageAccount(user, user.accountId),
+        policy.ensureCanManageAccount(owner, owner.accountId, required),
       ).not.toThrow();
     });
 
-    it("lets an admin manage another account", () => {
-      const admin = makeActor({ role: MembershipRole.ADMIN });
+    it("lets a holder of the required permission manage another account", () => {
+      const actor = makeActor({ permissions: [required] });
 
       expect(() =>
-        policy.ensureCanManageAccount(admin, faker.database.mongodbObjectId()),
-      ).not.toThrow();
-    });
-
-    it("throws Forbidden when a regular user manages another account", () => {
-      const user = makeActor({ role: MembershipRole.USER });
-
-      expect(() =>
-        policy.ensureCanManageAccount(user, faker.database.mongodbObjectId()),
-      ).toThrow(IdentityError.Forbidden.code);
-    });
-  });
-
-  describe("ensureCanInvite", () => {
-    it.each([
-      ["an admin", makeActor({ role: MembershipRole.ADMIN })],
-      [
-        "a user with the invite permission",
-        makeActor({ permissions: [MembershipPermission.INVITE] }),
-      ],
-    ])("lets %s invite", (_, actor) => {
-      expect(() => policy.ensureCanInvite(actor)).not.toThrow();
-    });
-
-    it("throws Forbidden for a user without the invite permission", () => {
-      expect(() => policy.ensureCanInvite(makeActor())).toThrow(
-        IdentityError.Forbidden.code,
-      );
-    });
-  });
-
-  describe("ensureCanGrant", () => {
-    const inviter = makeActor({
-      permissions: [MembershipPermission.INVITE, MembershipPermission.READ],
-    });
-
-    it("lets an admin grant any role and permission", () => {
-      const admin = makeActor({ role: MembershipRole.ADMIN });
-
-      expect(() =>
-        policy.ensureCanGrant(
-          admin,
-          MembershipRole.ADMIN,
-          Object.values(MembershipPermission),
+        policy.ensureCanManageAccount(
+          actor,
+          faker.database.mongodbObjectId(),
+          required,
         ),
       ).not.toThrow();
     });
 
-    it("lets a user grant the user role with permissions they have", () => {
+    it("throws Forbidden for anyone else on another account, even with the admin role", () => {
+      const actor = makeActor({
+        role: MembershipRole.ADMIN,
+        permissions: Object.values(MembershipPermission).filter(
+          (permission) => permission !== required,
+        ),
+      });
+
       expect(() =>
-        policy.ensureCanGrant(inviter, MembershipRole.USER, [
-          MembershipPermission.READ,
-        ]),
+        policy.ensureCanManageAccount(
+          actor,
+          faker.database.mongodbObjectId(),
+          required,
+        ),
+      ).toThrow(IdentityError.Forbidden.code);
+    });
+  });
+
+  describe("ensureCanGrant", () => {
+    it("allows a grant within the actor's own permissions", () => {
+      const inviter = makeActor({
+        permissions: [
+          MembershipPermission.INVITATION_CREATE,
+          MembershipPermission.INVITATION_READ,
+        ],
+      });
+
+      expect(() =>
+        policy.ensureCanGrant(inviter, [MembershipPermission.INVITATION_READ]),
       ).not.toThrow();
     });
 
-    it.each([
-      ["the admin role", MembershipRole.ADMIN, []],
-      [
-        "a permission they do not have",
-        MembershipRole.USER,
-        [MembershipPermission.DELETE],
-      ],
-    ])("throws Forbidden when a user grants %s", (_, role, permissions) => {
-      expect(() => policy.ensureCanGrant(inviter, role, permissions)).toThrow(
+    it("refuses a grant beyond the actor's own permissions, whatever they hold", () => {
+      const missing = MembershipPermission.MEMBER_PERMISSIONS_UPDATE;
+      const inviter = makeActor({
+        role: MembershipRole.ADMIN,
+        permissions: Object.values(MembershipPermission).filter(
+          (permission) => permission !== missing,
+        ),
+      });
+
+      expect(() => policy.ensureCanGrant(inviter, [missing])).toThrow(
         IdentityError.Forbidden.code,
       );
     });

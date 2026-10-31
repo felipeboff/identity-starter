@@ -1,6 +1,5 @@
 import { Clock } from "@shared/application/ports/clock";
 
-import { AccessPolicy } from "../policies/access.policy";
 import { MembershipRepository } from "../ports/memberships.repository";
 import { MembershipResolver } from "../services/membership-resolver";
 
@@ -23,5 +22,4 @@ export type UpdateMemberPermissionsDeps = {
   clock: Clock;
 
   membershipResolver: MembershipResolver;
-  accessPolicy: AccessPolicy;
 };

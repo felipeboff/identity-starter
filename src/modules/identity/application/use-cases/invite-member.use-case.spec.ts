@@ -1,4 +1,5 @@
 import { faker } from "@faker-js/faker";
+import { SharedError } from "@shared/domain/errors/shared.error";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -24,8 +25,16 @@ describe("InviteMemberUseCase", () => {
   const makeInput = () => ({
     email: faker.internet.email().toLowerCase(),
     role: MembershipRole.USER,
-    permissions: [MembershipPermission.READ],
+    permissions: [MembershipPermission.INVITATION_READ],
   });
+
+  const seedInviter = () =>
+    seedAccount(ctx, {
+      permissions: [
+        MembershipPermission.INVITATION_CREATE,
+        MembershipPermission.INVITATION_READ,
+      ],
+    });
 
   beforeEach(() => {
     ctx = createIdentityContext();
@@ -33,10 +42,10 @@ describe("InviteMemberUseCase", () => {
   });
 
   it("stores a pending invitation and e-mails its link", async () => {
-    const admin = await seedAccount(ctx, { role: MembershipRole.ADMIN });
+    const inviter = await seedInviter();
     const input = makeInput();
 
-    const output = await useCase.execute(input, admin.actor);
+    const output = await useCase.execute(input, inviter.actor);
 
     const expiresAt = new Date(ctx.clock.now().getTime() + INVITATION_TTL_MS);
     const stored = await ctx.invitations.findById(output.invitation.id);
@@ -44,13 +53,13 @@ describe("InviteMemberUseCase", () => {
       email: input.email,
       role: input.role,
       permissions: input.permissions,
-      createdBy: admin.accountId,
+      createdBy: inviter.accountId,
       expiresAt,
     });
     expect(ctx.mailer.invitations).toStrictEqual([
       {
         to: input.email,
-        inviterName: admin.account.name,
+        inviterName: inviter.account.name,
         token: expect.any(String) as unknown,
         expiresAt,
       },
@@ -61,11 +70,11 @@ describe("InviteMemberUseCase", () => {
   });
 
   it("revokes the pending invitation the e-mail already had", async () => {
-    const admin = await seedAccount(ctx, { role: MembershipRole.ADMIN });
+    const inviter = await seedInviter();
     const input = makeInput();
-    const first = await useCase.execute(input, admin.actor);
+    const first = await useCase.execute(input, inviter.actor);
 
-    await useCase.execute(input, admin.actor);
+    await useCase.execute(input, inviter.actor);
 
     expect(
       (await ctx.invitations.findById(first.invitation.id))?.isRevoked(),
@@ -73,29 +82,35 @@ describe("InviteMemberUseCase", () => {
   });
 
   it("throws AccountEmailTaken for an e-mail that already has an account", async () => {
-    const admin = await seedAccount(ctx, { role: MembershipRole.ADMIN });
+    const inviter = await seedInviter();
     const ana = await seedAccount(ctx);
 
     await expectAppError(
-      useCase.execute({ ...makeInput(), email: ana.email }, admin.actor),
+      useCase.execute({ ...makeInput(), email: ana.email }, inviter.actor),
       IdentityError.AccountEmailTaken,
       { email: ana.email },
     );
   });
 
-  it("throws Forbidden for an actor who cannot invite", async () => {
-    const ana = await seedAccount(ctx);
+  it("refuses permission_missing without invitation.create, even with the admin role", async () => {
+    const ana = await seedAccount(ctx, {
+      role: MembershipRole.ADMIN,
+      permissions: Object.values(MembershipPermission).filter(
+        (permission) => permission !== MembershipPermission.INVITATION_CREATE,
+      ),
+    });
 
     await expectAppError(
       useCase.execute(makeInput(), ana.actor),
-      IdentityError.Forbidden,
-      { actorAccountId: ana.accountId },
+      SharedError.PermissionMissing,
+      { required: MembershipPermission.INVITATION_CREATE },
     );
+    expect(ctx.mailer.invitations).toStrictEqual([]);
   });
 
-  it("throws Forbidden when a user grants more than they have", async () => {
+  it("throws Forbidden when the inviter grants a permission they do not hold", async () => {
     const inviter = await seedAccount(ctx, {
-      permissions: [MembershipPermission.INVITE],
+      permissions: [MembershipPermission.INVITATION_CREATE],
     });
 
     await expectAppError(
@@ -103,5 +118,37 @@ describe("InviteMemberUseCase", () => {
       IdentityError.Forbidden,
       { actorAccountId: inviter.accountId },
     );
+  });
+
+  it("invites with the admin role within the inviter's own permissions", async () => {
+    const inviter = await seedInviter();
+    const input = { ...makeInput(), role: MembershipRole.ADMIN };
+
+    const output = await useCase.execute(input, inviter.actor);
+
+    expect(output.invitation).toMatchObject({
+      role: MembershipRole.ADMIN,
+      permissions: input.permissions,
+    });
+  });
+
+  it("throws Forbidden when the inviter lacks one asked permission, whatever else they hold", async () => {
+    const inviter = await seedAccount(ctx, {
+      role: MembershipRole.ADMIN,
+      permissions: Object.values(MembershipPermission).filter(
+        (permission) => permission !== MembershipPermission.INVITATION_REVOKE,
+      ),
+    });
+    const input = {
+      ...makeInput(),
+      permissions: Object.values(MembershipPermission),
+    };
+
+    await expectAppError(
+      useCase.execute(input, inviter.actor),
+      IdentityError.Forbidden,
+      { actorAccountId: inviter.accountId },
+    );
+    expect(ctx.mailer.invitations).toStrictEqual([]);
   });
 });

@@ -20,7 +20,7 @@ const makeInvitation = (overrides: Partial<InvitationRegister> = {}) =>
       id: faker.database.mongodbObjectId(),
       email: faker.internet.email().toLowerCase(),
       role: MembershipRole.USER,
-      permissions: [MembershipPermission.READ],
+      permissions: [MembershipPermission.INVITATION_READ],
       tokenHash: faker.string.alphanumeric(32),
       expiresAt: EXPIRES_AT,
       createdBy: faker.database.mongodbObjectId(),
@@ -55,7 +55,7 @@ describe("Invitation", () => {
         id,
         email,
         role: MembershipRole.USER,
-        permissions: [MembershipPermission.READ],
+        permissions: [MembershipPermission.INVITATION_READ],
         tokenHash,
         expiresAt: EXPIRES_AT,
         createdBy,
@@ -90,7 +90,7 @@ describe("Invitation", () => {
         id: faker.database.mongodbObjectId(),
         email: faker.internet.email().toLowerCase(),
         role: MembershipRole.ADMIN,
-        permissions: [MembershipPermission.ADMIN],
+        permissions: [MembershipPermission.MEMBER_PERMISSIONS_UPDATE],
         tokenHash: faker.string.alphanumeric(32),
         expiresAt: EXPIRES_AT,
         createdBy: faker.database.mongodbObjectId(),
@@ -146,10 +146,16 @@ describe("Invitation", () => {
     it("return copies of the permissions so callers cannot mutate them", () => {
       const invitation = makeInvitation();
 
-      invitation.permissions.push(MembershipPermission.ADMIN);
-      invitation.toSnapshot().permissions.push(MembershipPermission.ADMIN);
+      invitation.permissions.push(
+        MembershipPermission.MEMBER_PERMISSIONS_UPDATE,
+      );
+      invitation
+        .toSnapshot()
+        .permissions.push(MembershipPermission.MEMBER_PERMISSIONS_UPDATE);
 
-      expect(invitation.permissions).toEqual([MembershipPermission.READ]);
+      expect(invitation.permissions).toEqual([
+        MembershipPermission.INVITATION_READ,
+      ]);
     });
   });
 
@@ -202,16 +208,16 @@ describe("Invitation", () => {
     it("replaces the permissions with a copy and touches updatedAt", () => {
       const invitation = makeInvitation();
       const permissions: MembershipPermission[] = [
-        MembershipPermission.READ,
-        MembershipPermission.WRITE,
+        MembershipPermission.INVITATION_READ,
+        MembershipPermission.INVITATION_REVOKE,
       ];
 
       invitation.updatePermissions(permissions, LATER);
-      permissions.push(MembershipPermission.ADMIN);
+      permissions.push(MembershipPermission.MEMBER_PERMISSIONS_UPDATE);
 
       expect(invitation.permissions).toEqual([
-        MembershipPermission.READ,
-        MembershipPermission.WRITE,
+        MembershipPermission.INVITATION_READ,
+        MembershipPermission.INVITATION_REVOKE,
       ]);
       expect(invitation.updatedAt).toBe(LATER);
     });
@@ -220,7 +226,10 @@ describe("Invitation", () => {
       const invitation = makeRevokedInvitation();
 
       expect(() =>
-        invitation.updatePermissions([MembershipPermission.WRITE], LATER),
+        invitation.updatePermissions(
+          [MembershipPermission.INVITATION_REVOKE],
+          LATER,
+        ),
       ).toThrow(IdentityError.InvitationRevoked.code);
     });
 
@@ -229,7 +238,7 @@ describe("Invitation", () => {
 
       expect(() =>
         invitation.updatePermissions(
-          [MembershipPermission.WRITE],
+          [MembershipPermission.INVITATION_REVOKE],
           AFTER_EXPIRY,
         ),
       ).toThrow(IdentityError.InvitationExpired.code);

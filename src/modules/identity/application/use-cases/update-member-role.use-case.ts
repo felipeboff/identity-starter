@@ -11,19 +11,21 @@ import {
 } from "./update-member-role.types";
 
 import { IdentityError } from "@/identity/domain/errors/identity.error";
+import { MembershipPermission } from "@/identity/domain/membership.entity";
 
-/** Admin-only. An admin cannot change their own role, so they cannot lock themselves out. */
+/** Nobody changes their own role. */
 export class UpdateMemberRoleUseCase extends UseCase<{
   input: UpdateMemberRoleInput;
   output: UpdateMemberRoleOutput;
   deps: UpdateMemberRoleDeps;
   actor: Actor;
 }> {
+  readonly permissions = [MembershipPermission.MEMBER_ROLE_UPDATE];
+
   async execute(
     input: UpdateMemberRoleInput,
     actor: Actor,
   ): Promise<UpdateMemberRoleOutput> {
-    this.deps.accessPolicy.ensureAdmin(actor);
     if (actor.accountId === input.accountId) {
       throw new AppError(IdentityError.Forbidden, {
         actorAccountId: actor.accountId,

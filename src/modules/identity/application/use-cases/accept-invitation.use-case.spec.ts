@@ -29,11 +29,13 @@ describe("AcceptInvitationUseCase", () => {
   });
 
   const givenInvitation = async () => {
-    const admin = await seedAccount(ctx, { role: MembershipRole.ADMIN });
+    const admin = await seedAccount(ctx, {
+      permissions: [MembershipPermission.INVITATION_CREATE],
+    });
     const input = {
       email: faker.internet.email().toLowerCase(),
       role: MembershipRole.ADMIN,
-      permissions: [MembershipPermission.INVITE],
+      permissions: [MembershipPermission.INVITATION_CREATE],
     };
     const { invitation } = await new InviteMemberUseCase(ctx).execute(
       input,

@@ -3,12 +3,17 @@ import { Id } from "@shared/domain/value-objects/id.value-object";
 
 import { IdentityError } from "./errors/identity.error";
 
+/** One code per use case that requires a permission. */
 export const MembershipPermission = {
-  READ: "read",
-  WRITE: "write",
-  DELETE: "delete",
-  ADMIN: "admin",
-  INVITE: "invite",
+  INVITATION_CREATE: "invitation.create",
+  INVITATION_READ: "invitation.read",
+  INVITATION_REVOKE: "invitation.revoke",
+  ACCOUNT_REACTIVATE: "account.reactivate",
+  ACCOUNT_DEACTIVATE: "account.deactivate",
+  SESSION_REVOKE: "session.revoke",
+  SESSION_REVOKE_ALL: "session.revoke_all",
+  MEMBER_ROLE_UPDATE: "member.role.update",
+  MEMBER_PERMISSIONS_UPDATE: "member.permissions.update",
 } as const;
 
 export type MembershipPermission =

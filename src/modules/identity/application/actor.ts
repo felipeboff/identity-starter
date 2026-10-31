@@ -8,6 +8,7 @@ export type Actor = Readonly<{
   accountId: string;
   sessionId: string;
   membershipId: string;
+  /** A label to show; no access rule reads it. */
   role: MembershipRole;
   permissions: readonly MembershipPermission[];
 }>;

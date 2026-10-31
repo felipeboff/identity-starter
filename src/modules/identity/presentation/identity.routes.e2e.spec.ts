@@ -39,7 +39,10 @@ import { UpdateMemberRoleUseCase } from "@/identity/application/use-cases/update
 import { VerifyEmailUseCase } from "@/identity/application/use-cases/verify-email.use-case";
 import { AuthProvider } from "@/identity/domain/credential.entity";
 import { IdentityError } from "@/identity/domain/errors/identity.error";
-import { MembershipRole } from "@/identity/domain/membership.entity";
+import {
+  MembershipPermission,
+  MembershipRole,
+} from "@/identity/domain/membership.entity";
 import { SessionRevocationReason } from "@/identity/domain/session.entity";
 
 type UseCaseClass = {
@@ -277,7 +280,9 @@ describe("identity routes", () => {
 
   it("reads a path id over a body field with the same name", async () => {
     const http = createIdentityHttp();
-    const admin = await http.signIn({ role: MembershipRole.ADMIN });
+    const admin = await http.signIn({
+      permissions: [MembershipPermission.MEMBER_ROLE_UPDATE],
+    });
     const bruno = await seedAccount(http.ctx);
     const carla = await seedAccount(http.ctx);
 

@@ -1,4 +1,5 @@
 import { faker } from "@faker-js/faker";
+import { SharedError } from "@shared/domain/errors/shared.error";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -11,8 +12,10 @@ import {
 import { InviteMemberUseCase } from "./invite-member.use-case";
 import { ListInvitationsUseCase } from "./list-invitations.use-case";
 
-import { IdentityError } from "@/identity/domain/errors/identity.error";
-import { MembershipRole } from "@/identity/domain/membership.entity";
+import {
+  MembershipPermission,
+  MembershipRole,
+} from "@/identity/domain/membership.entity";
 
 describe("ListInvitationsUseCase", () => {
   let ctx: IdentityContext;
@@ -34,16 +37,21 @@ describe("ListInvitationsUseCase", () => {
     );
 
   it("lists the pending invitations, newest first, without token hashes", async () => {
-    const admin = await seedAccount(ctx, { role: MembershipRole.ADMIN });
-    const older = await invite(admin.actor);
+    const inviter = await seedAccount(ctx, {
+      permissions: [
+        MembershipPermission.INVITATION_CREATE,
+        MembershipPermission.INVITATION_READ,
+      ],
+    });
+    const older = await invite(inviter.actor);
     ctx.clock.advance(1_000);
-    const newer = await invite(admin.actor);
-    const revoked = await invite(admin.actor);
+    const newer = await invite(inviter.actor);
+    const revoked = await invite(inviter.actor);
     const stored = await ctx.invitations.findById(revoked.invitation.id);
     stored?.revoke(ctx.clock.now());
     if (stored) await ctx.invitations.save(stored);
 
-    const output = await useCase.execute(admin.actor);
+    const output = await useCase.execute(inviter.actor);
 
     expect(output.invitations).toStrictEqual([
       newer.invitation,
@@ -51,11 +59,18 @@ describe("ListInvitationsUseCase", () => {
     ]);
   });
 
-  it("throws Forbidden for an actor who cannot invite", async () => {
-    const ana = await seedAccount(ctx);
-
-    await expectAppError(useCase.execute(ana.actor), IdentityError.Forbidden, {
-      actorAccountId: ana.accountId,
+  it("refuses permission_missing without invitation.read, even with the admin role", async () => {
+    const ana = await seedAccount(ctx, {
+      role: MembershipRole.ADMIN,
+      permissions: Object.values(MembershipPermission).filter(
+        (permission) => permission !== MembershipPermission.INVITATION_READ,
+      ),
     });
+
+    await expectAppError(
+      useCase.execute(ana.actor),
+      SharedError.PermissionMissing,
+      { required: MembershipPermission.INVITATION_READ },
+    );
   });
 });

@@ -18,13 +18,19 @@ const failure = (out: { status: number; body?: unknown }) => ({
   code: (out.body as { code: string }).code,
 });
 
-const signInAdmin = (http: IdentityHttp) =>
-  http.signIn({ role: MembershipRole.ADMIN });
+const signInInviter = (http: IdentityHttp) =>
+  http.signIn({
+    permissions: [
+      MembershipPermission.INVITATION_CREATE,
+      MembershipPermission.INVITATION_READ,
+      MembershipPermission.INVITATION_REVOKE,
+    ],
+  });
 
 const buildInvite = () => ({
   email: faker.internet.email().toLowerCase(),
   role: MembershipRole.USER,
-  permissions: [MembershipPermission.READ],
+  permissions: [MembershipPermission.INVITATION_READ],
 });
 
 const invite = async (http: IdentityHttp, token: string) => {
@@ -49,12 +55,52 @@ const accept = (http: IdentityHttp, token: string) =>
   });
 
 describe("invitations", () => {
+  it.each([
+    [
+      "POST",
+      "/invitations",
+      { body: buildInvite() },
+      MembershipPermission.INVITATION_CREATE,
+    ],
+    ["GET", "/invitations", {}, MembershipPermission.INVITATION_READ],
+    [
+      "DELETE",
+      "/invitations/:invitationId",
+      { params: { invitationId: faker.database.mongodbObjectId() } },
+      MembershipPermission.INVITATION_REVOKE,
+    ],
+  ] as const)(
+    "answers 403 permission_missing without the route's permission, even with the admin role (%s %s)",
+    async (method, path, options, missing) => {
+      const http = createIdentityHttp();
+      const ana = await http.signIn({
+        role: MembershipRole.ADMIN,
+        permissions: Object.values(MembershipPermission).filter(
+          (permission) => permission !== missing,
+        ),
+      });
+
+      const out = await http.call(method, path, {
+        ...options,
+        token: ana.token,
+      });
+
+      expect(out).toMatchObject({
+        status: 403,
+        body: {
+          code: SharedError.PermissionMissing.code,
+          data: { required: missing },
+        },
+      });
+    },
+  );
+
   describe("POST /invitations", () => {
     it("invites an e-mail with 201 and sends the link", async () => {
       const http = createIdentityHttp();
-      const admin = await signInAdmin(http);
+      const inviter = await signInInviter(http);
 
-      const { out, body } = await invite(http, admin.token);
+      const { out, body } = await invite(http, inviter.token);
 
       expect(out.status).toBe(201);
       expect(out.body).toMatchObject({
@@ -62,21 +108,24 @@ describe("invitations", () => {
           email: body.email,
           role: body.role,
           permissions: body.permissions,
-          createdBy: admin.accountId,
+          createdBy: inviter.accountId,
           acceptedAt: null,
           revokedAt: null,
         },
       });
       expect(out.body).not.toHaveProperty("invitation.tokenHash");
       expect(http.ctx.mailer.invitations).toMatchObject([
-        { to: body.email, inviterName: admin.account.name },
+        { to: body.email, inviterName: inviter.account.name },
       ]);
     });
 
-    it("lets a user with the invite permission invite with what they have", async () => {
+    it("lets a user holding invitation.create invite with what they have", async () => {
       const http = createIdentityHttp();
       const inviter = await http.signIn({
-        permissions: [MembershipPermission.INVITE, MembershipPermission.READ],
+        permissions: [
+          MembershipPermission.INVITATION_CREATE,
+          MembershipPermission.INVITATION_READ,
+        ],
       });
 
       const { out } = await invite(http, inviter.token);
@@ -86,11 +135,11 @@ describe("invitations", () => {
 
     it("answers 400 for an e-mail that already has an account", async () => {
       const http = createIdentityHttp();
-      const admin = await signInAdmin(http);
+      const inviter = await signInInviter(http);
       const ana = await seedAccount(http.ctx);
 
       const out = await http.call("POST", "/invitations", {
-        token: admin.token,
+        token: inviter.token,
         body: { ...buildInvite(), email: ana.email },
       });
 
@@ -100,20 +149,41 @@ describe("invitations", () => {
       });
     });
 
-    it.each([
-      ["has no invite permission", [], MembershipRole.USER],
-      [
-        "grants the admin role",
-        [MembershipPermission.INVITE, MembershipPermission.READ],
-        MembershipRole.ADMIN,
-      ],
-    ])("answers 403 when the inviter %s", async (_, permissions, role) => {
+    it("lets an inviter give the admin role with permissions they hold", async () => {
       const http = createIdentityHttp();
-      const inviter = await http.signIn({ permissions });
+      const inviter = await signInInviter(http);
+      const body = { ...buildInvite(), role: MembershipRole.ADMIN };
 
       const out = await http.call("POST", "/invitations", {
         token: inviter.token,
-        body: { ...buildInvite(), role },
+        body,
+      });
+
+      expect(out.status).toBe(201);
+      expect(out.body).toMatchObject({
+        invitation: {
+          role: MembershipRole.ADMIN,
+          permissions: body.permissions,
+        },
+      });
+    });
+
+    it("answers 403 forbidden when the inviter lacks one asked permission, whatever else they hold", async () => {
+      const http = createIdentityHttp();
+      const inviter = await http.signIn({
+        role: MembershipRole.ADMIN,
+        permissions: Object.values(MembershipPermission).filter(
+          (permission) =>
+            permission !== MembershipPermission.MEMBER_PERMISSIONS_UPDATE,
+        ),
+      });
+
+      const out = await http.call("POST", "/invitations", {
+        token: inviter.token,
+        body: {
+          ...buildInvite(),
+          permissions: Object.values(MembershipPermission),
+        },
       });
 
       expect(failure(out)).toStrictEqual({
@@ -122,29 +192,35 @@ describe("invitations", () => {
       });
     });
 
-    it("answers 403 when the inviter grants a permission they do not have", async () => {
+    it("answers 403 forbidden when the inviter grants a permission they do not have", async () => {
       const http = createIdentityHttp();
       const inviter = await http.signIn({
-        permissions: [MembershipPermission.INVITE],
+        permissions: [MembershipPermission.INVITATION_CREATE],
       });
 
       const out = await http.call("POST", "/invitations", {
         token: inviter.token,
-        body: { ...buildInvite(), permissions: [MembershipPermission.DELETE] },
+        body: {
+          ...buildInvite(),
+          permissions: [MembershipPermission.ACCOUNT_DEACTIVATE],
+        },
       });
 
-      expect(out.status).toBe(403);
+      expect(failure(out)).toStrictEqual({
+        status: 403,
+        code: IdentityError.Forbidden.code,
+      });
     });
 
     it("answers 422 when the invitation e-mail cannot be delivered", async () => {
       const http = createIdentityHttp();
-      const admin = await signInAdmin(http);
+      const inviter = await signInInviter(http);
       vi.spyOn(http.ctx.mailer, "sendInvitation").mockRejectedValue(
         new AppError(IdentityError.EmailDeliveryFailed),
       );
 
       const out = await http.call("POST", "/invitations", {
-        token: admin.token,
+        token: inviter.token,
         body: buildInvite(),
       });
 
@@ -156,17 +232,17 @@ describe("invitations", () => {
   });
 
   describe("GET /invitations", () => {
-    it("lists the pending invitations, newest first, with 200", async () => {
+    it("lists the pending invitations to a user-role member holding invitation.read, newest first, with 200", async () => {
       const http = createIdentityHttp();
-      const admin = await signInAdmin(http);
-      const first = await invite(http, admin.token);
+      const inviter = await signInInviter(http);
+      const first = await invite(http, inviter.token);
       http.ctx.clock.advance(1_000);
-      const second = await invite(http, admin.token);
-      const accepted = await invite(http, admin.token);
+      const second = await invite(http, inviter.token);
+      const accepted = await invite(http, inviter.token);
       await accept(http, accepted.invitationToken);
 
       const out = await http.call("GET", "/invitations", {
-        token: admin.token,
+        token: inviter.token,
       });
 
       expect(out.status).toBe(200);
@@ -176,25 +252,19 @@ describe("invitations", () => {
         ),
       ).toStrictEqual([second.invitationId, first.invitationId]);
     });
-
-    it("answers 403 without the invite permission", async () => {
-      const http = createIdentityHttp();
-      const ana = await http.signIn();
-
-      const out = await http.call("GET", "/invitations", { token: ana.token });
-
-      expect(out.status).toBe(403);
-    });
   });
 
   describe("DELETE /invitations/:invitationId", () => {
     it("revokes an invitation with 204, so its link stops working", async () => {
       const http = createIdentityHttp();
-      const admin = await signInAdmin(http);
-      const { invitationId, invitationToken } = await invite(http, admin.token);
+      const inviter = await signInInviter(http);
+      const { invitationId, invitationToken } = await invite(
+        http,
+        inviter.token,
+      );
 
       const out = await http.call("DELETE", "/invitations/:invitationId", {
-        token: admin.token,
+        token: inviter.token,
         params: { invitationId },
       });
       const accepted = await accept(http, invitationToken);
@@ -211,36 +281,27 @@ describe("invitations", () => {
       ["404 for an unknown invitation", faker.database.mongodbObjectId(), 404],
     ])("answers %s", async (_, invitationId, status) => {
       const http = createIdentityHttp();
-      const admin = await signInAdmin(http);
+      const inviter = await signInInviter(http);
 
       const out = await http.call("DELETE", "/invitations/:invitationId", {
-        token: admin.token,
+        token: inviter.token,
         params: { invitationId },
       });
 
       expect(out.status).toBe(status);
     });
 
-    it("answers 403 without the invite permission", async () => {
-      const http = createIdentityHttp();
-      const ana = await http.signIn();
-
-      const out = await http.call("DELETE", "/invitations/:invitationId", {
-        token: ana.token,
-        params: { invitationId: faker.database.mongodbObjectId() },
-      });
-
-      expect(out.status).toBe(403);
-    });
-
     it("answers 422 for an invitation already accepted", async () => {
       const http = createIdentityHttp();
-      const admin = await signInAdmin(http);
-      const { invitationId, invitationToken } = await invite(http, admin.token);
+      const inviter = await signInInviter(http);
+      const { invitationId, invitationToken } = await invite(
+        http,
+        inviter.token,
+      );
       await accept(http, invitationToken);
 
       const out = await http.call("DELETE", "/invitations/:invitationId", {
-        token: admin.token,
+        token: inviter.token,
         params: { invitationId },
       });
 
@@ -254,8 +315,8 @@ describe("invitations", () => {
   describe("POST /auth/invitations/accept", () => {
     it("creates the account with 201, with the invited role and a verified e-mail", async () => {
       const http = createIdentityHttp();
-      const admin = await signInAdmin(http);
-      const { body, invitationToken } = await invite(http, admin.token);
+      const inviter = await signInInviter(http);
+      const { body, invitationToken } = await invite(http, inviter.token);
 
       const out = await accept(http, invitationToken);
       const me = await http.call("GET", "/me", {
@@ -315,8 +376,8 @@ describe("invitations", () => {
       ],
     ])("answers 422 for an invitation already %s", async (_, code, given) => {
       const http = createIdentityHttp();
-      const admin = await signInAdmin(http);
-      const { invitationToken } = await invite(http, admin.token);
+      const inviter = await signInInviter(http);
+      const { invitationToken } = await invite(http, inviter.token);
       await given(http, invitationToken);
 
       const out = await accept(http, invitationToken);

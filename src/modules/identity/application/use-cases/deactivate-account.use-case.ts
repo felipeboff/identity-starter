@@ -9,6 +9,7 @@ import {
 } from "./deactivate-account.types";
 
 import { IdentityError } from "@/identity/domain/errors/identity.error";
+import { MembershipPermission } from "@/identity/domain/membership.entity";
 import { SessionRevocationReason } from "@/identity/domain/session.entity";
 
 /** Soft-deletes the account and revokes its sessions. Owner or admin. */
@@ -19,7 +20,11 @@ export class DeactivateAccountUseCase extends UseCase<{
 }> {
   async execute(input: DeactivateAccountInput, actor: Actor): Promise<void> {
     return this.deps.transactions.run(async () => {
-      this.deps.accessPolicy.ensureCanManageAccount(actor, input.accountId);
+      this.deps.accessPolicy.ensureCanManageAccount(
+        actor,
+        input.accountId,
+        MembershipPermission.ACCOUNT_DEACTIVATE,
+      );
 
       const account = await this.deps.accounts.findById(input.accountId);
       if (!account) {

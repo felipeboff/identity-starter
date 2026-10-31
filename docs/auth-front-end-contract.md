@@ -79,10 +79,35 @@ The sign-up answers `201` even if that e-mail fails; `POST /me/email-verificatio
 link. The `/verify-email` page posts the token to `POST /auth/email-verification`. Accounts
 created through OAuth or an invitation start verified.
 
+## Permissions
+
+Access depends on the member's `permissions` only; `role` is a label to show and grants nothing.
+Each operation that goes beyond the caller's own account requires its own permission:
+
+| Permission                  | Allows                                                           |
+| --------------------------- | ---------------------------------------------------------------- |
+| `invitation.create`         | `POST /invitations`                                              |
+| `invitation.read`           | `GET /invitations`                                               |
+| `invitation.revoke`         | `DELETE /invitations/:invitationId`                              |
+| `account.reactivate`        | `POST /accounts/:accountId/reactivate`                           |
+| `account.deactivate`        | `POST /accounts/:accountId/deactivate` on someone else's account |
+| `session.revoke`            | `DELETE /sessions/:sessionId` on someone else's session          |
+| `session.revoke_all`        | `DELETE /accounts/:accountId/sessions` on someone else's account |
+| `member.role.update`        | `PUT /members/:accountId/role`                                   |
+| `member.permissions.update` | `PUT /members/:accountId/permissions`                            |
+
+Nobody changes their own role or permissions.
+
+A missing permission answers `403 shared.permission_missing` with `data.required` (the missing
+code), or with `data.anyOf` (the accepted codes) where any one of them is enough. A rule about the
+target answers `403 identity.forbidden`: acting on someone else's account without the
+operation's permission, granting a permission you do not hold, or changing your own role or
+permissions.
+
 ## Invitations
 
-Inviting needs the `admin` role or the `invite` permission. Without `admin`, an inviter may only
-give the `user` role and permissions they already have (`403 identity.forbidden` otherwise).
+An inviter may only grant permissions they already hold, with any role
+(`403 identity.forbidden` otherwise).
 
 | Route                               | What it does                                                                                                                                     |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |

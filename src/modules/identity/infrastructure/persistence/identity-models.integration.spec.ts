@@ -47,7 +47,7 @@ const membershipDocument = (accountId = objectId()) => ({
   _id: objectId(),
   accountId,
   role: MembershipRole.USER,
-  permissions: [MembershipPermission.READ],
+  permissions: [MembershipPermission.INVITATION_READ],
   createdBy: objectId(),
   ...audit(),
 });

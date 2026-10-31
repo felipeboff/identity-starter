@@ -1,5 +1,6 @@
 import { faker } from "@faker-js/faker";
 import { AppError } from "@shared/domain/errors/app-error";
+import { SharedError } from "@shared/domain/errors/shared.error";
 import { describe, expect, it, vi } from "vitest";
 
 import { IdentityHttp, createIdentityHttp } from "./testing/identity-http";
@@ -580,29 +581,38 @@ describe("identity route failures", () => {
   });
 
   describe("acting on another account", () => {
-    const FORBIDDEN_FOR_A_USER = [
-      ["DELETE", "/accounts/:accountId/sessions", undefined],
-      ["POST", "/accounts/:accountId/deactivate", undefined],
-      ["POST", "/accounts/:accountId/reactivate", undefined],
-      ["PUT", "/members/:accountId/role", { role: MembershipRole.ADMIN }],
-      [
-        "PUT",
-        "/members/:accountId/permissions",
-        { permissions: [MembershipPermission.READ] },
-      ],
-    ] as const;
+    const signInWithout = (http: IdentityHttp, missing: MembershipPermission) =>
+      http.signIn({
+        role: MembershipRole.ADMIN,
+        permissions: Object.values(MembershipPermission).filter(
+          (permission) => permission !== missing,
+        ),
+      });
 
-    it.each(FORBIDDEN_FOR_A_USER)(
-      "answers 403 to a user on %s %s",
-      async (method, path, body) => {
+    const signInAdmin = (http: IdentityHttp) =>
+      http.signIn({ permissions: Object.values(MembershipPermission) });
+
+    it.each([
+      [
+        "DELETE",
+        "/accounts/:accountId/sessions",
+        MembershipPermission.SESSION_REVOKE_ALL,
+      ],
+      [
+        "POST",
+        "/accounts/:accountId/deactivate",
+        MembershipPermission.ACCOUNT_DEACTIVATE,
+      ],
+    ] as const)(
+      "answers 403 forbidden on someone else's account without the route's permission, even with the admin role, on %s %s",
+      async (method, path, missing) => {
         const http = createIdentityHttp();
-        const ana = await http.signIn();
+        const ana = await signInWithout(http, missing);
         const bob = await seedAccount(http.ctx);
 
         const out = await http.call(method, path, {
           token: ana.token,
           params: { accountId: bob.accountId },
-          body,
         });
 
         expect(failure(out)).toStrictEqual({
@@ -611,6 +621,70 @@ describe("identity route failures", () => {
         });
       },
     );
+
+    it.each([
+      [
+        "POST",
+        "/accounts/:accountId/reactivate",
+        undefined,
+        MembershipPermission.ACCOUNT_REACTIVATE,
+      ],
+      [
+        "PUT",
+        "/members/:accountId/role",
+        { role: MembershipRole.ADMIN },
+        MembershipPermission.MEMBER_ROLE_UPDATE,
+      ],
+      [
+        "PUT",
+        "/members/:accountId/permissions",
+        { permissions: [MembershipPermission.INVITATION_READ] },
+        MembershipPermission.MEMBER_PERMISSIONS_UPDATE,
+      ],
+    ] as const)(
+      "answers 403 permission_missing without the route's permission, even with the admin role (%s %s)",
+      async (method, path, body, missing) => {
+        const http = createIdentityHttp();
+        const ana = await signInWithout(http, missing);
+        const bob = await seedAccount(http.ctx);
+
+        const out = await http.call(method, path, {
+          token: ana.token,
+          params: { accountId: bob.accountId },
+          body,
+        });
+
+        expect(out).toMatchObject({
+          status: 403,
+          body: {
+            code: SharedError.PermissionMissing.code,
+            data: { required: missing },
+          },
+        });
+      },
+    );
+
+    it("answers 403 forbidden to a member changing their own permissions", async () => {
+      const http = createIdentityHttp();
+      const admin = await signInAdmin(http);
+
+      const out = await http.call("PUT", "/members/:accountId/permissions", {
+        token: admin.token,
+        params: { accountId: admin.accountId },
+        body: { permissions: [] },
+      });
+
+      expect(failure(out)).toStrictEqual({
+        status: 403,
+        code: IdentityError.Forbidden.code,
+      });
+      const membership = await http.ctx.memberships.findByAccountId(
+        admin.accountId,
+      );
+      expect(membership?.permissions).toStrictEqual(
+        Object.values(MembershipPermission),
+      );
+    });
 
     it.each([
       ["POST", "/accounts/:accountId/deactivate", undefined, "AccountNotFound"],
@@ -624,14 +698,14 @@ describe("identity route failures", () => {
       [
         "PUT",
         "/members/:accountId/permissions",
-        { permissions: [MembershipPermission.READ] },
+        { permissions: [MembershipPermission.INVITATION_READ] },
         "MembershipNotFound",
       ],
     ] as const)(
       "answers 404 to an admin on %s %s for an unknown account",
       async (method, path, body, error) => {
         const http = createIdentityHttp();
-        const admin = await http.signIn({ role: MembershipRole.ADMIN });
+        const admin = await signInAdmin(http);
 
         const out = await http.call(method, path, {
           token: admin.token,
@@ -651,13 +725,13 @@ describe("identity route failures", () => {
       [
         "PUT",
         "/members/:accountId/permissions",
-        { permissions: [MembershipPermission.READ] },
+        { permissions: [MembershipPermission.INVITATION_READ] },
       ],
     ] as const)(
       "answers 422 to an admin on %s %s for a removed member",
       async (method, path, body) => {
         const http = createIdentityHttp();
-        const admin = await http.signIn({ role: MembershipRole.ADMIN });
+        const admin = await signInAdmin(http);
         const bob = await seedAccount(http.ctx);
         bob.membership.markAsDeleted(http.ctx.clock.now());
         await http.ctx.memberships.save(bob.membership);

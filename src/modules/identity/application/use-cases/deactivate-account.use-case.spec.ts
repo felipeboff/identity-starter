@@ -12,7 +12,10 @@ import {
 import { DeactivateAccountUseCase } from "./deactivate-account.use-case";
 
 import { IdentityError } from "@/identity/domain/errors/identity.error";
-import { MembershipRole } from "@/identity/domain/membership.entity";
+import {
+  MembershipPermission,
+  MembershipRole,
+} from "@/identity/domain/membership.entity";
 import { SessionRevocationReason } from "@/identity/domain/session.entity";
 
 describe("DeactivateAccountUseCase", () => {
@@ -46,8 +49,11 @@ describe("DeactivateAccountUseCase", () => {
     }
   });
 
-  it("lets an admin deactivate another account", async () => {
-    const admin = await seedAccount(ctx, { role: MembershipRole.ADMIN });
+  it("lets a user-role member holding account.deactivate deactivate another account", async () => {
+    const admin = await seedAccount(ctx, {
+      role: MembershipRole.USER,
+      permissions: [MembershipPermission.ACCOUNT_DEACTIVATE],
+    });
     const ana = await seedAccount(ctx);
     const { session } = await seedSession(ctx, ana);
 
@@ -63,8 +69,13 @@ describe("DeactivateAccountUseCase", () => {
     });
   });
 
-  it("throws Forbidden when a non-admin deactivates someone else", async () => {
-    const bruno = await seedAccount(ctx);
+  it("throws Forbidden on someone else's account without account.deactivate, even with the admin role", async () => {
+    const bruno = await seedAccount(ctx, {
+      role: MembershipRole.ADMIN,
+      permissions: Object.values(MembershipPermission).filter(
+        (permission) => permission !== MembershipPermission.ACCOUNT_DEACTIVATE,
+      ),
+    });
     const ana = await seedAccount(ctx);
 
     await expectAppError(
@@ -78,7 +89,10 @@ describe("DeactivateAccountUseCase", () => {
   });
 
   it("throws AccountNotFound when the account does not exist", async () => {
-    const admin = await seedAccount(ctx, { role: MembershipRole.ADMIN });
+    const admin = await seedAccount(ctx, {
+      role: MembershipRole.USER,
+      permissions: [MembershipPermission.ACCOUNT_DEACTIVATE],
+    });
     const missingId = faker.database.mongodbObjectId();
 
     await expectAppError(

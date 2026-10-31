@@ -21,7 +21,10 @@ const registerMembership = () => {
       accountId,
       createdBy: accountId,
       role: MembershipRole.USER,
-      permissions: [MembershipPermission.READ, MembershipPermission.WRITE],
+      permissions: [
+        MembershipPermission.INVITATION_READ,
+        MembershipPermission.INVITATION_REVOKE,
+      ],
     },
     faker.date.past(),
   );

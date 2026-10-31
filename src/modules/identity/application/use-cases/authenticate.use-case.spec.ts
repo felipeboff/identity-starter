@@ -1,7 +1,8 @@
 import { faker } from "@faker-js/faker";
 import { expectAppError } from "@shared/testing/expect-app-error";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, expectTypeOf, it } from "vitest";
 
+import { Actor } from "../actor";
 import {
   IdentityContext,
   createIdentityContext,
@@ -31,10 +32,13 @@ describe("AuthenticateUseCase", () => {
   const tokenFor = (accountId: string, sessionId: string) =>
     ctx.accessToken.issue({ accountId, sessionId });
 
-  it("returns the caller's actor for an active session", async () => {
+  it("returns the actor with its ids, role and permissions", async () => {
     const ana = await seedAccount(ctx, { role: MembershipRole.ADMIN });
     ana.membership.updatePermissions(
-      [MembershipPermission.READ, MembershipPermission.WRITE],
+      [
+        MembershipPermission.INVITATION_READ,
+        MembershipPermission.INVITATION_REVOKE,
+      ],
       ctx.clock.now(),
     );
     await ctx.memberships.save(ana.membership);
@@ -44,13 +48,19 @@ describe("AuthenticateUseCase", () => {
       accessToken: await tokenFor(ana.accountId, session.id.value),
     });
 
-    expect(actor).toEqual({
+    expect(actor).toStrictEqual({
       accountId: ana.accountId,
       sessionId: session.id.value,
       membershipId: ana.membership.id.value,
       role: MembershipRole.ADMIN,
-      permissions: [MembershipPermission.READ, MembershipPermission.WRITE],
+      permissions: [
+        MembershipPermission.INVITATION_READ,
+        MembershipPermission.INVITATION_REVOKE,
+      ],
     });
+    expectTypeOf<keyof Actor>().toEqualTypeOf<
+      "accountId" | "sessionId" | "membershipId" | "role" | "permissions"
+    >();
   });
 
   it("rejects a token the AccessToken port does not recognise", async () => {

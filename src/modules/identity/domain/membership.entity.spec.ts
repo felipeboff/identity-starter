@@ -20,7 +20,7 @@ const makeMembership = (overrides: Partial<MembershipRegister> = {}) =>
       accountId: faker.database.mongodbObjectId(),
       createdBy: faker.database.mongodbObjectId(),
       role: MembershipRole.USER,
-      permissions: [MembershipPermission.READ],
+      permissions: [MembershipPermission.INVITATION_READ],
       ...overrides,
     },
     CREATED_AT,
@@ -46,7 +46,7 @@ describe("Membership", () => {
         accountId,
         createdBy,
         role: MembershipRole.USER,
-        permissions: [MembershipPermission.READ],
+        permissions: [MembershipPermission.INVITATION_READ],
         version: 0,
         createdAt: CREATED_AT,
         updatedAt: CREATED_AT,
@@ -77,7 +77,7 @@ describe("Membership", () => {
         accountId: faker.database.mongodbObjectId(),
         createdBy: faker.database.mongodbObjectId(),
         role: MembershipRole.ADMIN,
-        permissions: [MembershipPermission.ADMIN],
+        permissions: [MembershipPermission.MEMBER_PERMISSIONS_UPDATE],
         version: faker.number.int({ min: 1, max: 10 }),
         createdAt: CREATED_AT,
         updatedAt: LATER,
@@ -111,10 +111,16 @@ describe("Membership", () => {
     it("return copies of the permissions so callers cannot mutate them", () => {
       const membership = makeMembership();
 
-      membership.permissions.push(MembershipPermission.ADMIN);
-      membership.toSnapshot().permissions.push(MembershipPermission.ADMIN);
+      membership.permissions.push(
+        MembershipPermission.MEMBER_PERMISSIONS_UPDATE,
+      );
+      membership
+        .toSnapshot()
+        .permissions.push(MembershipPermission.MEMBER_PERMISSIONS_UPDATE);
 
-      expect(membership.permissions).toEqual([MembershipPermission.READ]);
+      expect(membership.permissions).toEqual([
+        MembershipPermission.INVITATION_READ,
+      ]);
     });
   });
 
@@ -149,16 +155,16 @@ describe("Membership", () => {
     it("replaces the permissions with a copy and touches updatedAt", () => {
       const membership = makeMembership();
       const permissions: MembershipPermission[] = [
-        MembershipPermission.READ,
-        MembershipPermission.WRITE,
+        MembershipPermission.INVITATION_READ,
+        MembershipPermission.INVITATION_REVOKE,
       ];
 
       membership.updatePermissions(permissions, LATER);
-      permissions.push(MembershipPermission.ADMIN);
+      permissions.push(MembershipPermission.MEMBER_PERMISSIONS_UPDATE);
 
       expect(membership.permissions).toEqual([
-        MembershipPermission.READ,
-        MembershipPermission.WRITE,
+        MembershipPermission.INVITATION_READ,
+        MembershipPermission.INVITATION_REVOKE,
       ]);
       expect(membership.updatedAt).toBe(LATER);
     });
@@ -167,7 +173,10 @@ describe("Membership", () => {
       const membership = makeDeletedMembership();
 
       expect(() =>
-        membership.updatePermissions([MembershipPermission.WRITE], LATER),
+        membership.updatePermissions(
+          [MembershipPermission.INVITATION_REVOKE],
+          LATER,
+        ),
       ).toThrow(IdentityError.MembershipDeleted.code);
     });
 

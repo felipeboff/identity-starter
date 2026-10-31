@@ -8,14 +8,16 @@ import {
   ListInvitationsOutput,
 } from "./list-invitations.types";
 
+import { MembershipPermission } from "@/identity/domain/membership.entity";
+
 export class ListInvitationsUseCase extends UseCase<{
   output: ListInvitationsOutput;
   deps: ListInvitationsDeps;
   actor: Actor;
 }> {
-  async execute(actor: Actor): Promise<ListInvitationsOutput> {
-    this.deps.accessPolicy.ensureCanInvite(actor);
+  readonly permissions = [MembershipPermission.INVITATION_READ];
 
+  async execute(_actor: Actor): Promise<ListInvitationsOutput> {
     const at = this.deps.clock.now();
     const invitations = await this.deps.invitations.list();
 

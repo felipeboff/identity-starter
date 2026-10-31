@@ -13,6 +13,7 @@ import {
 
 import { IdentityError } from "@/identity/domain/errors/identity.error";
 import { Invitation } from "@/identity/domain/invitation.entity";
+import { MembershipPermission } from "@/identity/domain/membership.entity";
 
 export class InviteMemberUseCase extends UseCase<{
   input: InviteMemberInput;
@@ -20,12 +21,13 @@ export class InviteMemberUseCase extends UseCase<{
   deps: InviteMemberDeps;
   actor: Actor;
 }> {
+  readonly permissions = [MembershipPermission.INVITATION_CREATE];
+
   async execute(
     input: InviteMemberInput,
     actor: Actor,
   ): Promise<InviteMemberOutput> {
-    this.deps.accessPolicy.ensureCanInvite(actor);
-    this.deps.accessPolicy.ensureCanGrant(actor, input.role, input.permissions);
+    this.deps.accessPolicy.ensureCanGrant(actor, input.permissions);
 
     const invited = await this.deps.transactions.run(async () => {
       if (await this.deps.accounts.findByEmail(input.email)) {
