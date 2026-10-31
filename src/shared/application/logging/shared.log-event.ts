@@ -29,6 +29,13 @@ export const SharedLogEvent = {
     key: string;
     error: unknown;
   }>("shared.cache_call_failed"),
+  ExternalCallRetried: defineLogEvent<{
+    method: string;
+    url: string;
+    attempt: number;
+    failure: "network" | "status";
+    status?: number;
+  }>("shared.external_call_retried"),
   RequestCompleted: defineLogEvent<{ status: number; durationMs: number }>(
     "shared.request_completed",
   ),

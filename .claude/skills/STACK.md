@@ -43,7 +43,9 @@ file deserve an ADR (`create-adr`).
 - **Outbound HTTP** ([ADR-004](../../docs/adr/004-outbound-http-with-native-fetch.md)): native
   `fetch` through the shared `FetchHttpClient`, with a timeout on every call (10 s); no vendor
   SDKs. Timeouts and network failures come back as results, and each adapter turns them into an
-  `AppError`.
+  `AppError`. Under it, `ky` retries a `GET` up to 2 times on a network error or
+  `408`/`500`/`502`/`503`/`504`, with full-jitter backoff, inside the same 10 s; a `POST` is sent
+  once ([ADR-007](../../docs/adr/007-retry-idempotent-outbound-calls-with-ky.md)).
 
 ## Messaging and jobs
 

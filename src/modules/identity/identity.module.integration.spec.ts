@@ -108,12 +108,16 @@ const create = async (settings = buildSettings()) => {
   return { logger, call, signUp, settings };
 };
 
-const respondWith = (status: number, body?: unknown) =>
-  vi.fn<typeof fetch>(() =>
-    Promise.resolve(
-      new Response(body === undefined ? "" : JSON.stringify(body), { status }),
-    ),
-  );
+const respondWith = (status: number, body?: unknown) => {
+  const bodies: string[] = [];
+  const fetch = vi.fn<typeof globalThis.fetch>(async (input) => {
+    bodies.push(await (input as Request).text());
+    return new Response(body === undefined ? "" : JSON.stringify(body), {
+      status,
+    });
+  });
+  return { fetch, bodies };
+};
 
 describe("createIdentityModule", () => {
   afterEach(() => {
@@ -195,7 +199,7 @@ describe("createIdentityModule", () => {
   });
 
   it("sends the password reset through MailerSend when asked", async () => {
-    const fetch = respondWith(202);
+    const { fetch } = respondWith(202);
     vi.stubGlobal("fetch", fetch);
     const settings = buildSettings("mailersend");
     const { signUp, call } = await create(settings);
@@ -203,14 +207,15 @@ describe("createIdentityModule", () => {
 
     await call("/auth/password-reset/request", { email });
 
-    expect(fetch.mock.calls[0]?.[0]).toBe(MAILERSEND_EMAIL_URL);
-    expect(fetch.mock.calls[0]?.[1]?.headers).toMatchObject({
-      authorization: `Bearer ${settings.mailer.apiKey}`,
-    });
+    const request = fetch.mock.calls[0]?.[0] as Request;
+    expect(request.url).toBe(MAILERSEND_EMAIL_URL);
+    expect(request.headers.get("authorization")).toBe(
+      `Bearer ${settings.mailer.apiKey}`,
+    );
   });
 
   it("exchanges OAuth codes with the configured Google client", async () => {
-    const fetch = respondWith(400, { error: "invalid_grant" });
+    const { fetch, bodies } = respondWith(400, { error: "invalid_grant" });
     vi.stubGlobal("fetch", fetch);
     const settings = buildSettings();
     const { call } = await create(settings);
@@ -224,8 +229,8 @@ describe("createIdentityModule", () => {
       { provider: AuthProvider.GOOGLE },
     );
 
-    const form = new URLSearchParams(fetch.mock.calls[0]?.[1]?.body as string);
-    expect(fetch.mock.calls[0]?.[0]).toBe(GOOGLE_TOKEN_URL);
+    const form = new URLSearchParams(bodies[0]);
+    expect((fetch.mock.calls[0]?.[0] as Request).url).toBe(GOOGLE_TOKEN_URL);
     expect(form.get("client_id")).toBe(settings.google.clientId);
     expect(form.get("redirect_uri")).toBe(settings.google.redirectUri.href);
   });

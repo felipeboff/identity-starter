@@ -34,7 +34,11 @@ const create = (fetch: typeof globalThis.fetch) => {
   const apiKey = `mlsn.${faker.string.alphanumeric(64)}`;
   const from = { email: faker.internet.email(), name: faker.company.name() };
   const mailer = new MailerSendIdentityMailer({
-    http: new FetchHttpClient({ timeoutMs: 1_000, fetch }),
+    http: new FetchHttpClient({
+      timeoutMs: 1_000,
+      logger: new FakeLogger(),
+      fetch,
+    }),
     composer,
     logger,
     apiKey,
@@ -43,32 +47,46 @@ const create = (fetch: typeof globalThis.fetch) => {
   return { mailer, logger, composer, apiKey, from };
 };
 
-const respondWith = (status: number, body = "") =>
-  vi.fn<typeof fetch>(() => Promise.resolve(new Response(body, { status })));
+type SentRequest = Readonly<{
+  url: string;
+  method: string;
+  headers: Record<string, string>;
+  body: unknown;
+}>;
 
-const sentBody = (fetch: ReturnType<typeof respondWith>): unknown =>
-  JSON.parse(fetch.mock.calls[0]?.[1]?.body as string);
+const respondWith = (status: number, body = "") => {
+  const sent: SentRequest[] = [];
+  const fetch = vi.fn<typeof globalThis.fetch>(async (input) => {
+    const request = input as Request;
+    sent.push({
+      url: request.url,
+      method: request.method,
+      headers: Object.fromEntries(request.headers),
+      body: JSON.parse(await request.text()),
+    });
+    return new Response(body, { status });
+  });
+  return { fetch, sent };
+};
 
 describe("MailerSendIdentityMailer", () => {
   it("sends the password reset e-mail through the MailerSend API", async () => {
-    const fetch = respondWith(202);
+    const { fetch, sent } = respondWith(202);
     const { mailer, composer, apiKey, from } = create(fetch);
     const email = buildTokenEmail();
     const composed = composer.passwordReset(email);
 
     await mailer.sendPasswordReset(email);
 
-    expect(fetch).toHaveBeenCalledWith(
-      MAILERSEND_EMAIL_URL,
-      expect.objectContaining({
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${apiKey}`,
-        },
-      }),
-    );
-    expect(sentBody(fetch)).toStrictEqual({
+    expect(sent[0]).toMatchObject({
+      url: MAILERSEND_EMAIL_URL,
+      method: "POST",
+    });
+    expect(sent[0]?.headers).toStrictEqual({
+      "content-type": "application/json",
+      authorization: `Bearer ${apiKey}`,
+    });
+    expect(sent[0]?.body).toStrictEqual({
       from,
       to: [{ email: email.to, name: email.name }],
       subject: composed.subject,
@@ -77,14 +95,14 @@ describe("MailerSendIdentityMailer", () => {
   });
 
   it("sends the e-mail verification through the MailerSend API", async () => {
-    const fetch = respondWith(202);
+    const { fetch, sent } = respondWith(202);
     const { mailer, composer } = create(fetch);
     const email = buildTokenEmail();
     const composed = composer.emailVerification(email);
 
     await mailer.sendEmailVerification(email);
 
-    expect(sentBody(fetch)).toMatchObject({
+    expect(sent[0]?.body).toMatchObject({
       subject: composed.subject,
       text: composed.text,
     });
@@ -93,7 +111,8 @@ describe("MailerSendIdentityMailer", () => {
   it("fails and logs the status when MailerSend does not accept the e-mail", async () => {
     const status = faker.helpers.arrayElement([200, 401, 422, 429, 500]);
     const { mailer, logger } = create(
-      respondWith(status, JSON.stringify({ message: faker.lorem.sentence() })),
+      respondWith(status, JSON.stringify({ message: faker.lorem.sentence() }))
+        .fetch,
     );
 
     await expectAppError(
@@ -139,7 +158,7 @@ describe("MailerSendIdentityMailer", () => {
   });
 
   it("sends invitations and e-mail changes through the MailerSend API", async () => {
-    const fetch = respondWith(202);
+    const { fetch, sent } = respondWith(202);
     const { mailer, composer } = create(fetch);
     const email = buildTokenEmail();
     const invitation = {
@@ -158,9 +177,8 @@ describe("MailerSendIdentityMailer", () => {
     await mailer.sendEmailChange(email);
     await mailer.sendEmailChanged(notice);
 
-    const subjects = fetch.mock.calls.map(
-      (call) =>
-        (JSON.parse(call[1]?.body as string) as { subject: string }).subject,
+    const subjects = sent.map(
+      (request) => (request.body as { subject: string }).subject,
     );
     expect(subjects).toStrictEqual([
       composer.invitation(invitation).subject,

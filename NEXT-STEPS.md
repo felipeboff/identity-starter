@@ -95,8 +95,10 @@ provedor OAuth.
       `identity.password_reset` e `identity.sessions_revoked` (toda revogação passa pelo
       `SessionRevoker` e loga depois do commit; a rotação do refresh não loga). O reuso de refresh
       token já logava `identity.refresh_token_reused`
-- [ ] **Retry nas chamadas externas** (`GET` do GitHub e do Google) com backoff; avaliar `ky`
-      por baixo do `FetchHttpClient` (complemento do ADR-004)
+- [x] **Retry nas chamadas externas** (ADR-007): `ky` por baixo do `FetchHttpClient` repete um
+      `GET` até 2 vezes em erro de rede ou `408`/`500`/`502`/`503`/`504`, com backoff exponencial
+      e jitter total (até 300 ms e 600 ms), dentro do mesmo prazo de 10 s por chamada; `POST` sai
+      uma vez só. Cada nova tentativa loga `shared.external_call_retried`
 - [ ] **Sentry** para erros e **OpenTelemetry** para métricas e traces (_planned_)
 - [ ] **Dockerfile da API** e serviço no `docker-compose.yml` (hoje o compose sobe Mongo e Redis)
 - [-] **CI no GitHub Actions:** lint, typecheck e as quatro coberturas

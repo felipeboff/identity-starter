@@ -220,6 +220,7 @@ export const createIdentityModule = async (
   const clock = new SystemClock();
   const http = new FetchHttpClient({
     timeoutMs: settings.externalCallTimeoutMs,
+    logger: runtime.logger,
   });
   const composer = new IdentityEmailComposer({ appUrl: settings.appUrl });
   const cache = new RedisCache({ client: runtime.redis });

@@ -28,35 +28,46 @@ const buildClient = () => ({
   redirectUri: new URL(faker.internet.url()),
 });
 
+type SentRequest = Readonly<{
+  url: string;
+  headers: Record<string, string>;
+  body: string;
+}>;
+
 const create = (replies: Readonly<Record<string, Reply>>) => {
-  const fetch = vi.fn<typeof globalThis.fetch>((input) => {
-    const reply = typeof input === "string" ? replies[input] : undefined;
-    return reply
-      ? Promise.resolve(
-          new Response(JSON.stringify(reply.body), { status: reply.status }),
-        )
-      : Promise.reject(new TypeError(faker.lorem.sentence()));
+  const sent: SentRequest[] = [];
+  const fetch = vi.fn<typeof globalThis.fetch>(async (input) => {
+    const request = input as Request;
+    sent.push({
+      url: request.url,
+      headers: Object.fromEntries(request.headers),
+      body: await request.text(),
+    });
+    const reply = replies[request.url];
+    if (!reply) throw new TypeError(faker.lorem.sentence());
+    return new Response(JSON.stringify(reply.body), { status: reply.status });
   });
   const logger = new FakeLogger();
   const google = buildClient();
   const github = buildClient();
   const gateway = new FetchOAuthGateway({
-    http: new FetchHttpClient({ timeoutMs: 1_000, fetch }),
+    http: new FetchHttpClient({
+      timeoutMs: 1_000,
+      logger: new FakeLogger(),
+      fetch,
+    }),
     logger,
     google,
     github,
   });
-  return { gateway, fetch, logger, google, github };
+  return { gateway, fetch, sent, logger, google, github };
 };
 
-const requestTo = (
-  fetch: ReturnType<typeof create>["fetch"],
-  url: string,
-): RequestInit | undefined =>
-  fetch.mock.calls.find(([input]) => input === url)?.[1];
+const requestTo = (sent: readonly SentRequest[], url: string) =>
+  sent.find((request) => request.url === url);
 
-const formOf = (init: RequestInit | undefined) =>
-  Object.fromEntries(new URLSearchParams(init?.body as string));
+const formOf = (request: SentRequest | undefined) =>
+  Object.fromEntries(new URLSearchParams(request?.body));
 
 const buildCode = () => faker.string.alphanumeric(20);
 const buildAccessToken = () => faker.string.alphanumeric(40);
@@ -87,7 +98,7 @@ describe("FetchOAuthGateway", () => {
     it("trades the code for a token and reads the user", async () => {
       const user = buildUser();
       const accessToken = buildAccessToken();
-      const { gateway, fetch, google } = create(replies(user, accessToken));
+      const { gateway, sent, google } = create(replies(user, accessToken));
       const code = buildCode();
 
       const profile = await gateway.exchangeCode({ provider, code });
@@ -97,25 +108,25 @@ describe("FetchOAuthGateway", () => {
         email: user.email,
         name: user.name,
       });
-      expect(formOf(requestTo(fetch, GOOGLE_TOKEN_URL))).toStrictEqual({
+      expect(formOf(requestTo(sent, GOOGLE_TOKEN_URL))).toStrictEqual({
         grant_type: "authorization_code",
         code,
         client_id: google.clientId,
         client_secret: google.clientSecret,
         redirect_uri: google.redirectUri.href,
       });
-      expect(requestTo(fetch, GOOGLE_USERINFO_URL)?.headers).toStrictEqual({
+      expect(requestTo(sent, GOOGLE_USERINFO_URL)?.headers).toStrictEqual({
         authorization: `Bearer ${accessToken}`,
       });
     });
 
     it("sends the PKCE code verifier when there is one", async () => {
-      const { gateway, fetch } = create(replies(buildUser()));
+      const { gateway, sent } = create(replies(buildUser()));
       const codeVerifier = faker.string.alphanumeric(64);
 
       await gateway.exchangeCode({ provider, code: buildCode(), codeVerifier });
 
-      expect(formOf(requestTo(fetch, GOOGLE_TOKEN_URL))).toMatchObject({
+      expect(formOf(requestTo(sent, GOOGLE_TOKEN_URL))).toMatchObject({
         code_verifier: codeVerifier,
       });
     });
@@ -248,7 +259,7 @@ describe("FetchOAuthGateway", () => {
     it("trades the code for a token and reads the user by its numeric id", async () => {
       const user = buildUser();
       const accessToken = buildAccessToken();
-      const { gateway, fetch, github } = create(replies(user, accessToken));
+      const { gateway, sent, github } = create(replies(user, accessToken));
       const code = buildCode();
 
       const profile = await gateway.exchangeCode({ provider, code });
@@ -258,31 +269,31 @@ describe("FetchOAuthGateway", () => {
         email: user.email,
         name: user.name,
       });
-      expect(requestTo(fetch, GITHUB_TOKEN_URL)?.headers).toMatchObject({
+      expect(requestTo(sent, GITHUB_TOKEN_URL)?.headers).toMatchObject({
         accept: "application/json",
       });
-      expect(formOf(requestTo(fetch, GITHUB_TOKEN_URL))).toStrictEqual({
+      expect(formOf(requestTo(sent, GITHUB_TOKEN_URL))).toStrictEqual({
         client_id: github.clientId,
         client_secret: github.clientSecret,
         code,
         redirect_uri: github.redirectUri.href,
       });
-      expect(requestTo(fetch, GITHUB_USER_URL)?.headers).toStrictEqual({
+      expect(requestTo(sent, GITHUB_USER_URL)?.headers).toStrictEqual({
         accept: "application/vnd.github+json",
         authorization: `Bearer ${accessToken}`,
         "user-agent": "resolve-hub",
         "x-github-api-version": "2022-11-28",
       });
-      expect(requestTo(fetch, GITHUB_EMAILS_URL)).toBeUndefined();
+      expect(requestTo(sent, GITHUB_EMAILS_URL)).toBeUndefined();
     });
 
     it("sends the PKCE code verifier when there is one", async () => {
-      const { gateway, fetch } = create(replies(buildUser()));
+      const { gateway, sent } = create(replies(buildUser()));
       const codeVerifier = faker.string.alphanumeric(64);
 
       await gateway.exchangeCode({ provider, code: buildCode(), codeVerifier });
 
-      expect(formOf(requestTo(fetch, GITHUB_TOKEN_URL))).toMatchObject({
+      expect(formOf(requestTo(sent, GITHUB_TOKEN_URL))).toMatchObject({
         code_verifier: codeVerifier,
       });
     });
