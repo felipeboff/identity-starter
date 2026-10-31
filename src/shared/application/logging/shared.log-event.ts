@@ -24,6 +24,11 @@ export const SharedLogEvent = {
   RateLimiterUnavailable: defineLogEvent<{ rule: string; error: unknown }>(
     "shared.rate_limiter_unavailable",
   ),
+  CacheCallFailed: defineLogEvent<{
+    operation: "get" | "set" | "delete";
+    key: string;
+    error: unknown;
+  }>("shared.cache_call_failed"),
   RequestCompleted: defineLogEvent<{ status: number; durationMs: number }>(
     "shared.request_completed",
   ),
