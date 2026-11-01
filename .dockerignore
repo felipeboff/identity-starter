@@ -1,0 +1,9 @@
+*
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!tsconfig.json
+!src
+!web/package.json
+src/**/*.spec.ts
+src/**/testing

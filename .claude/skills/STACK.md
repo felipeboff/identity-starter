@@ -77,7 +77,10 @@ file deserve an ADR (`create-adr`).
 
 ## Delivery
 
-- Docker + Docker Compose.
+- Docker + Docker Compose. The API image is an esbuild bundle (`pnpm build`, every package external)
+  run by `node --enable-source-maps` on `node:24-slim`, as `node`, with production dependencies only;
+  `docker compose --profile app up` starts it next to Mongo and Redis
+  ([ADR-009](../../docs/adr/009-run-the-api-from-an-esbuild-bundle-in-a-slim-image.md)).
 - CI: **GitHub Actions** (lint, typecheck, tests with coverage). _planned_
 - Infra: EC2 or VPS, provisioned with **Terraform**. _planned_
 

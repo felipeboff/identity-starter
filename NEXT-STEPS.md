@@ -14,6 +14,7 @@ Abaixo está o que falta, em ordem de prioridade.
 > Para rodar: `sudo systemctl enable --now docker`, `docker compose up -d --wait` e `pnpm dev`. O
 > `MONGO_URL` precisa de `?replicaSet=rs0`. O `SENTRY_DSN` é opcional; localmente, ele vem de um
 > projeto criado no Bugsink (`http://localhost:8000`, `admin` / `admin`).
+> Para subir a API em container: `docker compose --profile app up -d --wait`.
 
 ---
 
@@ -107,7 +108,10 @@ provedor OAuth.
       `http://localhost:8000`
   - [-] Criar o projeto no Sentry e definir `SENTRY_DSN` no ambiente de produção
 - [-] **OpenTelemetry** para métricas e traces (_planned_)
-- [ ] **Dockerfile da API** e serviço no `docker-compose.yml` (hoje o compose sobe Mongo e Redis)
+- [x] **Dockerfile da API** e serviço no `docker-compose.yml` (ADR-009): `pnpm build` gera um bundle
+      esbuild em `dist/main.js`; a imagem `node:24-slim` roda `node --enable-source-maps` como
+      `node`, só com as dependências de produção; `docker compose --profile app up -d --wait` sobe a
+      API junto com Mongo e Redis
 - [-] **CI no GitHub Actions:** lint, typecheck e as quatro coberturas
 
 ## 5. Efeitos colaterais, eventos e jobs
