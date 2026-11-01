@@ -17,14 +17,18 @@ import {
   MembershipRole,
 } from "@/identity/domain/membership.entity";
 
+const ADMIN_PERMISSIONS = [
+  MembershipPermission.MEMBER_PERMISSIONS_UPDATE,
+  MembershipPermission.INVITATION_READ,
+  MembershipPermission.INVITATION_REVOKE,
+];
+
 describe("UpdateMemberPermissionsUseCase", () => {
   let ctx: IdentityContext;
   let useCase: UpdateMemberPermissionsUseCase;
 
   const seedAdmin = () =>
-    seedAccount(ctx, {
-      permissions: [MembershipPermission.MEMBER_PERMISSIONS_UPDATE],
-    });
+    seedAccount(ctx, { permissions: [...ADMIN_PERMISSIONS] });
 
   beforeEach(() => {
     ctx = createIdentityContext();
@@ -75,10 +79,49 @@ describe("UpdateMemberPermissionsUseCase", () => {
     );
 
     const membership = await ctx.memberships.findByAccountId(admin.accountId);
-    expect(membership?.permissions).toEqual([
-      MembershipPermission.MEMBER_PERMISSIONS_UPDATE,
-    ]);
+    expect(membership?.permissions).toEqual(ADMIN_PERMISSIONS);
   });
+
+  it("keeps the member's permissions the actor does not hold as they are", async () => {
+    const admin = await seedAdmin();
+    const ana = await seedAccount(ctx, {
+      permissions: [MembershipPermission.SESSION_REVOKE],
+    });
+    const permissions = [
+      MembershipPermission.SESSION_REVOKE,
+      MembershipPermission.INVITATION_READ,
+    ];
+
+    const output = await useCase.execute(
+      { accountId: ana.accountId, permissions },
+      admin.actor,
+    );
+
+    expect(output.membership.permissions).toEqual(permissions);
+  });
+
+  it.each([
+    ["grants", [], [MembershipPermission.SESSION_REVOKE]],
+    ["removes", [MembershipPermission.SESSION_REVOKE], []],
+  ])(
+    "throws Forbidden and saves nothing when the actor %s a permission they do not hold",
+    async (_, current, requested) => {
+      const admin = await seedAdmin();
+      const ana = await seedAccount(ctx, { permissions: current });
+
+      await expectAppError(
+        useCase.execute(
+          { accountId: ana.accountId, permissions: requested },
+          admin.actor,
+        ),
+        IdentityError.Forbidden,
+        { actorAccountId: admin.accountId },
+      );
+
+      const membership = await ctx.memberships.findByAccountId(ana.accountId);
+      expect(membership?.permissions).toEqual(current);
+    },
+  );
 
   it("refuses permission_missing without member.permissions.update, even with the admin role", async () => {
     const bruno = await seedAccount(ctx, {

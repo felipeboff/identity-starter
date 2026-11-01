@@ -664,6 +664,29 @@ describe("identity route failures", () => {
       },
     );
 
+    it("answers 403 forbidden to a member granting a permission they do not hold", async () => {
+      const http = createIdentityHttp();
+      const admin = await http.signIn({
+        permissions: [MembershipPermission.MEMBER_PERMISSIONS_UPDATE],
+      });
+      const bob = await seedAccount(http.ctx);
+
+      const out = await http.call("PUT", "/members/:accountId/permissions", {
+        token: admin.token,
+        params: { accountId: bob.accountId },
+        body: { permissions: [MembershipPermission.SESSION_REVOKE_ALL] },
+      });
+
+      expect(failure(out)).toStrictEqual({
+        status: 403,
+        code: IdentityError.Forbidden.code,
+      });
+      const membership = await http.ctx.memberships.findByAccountId(
+        bob.accountId,
+      );
+      expect(membership?.permissions).toStrictEqual([]);
+    });
+
     it("answers 403 forbidden to a member changing their own permissions", async () => {
       const http = createIdentityHttp();
       const admin = await signInAdmin(http);

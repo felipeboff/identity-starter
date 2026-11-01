@@ -92,4 +92,28 @@ describe("AccessPolicy", () => {
       );
     });
   });
+
+  describe("ensureCanChangePermissions", () => {
+    const held = MembershipPermission.INVITATION_READ;
+    const notHeld = MembershipPermission.SESSION_REVOKE;
+
+    it("allows changing held permissions while keeping the ones the actor lacks", () => {
+      const admin = makeActor({ permissions: [held] });
+
+      expect(() =>
+        policy.ensureCanChangePermissions(admin, [notHeld], [notHeld, held]),
+      ).not.toThrow();
+    });
+
+    it.each([
+      ["adding", [], [notHeld]],
+      ["removing", [notHeld], []],
+    ])("refuses %s a permission the actor does not hold", (_, from, to) => {
+      const admin = makeActor({ permissions: [held] });
+
+      expect(() => policy.ensureCanChangePermissions(admin, from, to)).toThrow(
+        IdentityError.Forbidden.code,
+      );
+    });
+  });
 });

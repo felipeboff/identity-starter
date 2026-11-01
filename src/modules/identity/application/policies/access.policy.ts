@@ -38,4 +38,16 @@ export class AccessPolicy {
       actorAccountId: actor.accountId,
     });
   }
+
+  /** Nobody adds or removes a permission they do not hold; the others stay as they are. */
+  ensureCanChangePermissions(
+    actor: Actor,
+    from: readonly MembershipPermission[],
+    to: readonly MembershipPermission[],
+  ): void {
+    this.ensureCanGrant(actor, [
+      ...to.filter((permission) => !from.includes(permission)),
+      ...from.filter((permission) => !to.includes(permission)),
+    ]);
+  }
 }

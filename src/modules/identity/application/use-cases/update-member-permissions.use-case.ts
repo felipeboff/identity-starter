@@ -36,7 +36,13 @@ export class UpdateMemberPermissionsUseCase extends UseCase<{
       input.accountId,
     );
 
+    const previous = [...membership.permissions];
     membership.updatePermissions(input.permissions, this.deps.clock.now());
+    this.deps.accessPolicy.ensureCanChangePermissions(
+      actor,
+      previous,
+      membership.permissions,
+    );
     await this.deps.memberships.save(membership);
 
     return { membership: toOutputMembership(membership) };

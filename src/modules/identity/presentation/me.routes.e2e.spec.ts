@@ -272,15 +272,18 @@ describe("identity protected routes", () => {
 
   it("changes member permissions with 200", async () => {
     const http = createIdentityHttp();
-    const admin = await http.signIn({
-      role: MembershipRole.USER,
-      permissions: [MembershipPermission.MEMBER_PERMISSIONS_UPDATE],
-    });
-    const bruno = await seedAccount(http.ctx);
     const permissions = [
       MembershipPermission.INVITATION_READ,
       MembershipPermission.INVITATION_REVOKE,
     ];
+    const admin = await http.signIn({
+      role: MembershipRole.USER,
+      permissions: [
+        MembershipPermission.MEMBER_PERMISSIONS_UPDATE,
+        ...permissions,
+      ],
+    });
+    const bruno = await seedAccount(http.ctx);
 
     const out = await http.call("PUT", "/members/:accountId/permissions", {
       token: admin.token,
