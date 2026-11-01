@@ -1,4 +1,5 @@
 import { faker } from "@faker-js/faker";
+import { CursorPager } from "@shared/application/services/cursor-pager";
 import { RateLimiter } from "@shared/application/services/rate-limiter";
 import { FakeLogContext } from "@shared/testing/fake-log-context";
 import { FakeLogger } from "@shared/testing/fake-logger";
@@ -122,6 +123,7 @@ export const createIdentityContext = () => {
     accountResolver,
     membershipResolver,
     accessPolicy,
+    pager: new CursorPager(),
   };
 };
 

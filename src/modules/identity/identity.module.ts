@@ -4,6 +4,7 @@ import { IdGenerator } from "@shared/application/ports/id-generator";
 import type { LogContext } from "@shared/application/ports/log-context";
 import type { Logger } from "@shared/application/ports/logger";
 import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
+import { CursorPager } from "@shared/application/services/cursor-pager";
 import { RateLimiter } from "@shared/application/services/rate-limiter";
 import { FailOpenCache } from "@shared/infrastructure/cache/fail-open-cache";
 import { FetchHttpClient } from "@shared/infrastructure/http/fetch-http-client";
@@ -46,6 +47,7 @@ import { InviteMemberUseCase } from "./application/use-cases/invite-member.use-c
 import { LinkOAuthUseCase } from "./application/use-cases/link-oauth.use-case";
 import { ListCredentialsUseCase } from "./application/use-cases/list-credentials.use-case";
 import { ListInvitationsUseCase } from "./application/use-cases/list-invitations.use-case";
+import { ListMembersUseCase } from "./application/use-cases/list-members.use-case";
 import { ListSessionsUseCase } from "./application/use-cases/list-sessions.use-case";
 import { ReactivateAccountUseCase } from "./application/use-cases/reactivate-account.use-case";
 import { RefreshSessionUseCase } from "./application/use-cases/refresh-session.use-case";
@@ -165,6 +167,7 @@ export const assembleIdentityModule = (
     accountResolver: new AccountResolver(adapters),
     membershipResolver: new MembershipResolver(adapters),
     accessPolicy: new AccessPolicy(),
+    pager: new CursorPager(),
   };
 
   const authenticate = new AuthenticateMiddleware({
@@ -201,6 +204,7 @@ export const assembleIdentityModule = (
     revokeAllSessions: new RevokeAllSessionsUseCase(deps),
     deactivateAccount: new DeactivateAccountUseCase(deps),
     reactivateAccount: new ReactivateAccountUseCase(deps),
+    listMembers: new ListMembersUseCase(deps),
     updateMemberRole: new UpdateMemberRoleUseCase(deps),
     updateMemberPermissions: new UpdateMemberPermissionsUseCase(deps),
   };

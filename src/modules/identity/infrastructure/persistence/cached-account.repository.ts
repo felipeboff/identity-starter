@@ -48,4 +48,8 @@ export class CachedAccountRepository implements AccountRepository {
       load: () => this.deps.inner.findByEmail(email),
     });
   }
+
+  findByIds(ids: readonly string[]): Promise<Account[]> {
+    return this.deps.inner.findByIds(ids);
+  }
 }

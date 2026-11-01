@@ -1,4 +1,5 @@
 import { faker } from "@faker-js/faker";
+import { PAGE_MAX_LIMIT } from "@shared/application/pagination.policy";
 import { SharedError } from "@shared/domain/errors/shared.error";
 import { NO_INPUT } from "@shared/presentation/handler";
 import { HttpMethod } from "@shared/presentation/http/http-route";
@@ -18,6 +19,7 @@ import { InviteMemberUseCase } from "@/identity/application/use-cases/invite-mem
 import { LinkOAuthUseCase } from "@/identity/application/use-cases/link-oauth.use-case";
 import { ListCredentialsUseCase } from "@/identity/application/use-cases/list-credentials.use-case";
 import { ListInvitationsUseCase } from "@/identity/application/use-cases/list-invitations.use-case";
+import { ListMembersUseCase } from "@/identity/application/use-cases/list-members.use-case";
 import { ListSessionsUseCase } from "@/identity/application/use-cases/list-sessions.use-case";
 import { ReactivateAccountUseCase } from "@/identity/application/use-cases/reactivate-account.use-case";
 import { RefreshSessionUseCase } from "@/identity/application/use-cases/refresh-session.use-case";
@@ -89,6 +91,7 @@ const PROTECTED_ROUTES: [HttpMethod, string, UseCaseClass][] = [
   ["DELETE", "/accounts/:accountId/sessions", RevokeAllSessionsUseCase],
   ["POST", "/accounts/:accountId/deactivate", DeactivateAccountUseCase],
   ["POST", "/accounts/:accountId/reactivate", ReactivateAccountUseCase],
+  ["GET", "/members", ListMembersUseCase],
   ["PUT", "/members/:accountId/role", UpdateMemberRoleUseCase],
   ["PUT", "/members/:accountId/permissions", UpdateMemberPermissionsUseCase],
   ["POST", "/invitations", InviteMemberUseCase],
@@ -163,6 +166,21 @@ const INVALID_INPUTS: [HttpMethod, string, UseCaseClass, CallOptions][] = [
     "/accounts/:accountId/reactivate",
     ReactivateAccountUseCase,
     { params: { accountId: notAnId } },
+  ],
+  [
+    "GET",
+    "/members",
+    ListMembersUseCase,
+    {
+      query: {
+        limit: String(
+          faker.number.int({
+            min: PAGE_MAX_LIMIT + 1,
+            max: PAGE_MAX_LIMIT * 10,
+          }),
+        ),
+      },
+    },
   ],
   [
     "PUT",
@@ -379,7 +397,7 @@ describe("identity routes", () => {
     const { routes } = createIdentityHttp();
     const names = routes.map((route) => route.handler.name);
 
-    expect(names).toHaveLength(29);
+    expect(names).toHaveLength(30);
     expect(names.filter((name) => !OPERATION_NAME.test(name))).toStrictEqual(
       [],
     );
@@ -390,7 +408,7 @@ describe("identity routes", () => {
     const { routes } = createIdentityHttp();
     const schemas = routes.map((route) => route.handler.input ?? NO_INPUT);
 
-    expect(schemas).toHaveLength(29);
+    expect(schemas).toHaveLength(30);
     for (const schema of schemas) {
       const json: unknown = JSON.parse(JSON.stringify(schema));
 

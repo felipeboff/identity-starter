@@ -47,4 +47,11 @@ export class MongoAccountRepository implements AccountRepository {
       .lean();
     return document === null ? null : accountMapper.toDomain(document);
   }
+
+  async findByIds(ids: readonly string[]): Promise<Account[]> {
+    const documents = await this.models.accounts
+      .find({ _id: { $in: ids } })
+      .lean();
+    return documents.map((document) => accountMapper.toDomain(document));
+  }
 }

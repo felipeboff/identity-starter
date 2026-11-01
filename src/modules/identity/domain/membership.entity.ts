@@ -12,6 +12,7 @@ export const MembershipPermission = {
   ACCOUNT_DEACTIVATE: "account.deactivate",
   SESSION_REVOKE: "session.revoke",
   SESSION_REVOKE_ALL: "session.revoke_all",
+  MEMBER_READ: "member.read",
   MEMBER_ROLE_UPDATE: "member.role.update",
   MEMBER_PERMISSIONS_UPDATE: "member.permissions.update",
 } as const;

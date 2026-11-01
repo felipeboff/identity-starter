@@ -114,6 +114,25 @@ export const accountRepositoryContract = (
     expect((await load(account)).name).toBe(name);
   });
 
+  it("finds the accounts of the given ids and skips unknown ones", async () => {
+    const ana = registerAccount();
+    const bia = registerAccount();
+    const other = registerAccount();
+    await accounts.save(ana);
+    await accounts.save(bia);
+    await accounts.save(other);
+
+    const found = await accounts.findByIds([
+      bia.id.value,
+      faker.database.mongodbObjectId(),
+      ana.id.value,
+    ]);
+
+    expect(found.map((account) => account.id.value).sort()).toStrictEqual(
+      [ana.id.value, bia.id.value].sort(),
+    );
+  });
+
   it("finds an account by its email, in any case", async () => {
     const account = registerAccount();
     await accounts.save(account);

@@ -11,6 +11,7 @@ import { InviteMemberHandler } from "./invite-member.handler";
 import { LinkOAuthHandler } from "./link-oauth.handler";
 import { ListCredentialsHandler } from "./list-credentials.handler";
 import { ListInvitationsHandler } from "./list-invitations.handler";
+import { ListMembersHandler } from "./list-members.handler";
 import { ListSessionsHandler } from "./list-sessions.handler";
 import { ReactivateAccountHandler } from "./reactivate-account.handler";
 import { RefreshSessionHandler } from "./refresh-session.handler";
@@ -43,6 +44,7 @@ import { InviteMemberUseCase } from "@/identity/application/use-cases/invite-mem
 import { LinkOAuthUseCase } from "@/identity/application/use-cases/link-oauth.use-case";
 import { ListCredentialsUseCase } from "@/identity/application/use-cases/list-credentials.use-case";
 import { ListInvitationsUseCase } from "@/identity/application/use-cases/list-invitations.use-case";
+import { ListMembersUseCase } from "@/identity/application/use-cases/list-members.use-case";
 import { ListSessionsUseCase } from "@/identity/application/use-cases/list-sessions.use-case";
 import { ReactivateAccountUseCase } from "@/identity/application/use-cases/reactivate-account.use-case";
 import { RefreshSessionUseCase } from "@/identity/application/use-cases/refresh-session.use-case";
@@ -95,6 +97,7 @@ export type IdentityHttpDeps = {
   revokeAllSessions: RevokeAllSessionsUseCase;
   deactivateAccount: DeactivateAccountUseCase;
   reactivateAccount: ReactivateAccountUseCase;
+  listMembers: ListMembersUseCase;
   updateMemberRole: UpdateMemberRoleUseCase;
   updateMemberPermissions: UpdateMemberPermissionsUseCase;
 };
@@ -352,6 +355,13 @@ export const createIdentityRoutes = (
     status: 200,
     failures: [400, 401, 403, 404],
     handler: new ReactivateAccountHandler(deps),
+  },
+  {
+    method: "GET",
+    path: "/members",
+    status: 200,
+    failures: [400, 401, 403],
+    handler: new ListMembersHandler(deps),
   },
   {
     method: "PUT",

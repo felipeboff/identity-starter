@@ -1,3 +1,4 @@
+import type { PageQuery } from "@shared/application/pagination.policy";
 import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
 import { OptimisticWriter } from "@shared/infrastructure/mongo/optimistic-writer";
 
@@ -33,5 +34,14 @@ export class MongoMembershipRepository implements MembershipRepository {
       .findOne({ accountId })
       .lean();
     return document === null ? null : membershipMapper.toDomain(document);
+  }
+
+  async list(query: PageQuery): Promise<Membership[]> {
+    const documents = await this.models.memberships
+      .find(query.after === null ? {} : { _id: { $gt: query.after } })
+      .sort({ _id: 1 })
+      .limit(query.limit)
+      .lean();
+    return documents.map((document) => membershipMapper.toDomain(document));
   }
 }

@@ -1,3 +1,4 @@
+import type { PageQuery } from "@shared/application/pagination.policy";
 import { AppError } from "@shared/domain/errors/app-error";
 import { InMemoryRepository } from "@shared/testing/in-memory-repository";
 
@@ -74,6 +75,13 @@ export class InMemoryAccountRepository
       (snapshot) => snapshot.email === email.toLowerCase(),
     );
     return Promise.resolve(found ? this.restore(found) : null);
+  }
+
+  findByIds(ids: readonly string[]) {
+    const matches = [...this.snapshots.values()].filter((snapshot) =>
+      ids.includes(snapshot.id),
+    );
+    return Promise.resolve(matches.map((snapshot) => this.restore(snapshot)));
   }
 }
 
@@ -171,6 +179,14 @@ export class InMemoryMembershipRepository
       (snapshot) => snapshot.accountId === accountId,
     );
     return Promise.resolve(found ? this.restore(found) : null);
+  }
+
+  list(query: PageQuery) {
+    const matches = [...this.snapshots.values()]
+      .filter((snapshot) => query.after === null || snapshot.id > query.after)
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .slice(0, query.limit);
+    return Promise.resolve(matches.map((snapshot) => this.restore(snapshot)));
   }
 }
 

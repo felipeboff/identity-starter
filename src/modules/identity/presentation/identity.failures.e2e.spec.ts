@@ -629,6 +629,7 @@ describe("identity route failures", () => {
         undefined,
         MembershipPermission.ACCOUNT_REACTIVATE,
       ],
+      ["GET", "/members", undefined, MembershipPermission.MEMBER_READ],
       [
         "PUT",
         "/members/:accountId/role",

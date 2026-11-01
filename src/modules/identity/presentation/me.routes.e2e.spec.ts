@@ -7,6 +7,7 @@ import {
   seedAccount,
   seedSession,
 } from "@/identity/application/testing/identity-context";
+import { ListMembersOutput } from "@/identity/application/use-cases/list-members.types";
 import { AuthProvider, Credential } from "@/identity/domain/credential.entity";
 import {
   MembershipPermission,
@@ -269,6 +270,41 @@ describe("identity protected routes", () => {
         deletedAt: null,
       }) as unknown,
     });
+  });
+
+  it("lists members with 200, one page at a time", async () => {
+    const http = createIdentityHttp();
+    const ana = await http.signIn({
+      permissions: [MembershipPermission.MEMBER_READ],
+    });
+    const bruno = await seedAccount(http.ctx);
+
+    const first = await http.call("GET", "/members", {
+      token: ana.token,
+      query: { limit: "1" },
+    });
+    const { nextCursor } = first.body as ListMembersOutput;
+    const second = await http.call("GET", "/members", {
+      token: ana.token,
+      query: { limit: "1", cursor: nextCursor as string },
+    });
+
+    expect(first.status).toBe(200);
+    expect(second).toMatchObject({ status: 200, body: { nextCursor: null } });
+    const listed = [first, second].flatMap((page) =>
+      (page.body as ListMembersOutput).members.map((member) => ({
+        accountId: member.account.id,
+        membershipId: member.membership.id,
+      })),
+    );
+    expect(listed).toStrictEqual(
+      [ana, bruno]
+        .map((seeded) => ({
+          accountId: seeded.accountId,
+          membershipId: seeded.membership.id.value,
+        }))
+        .sort((a, b) => a.membershipId.localeCompare(b.membershipId)),
+    );
   });
 
   it("changes a member role with 200", async () => {

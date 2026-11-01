@@ -4,4 +4,5 @@ export type AccountRepository = {
   save(account: Account): Promise<void>;
   findById(id: string): Promise<Account | null>;
   findByEmail(email: string): Promise<Account | null>;
+  findByIds(ids: readonly string[]): Promise<Account[]>;
 };

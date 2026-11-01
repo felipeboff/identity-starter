@@ -1,3 +1,4 @@
+import type { PageQuery } from "@shared/application/pagination.policy";
 import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
 import { EntityCache } from "@shared/infrastructure/cache/entity-cache";
 import { FailOpenCache } from "@shared/infrastructure/cache/fail-open-cache";
@@ -46,5 +47,9 @@ export class CachedMembershipRepository implements MembershipRepository {
       matches: (membership) => membership.accountId.value === accountId,
       load: () => this.deps.inner.findByAccountId(accountId),
     });
+  }
+
+  list(query: PageQuery): Promise<Membership[]> {
+    return this.deps.inner.list(query);
   }
 }
