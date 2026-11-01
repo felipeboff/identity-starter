@@ -36,6 +36,7 @@ describe("src/shared/presentation", () => {
       path.join("http", "http-response.ts"),
       path.join("http", "http-route.ts"),
       path.join("http", "http-router.ts"),
+      "page-request.schema.ts",
       "rate-limit.middleware.ts",
       "schema-parser.ts",
     ]);
