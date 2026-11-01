@@ -203,6 +203,30 @@ describe("identity public routes", () => {
     expect(signIn.status).toBe(200);
   });
 
+  it("creates a password through the reset link for an account made with OAuth", async () => {
+    const http = createIdentityHttp();
+    const { profile, code } = givenGoogleLogin(http);
+    await http.call("POST", "/auth/oauth/:provider", {
+      params: { provider: AuthProvider.GOOGLE },
+      body: { code },
+    });
+    await http.call("POST", "/auth/password-reset/request", {
+      body: { email: profile.email },
+    });
+    const [mail] = http.ctx.mailer.passwordResets;
+    const newPassword = faker.internet.password();
+
+    const out = await http.call("POST", "/auth/password-reset", {
+      body: { token: mail?.token, newPassword },
+    });
+
+    expect(out).toStrictEqual({ status: 204 });
+    const signIn = await http.call("POST", "/auth/sign-in", {
+      body: { email: profile.email, password: newPassword },
+    });
+    expect(signIn.status).toBe(200);
+  });
+
   it("verifies the email with 200", async () => {
     const http = createIdentityHttp();
     const ana = await http.signIn();

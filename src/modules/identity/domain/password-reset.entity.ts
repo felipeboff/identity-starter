@@ -7,7 +7,6 @@ import { TokenHash } from "./value-objects/token-hash.value-object";
 export type PasswordResetRegister = {
   id: string;
   accountId: string;
-  credentialId: string;
   tokenHash: string;
   expiresAt: Date;
 };
@@ -25,7 +24,6 @@ export type PasswordResetSnapshot = PasswordResetRestore;
 export type PasswordResetState = {
   readonly id: Id;
   readonly accountId: Id;
-  readonly credentialId: Id;
   readonly tokenHash: TokenHash;
   readonly expiresAt: Date;
   readonly createdAt: Date;
@@ -45,7 +43,6 @@ export class PasswordReset {
     return new PasswordReset({
       id: Id.create(input.id),
       accountId: Id.create(input.accountId),
-      credentialId: Id.create(input.credentialId),
       tokenHash: TokenHash.create(input.tokenHash),
       expiresAt: input.expiresAt,
       createdAt: at,
@@ -60,7 +57,6 @@ export class PasswordReset {
     return new PasswordReset({
       id: Id.create(input.id),
       accountId: Id.create(input.accountId),
-      credentialId: Id.create(input.credentialId),
       tokenHash: TokenHash.create(input.tokenHash),
       expiresAt: input.expiresAt,
       createdAt: input.createdAt,
@@ -75,7 +71,6 @@ export class PasswordReset {
     return {
       id: this.state.id.value,
       accountId: this.state.accountId.value,
-      credentialId: this.state.credentialId.value,
       tokenHash: this.state.tokenHash.value,
       expiresAt: this.state.expiresAt,
       createdAt: this.state.createdAt,
@@ -92,10 +87,6 @@ export class PasswordReset {
 
   public get accountId(): Id {
     return this.state.accountId;
-  }
-
-  public get credentialId(): Id {
-    return this.state.credentialId;
   }
 
   public get tokenHash(): TokenHash {

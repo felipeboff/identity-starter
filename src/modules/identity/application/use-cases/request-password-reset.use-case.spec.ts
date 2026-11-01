@@ -7,11 +7,11 @@ import {
   createIdentityContext,
   seedAccount,
 } from "../testing/identity-context";
-import { InMemoryCredentialRepository } from "../testing/in-memory-identity-repositories";
 import { PASSWORD_RESET_TTL_MS } from "../token.policy";
 
 import { RequestPasswordResetUseCase } from "./request-password-reset.use-case";
 
+import { Account } from "@/identity/domain/account.entity";
 import { AuthProvider, Credential } from "@/identity/domain/credential.entity";
 
 describe("RequestPasswordResetUseCase", () => {
@@ -46,7 +46,6 @@ describe("RequestPasswordResetUseCase", () => {
     );
     expect(reset?.toSnapshot()).toMatchObject({
       accountId: ana.accountId,
-      credentialId: ana.credential.id.value,
       expiresAt,
       consumedAt: null,
       deletedAt: null,
@@ -92,70 +91,43 @@ describe("RequestPasswordResetUseCase", () => {
     expect(stored?.isDeleted()).toBe(false);
   });
 
+  it("e-mails a reset link to an account that signs in only with OAuth", async () => {
+    const accountId = faker.database.mongodbObjectId();
+    const email = faker.internet.email().toLowerCase();
+    const at = ctx.clock.now();
+    const account = Account.register(
+      {
+        id: accountId,
+        name: faker.person.fullName(),
+        email,
+        createdBy: accountId,
+      },
+      at,
+    );
+    await ctx.accounts.save(account);
+    await ctx.credentials.save(
+      Credential.register(
+        {
+          id: faker.database.mongodbObjectId(),
+          accountId,
+          provider: AuthProvider.GITHUB,
+          subject: faker.string.numeric(9),
+        },
+        at,
+      ),
+    );
+
+    await useCase.execute({ email });
+
+    expect(ctx.mailer.passwordResets).toEqual([
+      expect.objectContaining({ to: email, name: account.name }),
+    ]);
+    expect(await ctx.passwordResets.listByAccountId(accountId)).toHaveLength(1);
+  });
+
   describe("finishes silently without sending an e-mail", () => {
     it("when the e-mail is unknown", async () => {
       await useCase.execute({ email: faker.internet.email().toLowerCase() });
-
-      expect(ctx.mailer.passwordResets).toEqual([]);
-    });
-
-    it("when the credential is deleted", async () => {
-      const ana = await seedAccount(ctx);
-      ana.credential.markAsDeleted(ctx.clock.now());
-      await ctx.credentials.save(ana.credential);
-
-      await useCase.execute({ email: ana.email });
-
-      expect(ctx.mailer.passwordResets).toEqual([]);
-      expect(await ctx.passwordResets.listByAccountId(ana.accountId)).toEqual(
-        [],
-      );
-    });
-
-    it("when the credential is not an e-mail credential", async () => {
-      const email = faker.internet.email().toLowerCase();
-      const google = Credential.register(
-        {
-          id: faker.database.mongodbObjectId(),
-          accountId: faker.database.mongodbObjectId(),
-          provider: AuthProvider.GOOGLE,
-          subject: faker.string.numeric(21),
-          providerEmail: email,
-        },
-        ctx.clock.now(),
-      );
-      // The in-memory findByEmail only returns e-mail credentials, so stub it.
-      const credentials = Object.assign(
-        new InMemoryCredentialRepository(ctx.transactions),
-        {
-          findByEmail: () => Promise.resolve(google),
-        },
-      );
-      useCase = new RequestPasswordResetUseCase({ ...ctx, credentials });
-
-      await useCase.execute({ email });
-
-      expect(ctx.mailer.passwordResets).toEqual([]);
-    });
-
-    it("when the account does not exist", async () => {
-      const email = faker.internet.email().toLowerCase();
-      const orphan = Credential.register(
-        {
-          id: faker.database.mongodbObjectId(),
-          accountId: faker.database.mongodbObjectId(),
-          provider: AuthProvider.EMAIL,
-          subject: email,
-          providerEmail: email,
-          passwordHash: await ctx.passwordHasher.hash(
-            faker.internet.password(),
-          ),
-        },
-        ctx.clock.now(),
-      );
-      await ctx.credentials.save(orphan);
-
-      await useCase.execute({ email });
 
       expect(ctx.mailer.passwordResets).toEqual([]);
     });

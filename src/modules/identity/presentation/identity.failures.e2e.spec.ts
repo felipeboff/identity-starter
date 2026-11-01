@@ -319,17 +319,15 @@ describe("identity route failures", () => {
   });
 
   describe("POST /auth/password-reset", () => {
-    it("answers 404 when the reset points to a credential that does not exist", async () => {
+    it("answers 404 when the reset's account no longer exists", async () => {
       const http = createIdentityHttp();
       const at = http.ctx.clock.now();
-      const ana = await seedAccount(http.ctx);
       const token = aToken();
       await http.ctx.passwordResets.save(
         PasswordReset.register(
           {
             id: anId(),
-            accountId: ana.accountId,
-            credentialId: anId(),
+            accountId: anId(),
             tokenHash: http.ctx.tokens.hash(token),
             expiresAt: faker.date.future({ refDate: at }),
           },
@@ -343,7 +341,7 @@ describe("identity route failures", () => {
 
       expect(failure(out)).toStrictEqual({
         status: 404,
-        code: IdentityError.CredentialNotFound.code,
+        code: IdentityError.AccountNotFound.code,
       });
     });
 

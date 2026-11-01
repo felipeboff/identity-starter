@@ -76,11 +76,6 @@ const tokenDocument = (hash = tokenHash()) => ({
   ...audit(),
 });
 
-const passwordResetDocument = (hash = tokenHash()) => ({
-  ...tokenDocument(hash),
-  credentialId: objectId(),
-});
-
 describe("IdentityModels", () => {
   const mongo = useMemoryMongo();
   let models: IdentityModels;
@@ -174,8 +169,8 @@ describe("IdentityModels", () => {
       "a password reset with a token hash already in use",
       async () => {
         const hash = tokenHash();
-        await models.passwordResets.create(passwordResetDocument(hash));
-        return models.passwordResets.create(passwordResetDocument(hash));
+        await models.passwordResets.create(tokenDocument(hash));
+        return models.passwordResets.create(tokenDocument(hash));
       },
     ],
     [
@@ -245,7 +240,6 @@ describe("IdentityModels", () => {
       [
         "_id",
         "accountId",
-        "credentialId",
         "tokenHash",
         "expiresAt",
         "version",

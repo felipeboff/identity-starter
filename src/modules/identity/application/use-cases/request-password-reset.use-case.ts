@@ -8,12 +8,12 @@ import {
   RequestPasswordResetInput,
 } from "./request-password-reset.types";
 
-import { AuthProvider } from "@/identity/domain/credential.entity";
 import { PasswordReset } from "@/identity/domain/password-reset.entity";
 
 /**
- * Sends a one-time reset token by e-mail. Unknown or unusable e-mails finish
- * silently so the endpoint does not reveal which addresses have an account.
+ * Sends a one-time reset token to the account's e-mail, with or without a password yet. Unknown
+ * or deactivated e-mails finish silently so the endpoint does not reveal which addresses have an
+ * account.
  */
 export class RequestPasswordResetUseCase extends UseCase<{
   input: RequestPasswordResetInput;
@@ -37,18 +37,7 @@ export class RequestPasswordResetUseCase extends UseCase<{
   }
 
   private async issue(input: RequestPasswordResetInput) {
-    const credential = await this.deps.credentials.findByEmail(input.email);
-    if (
-      !credential ||
-      credential.isDeleted() ||
-      credential.provider !== AuthProvider.EMAIL
-    ) {
-      return null;
-    }
-
-    const account = await this.deps.accounts.findById(
-      credential.accountId.value,
-    );
+    const account = await this.deps.accounts.findByEmail(input.email);
     if (!account || account.isDeleted()) {
       return null;
     }
@@ -70,7 +59,6 @@ export class RequestPasswordResetUseCase extends UseCase<{
       {
         id: this.deps.ids.next(),
         accountId: account.id.value,
-        credentialId: credential.id.value,
         tokenHash,
         expiresAt,
       },

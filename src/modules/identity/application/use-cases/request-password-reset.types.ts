@@ -4,7 +4,6 @@ import type { TransactionRunner } from "@shared/application/ports/transaction-ru
 import type { RateLimiter } from "@shared/application/services/rate-limiter";
 
 import { AccountRepository } from "../ports/account.repository";
-import { CredentialRepository } from "../ports/credential.repository";
 import { IdentityMailer } from "../ports/identity-mailer";
 import { PasswordResetRepository } from "../ports/password-reset.repository";
 import { TokenIssuer } from "../ports/token-issuer";
@@ -16,7 +15,6 @@ export type RequestPasswordResetInput = {
 export type RequestPasswordResetDeps = {
   transactions: TransactionRunner;
   accounts: AccountRepository;
-  credentials: CredentialRepository;
   passwordResets: PasswordResetRepository;
 
   tokens: TokenIssuer;

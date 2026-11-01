@@ -8,7 +8,6 @@ export type PasswordResetDocument = Replace<
   {
     _id: Types.ObjectId;
     accountId: Types.ObjectId;
-    credentialId: Types.ObjectId;
   },
   "id"
 >;
@@ -23,10 +22,6 @@ export const passwordResetSchema = new Schema<PasswordResetDocument>(
       type: Schema.Types.ObjectId,
       required: true,
       index: true,
-    },
-    credentialId: {
-      type: Schema.Types.ObjectId,
-      required: true,
     },
     tokenHash: {
       type: String,

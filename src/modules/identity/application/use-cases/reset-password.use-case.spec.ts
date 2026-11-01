@@ -15,6 +15,8 @@ import { IdentityUseCaseLogEvent } from "../use-case.log-event";
 
 import { ResetPasswordUseCase } from "./reset-password.use-case";
 
+import { Account } from "@/identity/domain/account.entity";
+import { AuthProvider } from "@/identity/domain/credential.entity";
 import { IdentityError } from "@/identity/domain/errors/identity.error";
 import { PasswordReset } from "@/identity/domain/password-reset.entity";
 import { SessionRevocationReason } from "@/identity/domain/session.entity";
@@ -24,16 +26,12 @@ describe("ResetPasswordUseCase", () => {
   let useCase: ResetPasswordUseCase;
 
   /** Saves a pending reset for the account; returns it with its plain token. */
-  const saveReset = async (
-    owner: SeededAccount,
-    credentialId = owner.credential.id.value,
-  ) => {
+  const saveReset = async (owner: Pick<SeededAccount, "accountId">) => {
     const token = faker.string.alphanumeric(32);
     const reset = PasswordReset.register(
       {
         id: faker.database.mongodbObjectId(),
         accountId: owner.accountId,
-        credentialId,
         tokenHash: ctx.tokens.hash(token),
         expiresAt: new Date(ctx.clock.now().getTime() + PASSWORD_RESET_TTL_MS),
       },
@@ -133,18 +131,32 @@ describe("ResetPasswordUseCase", () => {
     );
   });
 
-  it("throws CredentialNotFound when the credential no longer exists", async () => {
-    const missingCredentialId = faker.database.mongodbObjectId();
-    const { token } = await saveReset(
-      await seedAccount(ctx),
-      missingCredentialId,
+  it("creates the password sign-in, with the account's e-mail, for an account that has none", async () => {
+    const accountId = faker.database.mongodbObjectId();
+    const email = faker.internet.email().toLowerCase();
+    await ctx.accounts.save(
+      Account.register(
+        {
+          id: accountId,
+          name: faker.person.fullName(),
+          email,
+          createdBy: accountId,
+        },
+        ctx.clock.now(),
+      ),
     );
+    const { token } = await saveReset({ accountId });
+    const newPassword = faker.internet.password();
 
-    await expectAppError(
-      useCase.execute({ token, newPassword: faker.internet.password() }),
-      IdentityError.CredentialNotFound,
-      { credentialId: missingCredentialId },
-    );
+    await useCase.execute({ token, newPassword });
+
+    const [credential] = await ctx.credentials.listByAccountId(accountId);
+    expect(credential?.toSnapshot()).toMatchObject({
+      provider: AuthProvider.EMAIL,
+      subject: email,
+      providerEmail: email,
+      passwordHash: await ctx.passwordHasher.hash(newPassword),
+    });
   });
 
   it("throws CredentialDeleted when the credential is deleted", async () => {

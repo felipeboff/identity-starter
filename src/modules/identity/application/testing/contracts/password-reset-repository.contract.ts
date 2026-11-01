@@ -19,7 +19,6 @@ const registerPasswordReset = (
     {
       id: faker.database.mongodbObjectId(),
       accountId,
-      credentialId: faker.database.mongodbObjectId(),
       tokenHash: tokenHash(),
       expiresAt: faker.date.future(),
     },

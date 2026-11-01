@@ -18,7 +18,6 @@ const makePasswordReset = (overrides: Partial<PasswordResetRegister> = {}) =>
     {
       id: faker.database.mongodbObjectId(),
       accountId: faker.database.mongodbObjectId(),
-      credentialId: faker.database.mongodbObjectId(),
       tokenHash: faker.string.alphanumeric(32),
       expiresAt: EXPIRES_AT,
       ...overrides,
@@ -31,20 +30,17 @@ describe("PasswordReset", () => {
     it("creates a pending reset at version 0", () => {
       const id = faker.database.mongodbObjectId();
       const accountId = faker.database.mongodbObjectId();
-      const credentialId = faker.database.mongodbObjectId();
       const tokenHash = faker.string.alphanumeric(32);
 
       const reset = makePasswordReset({
         id,
         accountId,
-        credentialId,
         tokenHash,
       });
 
       expect(reset.toSnapshot()).toEqual({
         id,
         accountId,
-        credentialId,
         tokenHash,
         expiresAt: EXPIRES_AT,
         version: 0,
@@ -92,7 +88,6 @@ describe("PasswordReset", () => {
       expect({
         id: reset.id.value,
         accountId: reset.accountId.value,
-        credentialId: reset.credentialId.value,
         tokenHash: reset.tokenHash.value,
         expiresAt: reset.expiresAt,
         version: reset.version,
