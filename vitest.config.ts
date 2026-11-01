@@ -51,13 +51,23 @@ export default defineConfig({
           exclude: [INTEGRATION, E2E],
         },
       },
-      { extends: true, test: { name: "integration", include: [INTEGRATION] } },
+      {
+        extends: true,
+        test: {
+          name: "integration",
+          include: [INTEGRATION],
+          globalSetup: ["src/shared/testing/memory-databases.global-setup.ts"],
+        },
+      },
       {
         extends: true,
         test: {
           name: "e2e",
           include: [E2E],
-          globalSetup: ["src/shared/testing/route-statuses.global-setup.ts"],
+          globalSetup: [
+            "src/shared/testing/route-statuses.global-setup.ts",
+            "src/shared/testing/memory-databases.global-setup.ts",
+          ],
         },
       },
     ],

@@ -1,23 +1,9 @@
 import { faker } from "@faker-js/faker";
 import { SharedError } from "@shared/domain/errors/shared.error";
 import { expectAppError } from "@shared/testing/expect-app-error";
-import { MongoMemoryServer } from "mongodb-memory-server";
-import mongoose, {
-  type Connection,
-  type Model,
-  Schema,
-  Types,
-  mongo,
-} from "mongoose";
-import {
-  afterAll,
-  afterEach,
-  beforeAll,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { useMemoryMongo } from "@shared/testing/memory-mongo";
+import { type Model, Schema, Types, mongo } from "mongoose";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { OptimisticWriter } from "./optimistic-writer";
 
@@ -49,24 +35,12 @@ const newThing = (overrides: Partial<ThingDocument> = {}): ThingDocument => ({
 });
 
 describe("OptimisticWriter", () => {
-  let server: MongoMemoryServer;
-  let connection: Connection;
+  const database = useMemoryMongo();
   let things: Model<ThingDocument>;
 
   beforeAll(async () => {
-    server = await MongoMemoryServer.create();
-    connection = await mongoose
-      .createConnection(server.getUri(), {
-        dbName: faker.string.alpha({ length: 12, casing: "lower" }),
-      })
-      .asPromise();
-    things = connection.model<ThingDocument>("Thing", thingSchema);
+    things = database.connection().model<ThingDocument>("Thing", thingSchema);
     await things.syncIndexes();
-  });
-
-  afterAll(async () => {
-    await connection.close();
-    await server.stop();
   });
 
   afterEach(() => {

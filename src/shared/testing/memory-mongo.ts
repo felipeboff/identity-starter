@@ -1,24 +1,27 @@
 import { faker } from "@faker-js/faker";
-import { MongoMemoryReplSet } from "mongodb-memory-server";
 import mongoose, { type Connection } from "mongoose";
-import { afterAll, beforeAll } from "vitest";
+import { afterAll, beforeAll, inject } from "vitest";
+
+export const memoryMongoUri = (database: string): string => {
+  const uri = new URL(inject("mongoUri"));
+  uri.pathname = `/${database}`;
+  return uri.href;
+};
 
 export const useMemoryMongo = () => {
-  let replicaSet: MongoMemoryReplSet | undefined;
   let connection: Connection | undefined;
 
   beforeAll(async () => {
-    replicaSet = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
     connection = await mongoose
-      .createConnection(replicaSet.getUri(), {
+      .createConnection(inject("mongoUri"), {
         dbName: faker.string.alpha({ length: 12, casing: "lower" }),
       })
       .asPromise();
   });
 
   afterAll(async () => {
+    await connection?.dropDatabase();
     await connection?.close();
-    await replicaSet?.stop();
   });
 
   return { connection: () => connection as Connection };

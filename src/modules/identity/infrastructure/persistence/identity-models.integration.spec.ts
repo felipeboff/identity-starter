@@ -1,7 +1,7 @@
 import { faker } from "@faker-js/faker";
-import { MongoMemoryServer } from "mongodb-memory-server";
-import mongoose, { type Connection, Types } from "mongoose";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { useMemoryMongo } from "@shared/testing/memory-mongo";
+import mongoose, { Types } from "mongoose";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { IdentityModels } from "./identity-models";
 
@@ -82,24 +82,12 @@ const passwordResetDocument = (hash = tokenHash()) => ({
 });
 
 describe("IdentityModels", () => {
-  let server: MongoMemoryServer;
-  let connection: Connection;
+  const mongo = useMemoryMongo();
   let models: IdentityModels;
 
   beforeAll(async () => {
-    server = await MongoMemoryServer.create();
-    connection = await mongoose
-      .createConnection(server.getUri(), {
-        dbName: faker.string.alpha({ length: 12, casing: "lower" }),
-      })
-      .asPromise();
-    models = new IdentityModels(connection);
+    models = new IdentityModels(mongo.connection());
     await models.ready();
-  });
-
-  afterAll(async () => {
-    await connection.close();
-    await server.stop();
   });
 
   it.each<[ModelKey, string]>([
@@ -331,7 +319,7 @@ describe("IdentityModels", () => {
   });
 
   it("gives back the same models when registered again on the same connection", () => {
-    const again = new IdentityModels(connection);
+    const again = new IdentityModels(mongo.connection());
 
     expect(again.accounts).toBe(models.accounts);
     expect(again.emailVerifications).toBe(models.emailVerifications);

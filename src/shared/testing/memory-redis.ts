@@ -1,25 +1,23 @@
 import { Redis } from "ioredis";
-import { RedisMemoryServer } from "redis-memory-server";
-import { afterAll, afterEach, beforeAll } from "vitest";
+import { afterAll, afterEach, beforeAll, inject } from "vitest";
 
 export const useMemoryRedis = () => {
-  let server: RedisMemoryServer | undefined;
+  const database =
+    Number(process.env.VITEST_POOL_ID) % inject("redisDatabases");
+  const url = `${inject("redisUrl")}/${database}`;
   let admin: Redis | undefined;
-  let url = "";
 
   beforeAll(async () => {
-    server = await RedisMemoryServer.create();
-    url = `redis://${await server.getHost()}:${await server.getPort()}`;
     admin = new Redis(url);
+    await admin.flushdb();
   });
 
   afterEach(async () => {
-    await admin?.flushall();
+    await admin?.flushdb();
   });
 
   afterAll(async () => {
     await admin?.quit();
-    await server?.stop();
   });
 
   return { url: () => url };

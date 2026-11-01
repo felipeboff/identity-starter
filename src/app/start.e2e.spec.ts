@@ -14,19 +14,12 @@ import { LogLevel } from "@shared/application/ports/logger";
 import { SharedError } from "@shared/domain/errors/shared.error";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { FakeSentryIngest } from "@shared/testing/fake-sentry-ingest";
+import { memoryMongoUri } from "@shared/testing/memory-mongo";
 import { useMemoryRedis } from "@shared/testing/memory-redis";
-import { MongoMemoryReplSet, MongoMemoryServer } from "mongodb-memory-server";
+import { MongoMemoryServer } from "mongodb-memory-server";
 import mongoose from "mongoose";
 import request from "supertest";
-import {
-  afterAll,
-  afterEach,
-  beforeAll,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Env } from "./config";
 
@@ -127,16 +120,7 @@ const signUpInFlight = async (port: number) => {
 
 describe("start", () => {
   const redis = useMemoryRedis();
-  let database: MongoMemoryReplSet;
   const running: RunningApp[] = [];
-
-  beforeAll(async () => {
-    database = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
-  });
-
-  afterAll(async () => {
-    await database.stop();
-  });
 
   afterEach(async () => {
     vi.useRealTimers();
@@ -153,7 +137,7 @@ describe("start", () => {
     const output = createOutput();
     const app = await start({
       env: buildEnv({
-        MONGO_URL: database.getUri(name),
+        MONGO_URL: memoryMongoUri(name),
         REDIS_URL: new URL(redis.url()),
         ...overrides,
       }),
@@ -263,7 +247,7 @@ describe("start", () => {
     await expectAppError(
       start({
         env: buildEnv({
-          MONGO_URL: database.getUri(name),
+          MONGO_URL: memoryMongoUri(name),
           REDIS_URL: new URL(`redis://127.0.0.1:${await freePort()}`),
         }),
         logDestination: output.logDestination,
@@ -411,7 +395,7 @@ describe("start", () => {
       start({
         env: buildEnv({
           PORT: port,
-          MONGO_URL: database.getUri(name),
+          MONGO_URL: memoryMongoUri(name),
           REDIS_URL: new URL(redis.url()),
         }),
         logDestination: createOutput().logDestination,
@@ -461,7 +445,7 @@ describe("start", () => {
       const name = databaseName();
       const app = await start({
         env: buildEnv({
-          MONGO_URL: database.getUri(name),
+          MONGO_URL: memoryMongoUri(name),
           REDIS_URL: new URL(redis.url()),
         }),
         logDestination: output.logDestination,

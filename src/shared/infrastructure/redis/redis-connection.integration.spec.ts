@@ -7,9 +7,9 @@ import { LogLevel } from "@shared/application/ports/logger";
 import { SharedError } from "@shared/domain/errors/shared.error";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { FakeLogger } from "@shared/testing/fake-logger";
-import { useMemoryRedis } from "@shared/testing/memory-redis";
 import { Redis } from "ioredis";
-import { describe, expect, it } from "vitest";
+import { RedisMemoryServer } from "redis-memory-server";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { RedisConnection } from "./redis-connection";
 
@@ -22,7 +22,18 @@ const freePort = async () => {
 };
 
 describe("RedisConnection", () => {
-  const redis = useMemoryRedis();
+  let server: RedisMemoryServer;
+  let url = "";
+  const redis = { url: () => url };
+
+  beforeAll(async () => {
+    server = await RedisMemoryServer.create();
+    url = `redis://${await server.getHost()}:${await server.getPort()}`;
+  });
+
+  afterAll(async () => {
+    await server.stop();
+  });
 
   it("connects and logs the host it connected to", async () => {
     const logger = new FakeLogger();
