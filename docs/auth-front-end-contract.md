@@ -91,8 +91,10 @@ Each operation that goes beyond the caller's own account requires its own permis
 | `invitation.revoke`         | `DELETE /invitations/:invitationId`                              |
 | `account.reactivate`        | `POST /accounts/:accountId/reactivate`                           |
 | `account.deactivate`        | `POST /accounts/:accountId/deactivate` on someone else's account |
+| `session.read`              | `GET /accounts/:accountId/sessions` on someone else's account    |
 | `session.revoke`            | `DELETE /sessions/:sessionId` on someone else's session          |
 | `session.revoke_all`        | `DELETE /accounts/:accountId/sessions` on someone else's account |
+| `member.read`               | `GET /members`                                                   |
 | `member.role.update`        | `PUT /members/:accountId/role`                                   |
 | `member.permissions.update` | `PUT /members/:accountId/permissions`                            |
 
@@ -101,8 +103,22 @@ Nobody changes their own role or permissions.
 A missing permission answers `403 shared.permission_missing` with `data.required` (the missing
 code), or with `data.anyOf` (the accepted codes) where any one of them is enough. A rule about the
 target answers `403 identity.forbidden`: acting on someone else's account without the
-operation's permission, granting a permission you do not hold, or changing your own role or
-permissions.
+operation's permission, granting or removing a permission you do not hold, or changing your own
+role or permissions.
+
+`PUT /members/:accountId/permissions` replaces the whole set, so send the member's current
+permissions with your changes: the ones you do not hold must stay exactly as they are.
+
+## Members
+
+`GET /members` (`member.read`) lists the members, each as `{ account, membership }`, in
+membership id order. Deactivated accounts are included, with `account.deletedAt` set. `limit` goes
+from 1 to 100 (50 by default); send the answer's `nextCursor` as `cursor` to get the next page,
+until it comes back `null`:
+
+```http
+GET /api/members?limit=50&cursor=<nextCursor>
+```
 
 ## Invitations
 
@@ -125,16 +141,30 @@ An inviter may only grant permissions they already hold, with any role
    not. The account and its password sign-in move to the new e-mail, **every session ends**, and
    the old address gets a notice. The client must sign in again with the new e-mail.
 
+## Sign-in methods
+
+| Route                        | What it does                                                                                                |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `GET /me/credentials`        | the account's sign-in methods (`provider`: `email`, `google`, `github`), oldest first, without the password |
+| `POST /me/oauth/:provider`   | links a provider; same body and flow as the OAuth sign-in (`201`)                                           |
+| `DELETE /me/oauth/:provider` | unlinks it (`204`); the last method left answers `422 identity.last_credential_cannot_be_removed`           |
+
+An account made with GitHub or Google gets a password through the forgotten-password flow, so it
+keeps a way in if the provider is lost: `POST /auth/password-reset/request` e-mails the link to
+any active account, with or without a password, and `POST /auth/password-reset` creates the
+password sign-in, with the account's e-mail, when the account has none.
+
 ## Sessions
 
 Each sign-in opens a new session; the others stay active, with no limit per account.
 
-| Route                         | What it does                                                                 |
-| ----------------------------- | ---------------------------------------------------------------------------- |
-| `GET /me/sessions`            | active sessions, newest first; `current: true` marks the one making the call |
-| `DELETE /sessions/:sessionId` | ends one session (`204`)                                                     |
-| `DELETE /me/sessions`         | ends every session except the current one; answers `{ revokedCount }`        |
-| `POST /auth/sign-out`         | ends the current session                                                     |
+| Route                               | What it does                                                                  |
+| ----------------------------------- | ----------------------------------------------------------------------------- |
+| `GET /me/sessions`                  | active sessions, newest first; `current: true` marks the one making the call  |
+| `GET /accounts/:accountId/sessions` | someone's active sessions, newest first (`session.read`, or your own account) |
+| `DELETE /sessions/:sessionId`       | ends one session (`204`)                                                      |
+| `DELETE /me/sessions`               | ends every session except the current one; answers `{ revokedCount }`         |
+| `POST /auth/sign-out`               | ends the current session                                                      |
 
 ## Refresh tokens
 
