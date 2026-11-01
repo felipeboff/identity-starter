@@ -26,3 +26,12 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  bugsink:
+    image: bugsink/bugsink:2.6.1
+    environment:
+      SECRET_KEY: local-development-only-secret-key-with-at-least-50-characters
+      CREATE_SUPERUSER: admin:admin
+      PORT: "8000"
+    ports:
+      - "127.0.0.1:8000:8000"
