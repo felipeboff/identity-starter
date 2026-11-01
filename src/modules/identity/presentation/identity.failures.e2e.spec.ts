@@ -594,6 +594,11 @@ describe("identity route failures", () => {
 
     it.each([
       [
+        "GET",
+        "/accounts/:accountId/sessions",
+        MembershipPermission.SESSION_READ,
+      ],
+      [
         "DELETE",
         "/accounts/:accountId/sessions",
         MembershipPermission.SESSION_REVOKE_ALL,

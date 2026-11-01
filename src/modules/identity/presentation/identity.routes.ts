@@ -9,6 +9,7 @@ import { DeactivateAccountHandler } from "./deactivate-account.handler";
 import { GetMeHandler } from "./get-me.handler";
 import { InviteMemberHandler } from "./invite-member.handler";
 import { LinkOAuthHandler } from "./link-oauth.handler";
+import { ListAccountSessionsHandler } from "./list-account-sessions.handler";
 import { ListCredentialsHandler } from "./list-credentials.handler";
 import { ListInvitationsHandler } from "./list-invitations.handler";
 import { ListMembersHandler } from "./list-members.handler";
@@ -42,6 +43,7 @@ import { DeactivateAccountUseCase } from "@/identity/application/use-cases/deact
 import { GetMeUseCase } from "@/identity/application/use-cases/get-me.use-case";
 import { InviteMemberUseCase } from "@/identity/application/use-cases/invite-member.use-case";
 import { LinkOAuthUseCase } from "@/identity/application/use-cases/link-oauth.use-case";
+import { ListAccountSessionsUseCase } from "@/identity/application/use-cases/list-account-sessions.use-case";
 import { ListCredentialsUseCase } from "@/identity/application/use-cases/list-credentials.use-case";
 import { ListInvitationsUseCase } from "@/identity/application/use-cases/list-invitations.use-case";
 import { ListMembersUseCase } from "@/identity/application/use-cases/list-members.use-case";
@@ -94,6 +96,7 @@ export type IdentityHttpDeps = {
   linkOAuth: LinkOAuthUseCase;
   unlinkOAuth: UnlinkOAuthUseCase;
   revokeSession: RevokeSessionUseCase;
+  listAccountSessions: ListAccountSessionsUseCase;
   revokeAllSessions: RevokeAllSessionsUseCase;
   deactivateAccount: DeactivateAccountUseCase;
   reactivateAccount: ReactivateAccountUseCase;
@@ -334,6 +337,13 @@ export const createIdentityRoutes = (
     status: 204,
     failures: [400, 401, 403, 404],
     handler: new RevokeSessionHandler(deps),
+  },
+  {
+    method: "GET",
+    path: "/accounts/:accountId/sessions",
+    status: 200,
+    failures: [400, 401, 403],
+    handler: new ListAccountSessionsHandler(deps),
   },
   {
     method: "DELETE",

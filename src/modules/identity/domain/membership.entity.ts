@@ -10,6 +10,7 @@ export const MembershipPermission = {
   INVITATION_REVOKE: "invitation.revoke",
   ACCOUNT_REACTIVATE: "account.reactivate",
   ACCOUNT_DEACTIVATE: "account.deactivate",
+  SESSION_READ: "session.read",
   SESSION_REVOKE: "session.revoke",
   SESSION_REVOKE_ALL: "session.revoke_all",
   MEMBER_READ: "member.read",

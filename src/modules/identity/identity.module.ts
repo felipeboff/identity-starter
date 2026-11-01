@@ -45,6 +45,7 @@ import { DeactivateAccountUseCase } from "./application/use-cases/deactivate-acc
 import { GetMeUseCase } from "./application/use-cases/get-me.use-case";
 import { InviteMemberUseCase } from "./application/use-cases/invite-member.use-case";
 import { LinkOAuthUseCase } from "./application/use-cases/link-oauth.use-case";
+import { ListAccountSessionsUseCase } from "./application/use-cases/list-account-sessions.use-case";
 import { ListCredentialsUseCase } from "./application/use-cases/list-credentials.use-case";
 import { ListInvitationsUseCase } from "./application/use-cases/list-invitations.use-case";
 import { ListMembersUseCase } from "./application/use-cases/list-members.use-case";
@@ -201,6 +202,7 @@ export const assembleIdentityModule = (
     linkOAuth: new LinkOAuthUseCase(deps),
     unlinkOAuth: new UnlinkOAuthUseCase(deps),
     revokeSession: new RevokeSessionUseCase(deps),
+    listAccountSessions: new ListAccountSessionsUseCase(deps),
     revokeAllSessions: new RevokeAllSessionsUseCase(deps),
     deactivateAccount: new DeactivateAccountUseCase(deps),
     reactivateAccount: new ReactivateAccountUseCase(deps),

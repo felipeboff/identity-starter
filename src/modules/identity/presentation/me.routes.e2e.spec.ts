@@ -216,6 +216,29 @@ describe("identity protected routes", () => {
     expect(stored?.isRevoked()).toBe(true);
   });
 
+  it("lists a member's sessions with 200", async () => {
+    const http = createIdentityHttp();
+    const admin = await http.signIn({
+      permissions: [MembershipPermission.SESSION_READ],
+    });
+    const bob = await http.signIn();
+
+    const out = await http.call("GET", "/accounts/:accountId/sessions", {
+      token: admin.token,
+      params: { accountId: bob.accountId },
+    });
+
+    expect(out.status).toBe(200);
+    expect(out.body).toEqual({
+      sessions: [
+        expect.objectContaining({
+          id: bob.session.id.value,
+          current: false,
+        }) as unknown,
+      ],
+    });
+  });
+
   it("revokes all sessions with 200", async () => {
     const http = createIdentityHttp();
     const ana = await http.signIn();

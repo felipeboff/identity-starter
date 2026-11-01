@@ -17,6 +17,7 @@ import { DeactivateAccountUseCase } from "@/identity/application/use-cases/deact
 import { GetMeUseCase } from "@/identity/application/use-cases/get-me.use-case";
 import { InviteMemberUseCase } from "@/identity/application/use-cases/invite-member.use-case";
 import { LinkOAuthUseCase } from "@/identity/application/use-cases/link-oauth.use-case";
+import { ListAccountSessionsUseCase } from "@/identity/application/use-cases/list-account-sessions.use-case";
 import { ListCredentialsUseCase } from "@/identity/application/use-cases/list-credentials.use-case";
 import { ListInvitationsUseCase } from "@/identity/application/use-cases/list-invitations.use-case";
 import { ListMembersUseCase } from "@/identity/application/use-cases/list-members.use-case";
@@ -88,6 +89,7 @@ const PROTECTED_ROUTES: [HttpMethod, string, UseCaseClass][] = [
   ["POST", "/me/oauth/:provider", LinkOAuthUseCase],
   ["DELETE", "/me/oauth/:provider", UnlinkOAuthUseCase],
   ["DELETE", "/sessions/:sessionId", RevokeSessionUseCase],
+  ["GET", "/accounts/:accountId/sessions", ListAccountSessionsUseCase],
   ["DELETE", "/accounts/:accountId/sessions", RevokeAllSessionsUseCase],
   ["POST", "/accounts/:accountId/deactivate", DeactivateAccountUseCase],
   ["POST", "/accounts/:accountId/reactivate", ReactivateAccountUseCase],
@@ -148,6 +150,12 @@ const INVALID_INPUTS: [HttpMethod, string, UseCaseClass, CallOptions][] = [
     "/sessions/:sessionId",
     RevokeSessionUseCase,
     { params: { sessionId: notAnId } },
+  ],
+  [
+    "GET",
+    "/accounts/:accountId/sessions",
+    ListAccountSessionsUseCase,
+    { params: { accountId: notAnId } },
   ],
   [
     "DELETE",
@@ -397,7 +405,7 @@ describe("identity routes", () => {
     const { routes } = createIdentityHttp();
     const names = routes.map((route) => route.handler.name);
 
-    expect(names).toHaveLength(30);
+    expect(names).toHaveLength(31);
     expect(names.filter((name) => !OPERATION_NAME.test(name))).toStrictEqual(
       [],
     );
@@ -408,7 +416,7 @@ describe("identity routes", () => {
     const { routes } = createIdentityHttp();
     const schemas = routes.map((route) => route.handler.input ?? NO_INPUT);
 
-    expect(schemas).toHaveLength(30);
+    expect(schemas).toHaveLength(31);
     for (const schema of schemas) {
       const json: unknown = JSON.parse(JSON.stringify(schema));
 
