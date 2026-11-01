@@ -7,6 +7,7 @@ import { Handler, Inbound } from "@shared/presentation/handler";
 import { HttpErrorMapper } from "@shared/presentation/http/http-error-mapper";
 import { HttpMethod, HttpRoute } from "@shared/presentation/http/http-route";
 import { SchemaParser } from "@shared/presentation/schema-parser";
+import { FakeErrorReporter } from "@shared/testing/fake-error-reporter";
 import { FakeLogger } from "@shared/testing/fake-logger";
 import express, { RequestHandler } from "express";
 import request from "supertest";
@@ -75,7 +76,10 @@ const createApp = (
   const logger = new FakeLogger();
   const adapter = new ExpressAdapter({
     dispatcher: new Dispatcher({ parser: new SchemaParser() }),
-    errorMapper: new HttpErrorMapper({ logger }),
+    errorMapper: new HttpErrorMapper({
+      logger,
+      errors: new FakeErrorReporter(),
+    }),
     logger,
     logContext,
   });

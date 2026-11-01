@@ -150,6 +150,14 @@ describe("loadEnv", () => {
     expect(env.APP_URL.href).toBe("http://localhost:5173/");
   });
 
+  it("reads SENTRY_DSN when it is set", () => {
+    const dsn = `https://${faker.string.hexadecimal({ length: 32, prefix: "" })}@${faker.internet.domainName()}/${faker.string.numeric(7)}`;
+
+    const env = loadEnv(buildSource({ SENTRY_DSN: dsn }));
+
+    expect(env.SENTRY_DSN).toBe(dsn);
+  });
+
   it("ignores variables it does not know", () => {
     const unknownName = faker.string.alpha({ length: 12, casing: "upper" });
 
@@ -257,6 +265,11 @@ describe("loadEnv", () => {
         }),
       },
       "GOOGLE_CLIENT_SECRET",
+    ],
+    [
+      "SENTRY_DSN not an http or https URL",
+      { SENTRY_DSN: faker.lorem.word() },
+      "SENTRY_DSN",
     ],
   ])("refuses %s", (_, overrides, field) => {
     expect(() => loadEnv(buildSource(overrides))).toThrow(

@@ -1,4 +1,5 @@
 import { SharedLogEvent } from "../../application/logging/shared.log-event";
+import type { ErrorReporter } from "../../application/ports/error-reporter";
 import type { Logger } from "../../application/ports/logger";
 import { isAppError } from "../../domain/errors/app-error";
 import type { AppError, ErrorKind } from "../../domain/errors/app-error";
@@ -29,6 +30,7 @@ const INTERNAL_ERROR: ProblemDetails = {
 
 export type HttpErrorMapperDeps = {
   logger: Logger;
+  errors: ErrorReporter;
 };
 
 export class HttpErrorMapper {
@@ -58,10 +60,17 @@ export class HttpErrorMapper {
   }
 
   private report(error: unknown): void {
+    this.ignoringFailure(() =>
+      this.deps.logger.error(SharedLogEvent.UnexpectedError, { error }),
+    );
+    this.ignoringFailure(() => this.deps.errors.report(error));
+  }
+
+  private ignoringFailure(action: () => void): void {
     try {
-      this.deps.logger.error(SharedLogEvent.UnexpectedError, { error });
+      action();
     } catch {
-      // A broken logger must not change the answer.
+      // A broken logger or reporter must not change the answer.
     }
   }
 }

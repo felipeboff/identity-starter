@@ -67,6 +67,7 @@ export default defineConfig({
       exclude: [
         "src/main.ts",
         "src/**/*.global-setup.ts",
+        "src/**/*.fixture.ts",
         ...(level ? ["src/**/testing/**"] : []),
       ],
       thresholds: { 100: true },

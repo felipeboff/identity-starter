@@ -7,6 +7,7 @@ import { SharedError } from "@shared/domain/errors/shared.error";
 import { AsyncLocalLogContext } from "@shared/infrastructure/logging/async-local-log-context";
 import { PinoLogger } from "@shared/infrastructure/logging/pino-logger";
 import { RedisConnection } from "@shared/infrastructure/redis/redis-connection";
+import { FakeErrorReporter } from "@shared/testing/fake-error-reporter";
 import { FakeLogger } from "@shared/testing/fake-logger";
 import { useMemoryMongo } from "@shared/testing/memory-mongo";
 import { useMemoryRedis } from "@shared/testing/memory-redis";
@@ -60,6 +61,7 @@ const createApp = async (
   logger: Logger = new FakeLogger(),
   ready = true,
   corsOrigins = [ALLOWED_ORIGIN],
+  errors = new FakeErrorReporter(),
 ) =>
   createServer({
     modules: {
@@ -71,6 +73,7 @@ const createApp = async (
       }),
     },
     logger,
+    errors,
     logContext,
     readiness: { isReady: () => Promise.resolve(ready) },
     trustProxy,
@@ -95,6 +98,34 @@ const sessionIpOf = async (app: App, accessToken: string) => {
 };
 
 describe("createServer", () => {
+  it("reports an unexpected error once and answers 500", async () => {
+    const errors = new FakeErrorReporter();
+    const failure = new TypeError(faker.lorem.sentence());
+    const logContext = new AsyncLocalLogContext();
+    const app = createServer({
+      modules: {
+        identity: await createIdentityModule(identitySettings, {
+          connection: mongo.connection(),
+          redis: cache.client,
+          logger: new FakeLogger(),
+          logContext,
+        }),
+      },
+      logger: new FakeLogger(),
+      errors,
+      logContext,
+      readiness: { isReady: () => Promise.reject(failure) },
+      trustProxy: 0,
+      corsOrigins: [ALLOWED_ORIGIN],
+    });
+
+    const response = await request(app).get("/health");
+
+    expect(response.status).toBe(500);
+    expect(response.body).toMatchObject({ code: "shared.internal" });
+    expect(errors.reported).toStrictEqual([failure]);
+  });
+
   it("serves the module routes under /api", async () => {
     const app = await createApp();
 

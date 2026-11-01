@@ -67,6 +67,7 @@ const envSchema = Type.Object({
   GOOGLE_CLIENT_ID: Type.String({ minLength: 30 }),
   GOOGLE_CLIENT_SECRET: Type.String({ minLength: 30 }),
   GOOGLE_REDIRECT_URI: httpUrlSchema,
+  SENTRY_DSN: Type.Optional(Type.String({ pattern: HTTP_URL })),
 });
 
 export type Env = Type.StaticDecode<typeof envSchema>;

@@ -3,6 +3,7 @@ import { SharedLogEvent } from "@shared/application/logging/shared.log-event";
 import { AppError, defineError } from "@shared/domain/errors/app-error";
 import type { ErrorKind } from "@shared/domain/errors/app-error";
 import { SharedError } from "@shared/domain/errors/shared.error";
+import { FakeErrorReporter } from "@shared/testing/fake-error-reporter";
 import { FakeLogger } from "@shared/testing/fake-logger";
 import { describe, expect, it, vi } from "vitest";
 
@@ -21,9 +22,20 @@ const INTERNAL_ERROR_RESPONSE = {
   },
 };
 
+const ERROR_KINDS: readonly ErrorKind[] = [
+  "invalid_input",
+  "unauthenticated",
+  "forbidden",
+  "not_found",
+  "conflict",
+  "precondition_failed",
+  "rate_limited",
+];
+
 const createMapper = () => {
   const logger = new FakeLogger();
-  return { mapper: new HttpErrorMapper({ logger }), logger };
+  const errors = new FakeErrorReporter();
+  return { mapper: new HttpErrorMapper({ logger, errors }), logger, errors };
 };
 
 describe("HttpErrorMapper", () => {
@@ -105,8 +117,8 @@ describe("HttpErrorMapper", () => {
     ["an Error", new Error(faker.lorem.sentence())],
     ["a string", faker.lorem.word()],
     ["undefined", undefined],
-  ])("answers 500 and logs %s as an unexpected error", (_, error) => {
-    const { mapper, logger } = createMapper();
+  ])("answers 500, logs and reports %s as an unexpected error", (_, error) => {
+    const { mapper, logger, errors } = createMapper();
 
     const out = mapper.map(error);
 
@@ -118,11 +130,32 @@ describe("HttpErrorMapper", () => {
         fields: { error },
       },
     ]);
+    expect(errors.reported).toStrictEqual([error]);
+  });
+
+  it.each(ERROR_KINDS)("does not report an AppError of kind %s", (kind) => {
+    const { mapper, errors } = createMapper();
+    const code = `${faker.lorem.word()}.${faker.lorem.word()}`;
+
+    mapper.map(new AppError(defineError(code, kind)));
+
+    expect(errors.reported).toStrictEqual([]);
   });
 
   it("still answers 500 when the logger throws", () => {
     const { mapper, logger } = createMapper();
     vi.spyOn(logger, "error").mockImplementation(() => {
+      throw new Error(faker.lorem.sentence());
+    });
+
+    const out = mapper.map(new Error(faker.lorem.sentence()));
+
+    expect(out).toStrictEqual(INTERNAL_ERROR_RESPONSE);
+  });
+
+  it("still answers 500 when the error reporter throws", () => {
+    const { mapper, errors } = createMapper();
+    vi.spyOn(errors, "report").mockImplementation(() => {
       throw new Error(faker.lorem.sentence());
     });
 

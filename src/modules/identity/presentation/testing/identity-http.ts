@@ -9,6 +9,7 @@ import { HttpResponse } from "@shared/presentation/http/http-response";
 import { HttpMethod } from "@shared/presentation/http/http-route";
 import { HttpRouter } from "@shared/presentation/http/http-router";
 import { SchemaParser } from "@shared/presentation/schema-parser";
+import { FakeErrorReporter } from "@shared/testing/fake-error-reporter";
 import { FakeLogger } from "@shared/testing/fake-logger";
 import { RouteStatusMatrix } from "@shared/testing/route-status-matrix";
 import express from "express";
@@ -48,7 +49,10 @@ export const createIdentityHttp = () => {
   const logger = new FakeLogger();
   const adapter = new ExpressAdapter({
     dispatcher: new Dispatcher({ parser: new SchemaParser() }),
-    errorMapper: new HttpErrorMapper({ logger }),
+    errorMapper: new HttpErrorMapper({
+      logger,
+      errors: new FakeErrorReporter(),
+    }),
     logger,
     logContext: new AsyncLocalLogContext(),
   });

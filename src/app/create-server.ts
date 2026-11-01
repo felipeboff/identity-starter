@@ -1,3 +1,4 @@
+import type { ErrorReporter } from "@shared/application/ports/error-reporter";
 import type { Logger } from "@shared/application/ports/logger";
 import { ExpressAdapter } from "@shared/infrastructure/http/express-adapter";
 import type { AsyncLocalLogContext } from "@shared/infrastructure/logging/async-local-log-context";
@@ -13,6 +14,7 @@ import { ApplicationModules, createHttpRoutes } from "./http-routes";
 export type CreateServerOptions = Readonly<{
   modules: ApplicationModules;
   logger: Logger;
+  errors: ErrorReporter;
   logContext: AsyncLocalLogContext;
   readiness: Readonly<{ isReady(): Promise<boolean> }>;
   trustProxy: number;
@@ -22,6 +24,7 @@ export type CreateServerOptions = Readonly<{
 export const createServer = ({
   modules,
   logger,
+  errors,
   logContext,
   readiness,
   trustProxy,
@@ -29,7 +32,7 @@ export const createServer = ({
 }: CreateServerOptions): Express => {
   const adapter = new ExpressAdapter({
     dispatcher: new Dispatcher({ parser: new SchemaParser() }),
-    errorMapper: new HttpErrorMapper({ logger }),
+    errorMapper: new HttpErrorMapper({ logger, errors }),
     logger,
     logContext,
   });

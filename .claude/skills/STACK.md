@@ -69,7 +69,11 @@ file deserve an ADR (`create-adr`).
   request id.
 - Log collection outside the process (Alloy/Promtail → Loki). _planned_
 - Metrics and traces: **OpenTelemetry** → **Grafana** stack. _planned_
-- Errors: **Sentry**. _planned_
+- Errors: **Sentry** (`@sentry/node`) behind the `ErrorReporter` port: unexpected errors (`500`)
+  and process crashes, with the request fields as tags and no personal data; off without
+  `SENTRY_DSN`, which locally can point at **Bugsink** (Sentry-compatible, started by
+  `docker compose up`)
+  ([ADR-008](../../docs/adr/008-report-unexpected-errors-to-sentry.md)).
 
 ## Delivery
 

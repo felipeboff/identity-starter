@@ -8,10 +8,12 @@ import type { AddressInfo } from "node:net";
 import { Writable } from "node:stream";
 
 import { faker } from "@faker-js/faker";
+import * as Sentry from "@sentry/node";
 import { SharedLogEvent } from "@shared/application/logging/shared.log-event";
 import { LogLevel } from "@shared/application/ports/logger";
 import { SharedError } from "@shared/domain/errors/shared.error";
 import { expectAppError } from "@shared/testing/expect-app-error";
+import { FakeSentryIngest } from "@shared/testing/fake-sentry-ingest";
 import { useMemoryRedis } from "@shared/testing/memory-redis";
 import { MongoMemoryReplSet, MongoMemoryServer } from "mongodb-memory-server";
 import mongoose from "mongoose";
@@ -161,6 +163,53 @@ describe("start", () => {
     running.push(app);
     return { app, output, url: `http://127.0.0.1:${app.port}`, name };
   };
+
+  const unexpectedErrorRequest = (url: string) =>
+    request(url)
+      .post("/api/auth/sign-up")
+      .set("content-type", "application/json")
+      .send(JSON.stringify({ name: faker.string.alpha(200 * 1_024) }));
+
+  const processHandlers = () => [
+    process.listenerCount("uncaughtException"),
+    process.listenerCount("unhandledRejection"),
+  ];
+
+  it("starts without Sentry when SENTRY_DSN is not set", async () => {
+    const handlers = processHandlers();
+    const client = Sentry.getClient();
+
+    const { url } = await startApp();
+
+    await request(url).get("/health").expect(200);
+    expect(processHandlers()).toStrictEqual(handlers);
+    expect(Sentry.getClient()).toBe(client);
+  });
+
+  it("delivers the pending Sentry events before stop resolves", async () => {
+    const ingest = await FakeSentryIngest.start();
+    const { app, url } = await startApp({ SENTRY_DSN: ingest.dsn });
+
+    const response = await unexpectedErrorRequest(url);
+    await app.stop();
+
+    expect(response.status).toBe(500);
+    expect(ingest.events()).toHaveLength(1);
+    expect(ingest.events()[0]?.environment).toBe("test");
+    await ingest.stop();
+  });
+
+  it("stops within the Sentry flush limit when Sentry does not answer", async () => {
+    const ingest = await FakeSentryIngest.start({ answers: false });
+    const { app, url } = await startApp({ SENTRY_DSN: ingest.dsn });
+    await unexpectedErrorRequest(url).expect(500);
+
+    const startedAt = performance.now();
+    await app.stop();
+
+    expect(performance.now() - startedAt).toBeLessThan(2_500);
+    await ingest.stop();
+  });
 
   it("connects to the database before listening", async () => {
     const { output, url } = await startApp();

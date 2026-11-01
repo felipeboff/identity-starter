@@ -2,6 +2,8 @@ import { once } from "node:events";
 import type { AddressInfo } from "node:net";
 
 import { SharedLogEvent } from "@shared/application/logging/shared.log-event";
+import { DisabledErrorReporter } from "@shared/infrastructure/errors/disabled-error-reporter";
+import { SentryErrorReporter } from "@shared/infrastructure/errors/sentry-error-reporter";
 import { HttpServerShutdown } from "@shared/infrastructure/http/http-server-shutdown";
 import { AsyncLocalLogContext } from "@shared/infrastructure/logging/async-local-log-context";
 import { PinoLogger } from "@shared/infrastructure/logging/pino-logger";
@@ -46,6 +48,15 @@ export const start = async (options: StartOptions): Promise<RunningApp> => {
     context: logContext,
   });
 
+  const sentry =
+    env.SENTRY_DSN === undefined
+      ? undefined
+      : SentryErrorReporter.create({
+          dsn: env.SENTRY_DSN,
+          environment: env.NODE_ENV,
+          context: logContext,
+        });
+
   const database = new MongoDatabase({
     url: env.MONGO_URL,
     logger,
@@ -76,6 +87,7 @@ export const start = async (options: StartOptions): Promise<RunningApp> => {
       identity,
     },
     logger,
+    errors: sentry ?? new DisabledErrorReporter(),
     logContext,
     readiness: database,
     trustProxy: env.TRUST_PROXY,
@@ -100,6 +112,7 @@ export const start = async (options: StartOptions): Promise<RunningApp> => {
     const outcome = await httpShutdown.run();
     await cache.close();
     await database.close();
+    await sentry?.close();
     logger.info(SharedLogEvent.ServerStopped);
     return outcome === "drained" ? 0 : 1;
   };

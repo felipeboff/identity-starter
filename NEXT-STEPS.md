@@ -12,7 +12,8 @@ O núcleo está pronto e testado de ponta a ponta:
 Abaixo está o que falta, em ordem de prioridade.
 
 > Para rodar: `sudo systemctl enable --now docker`, `docker compose up -d --wait` e `pnpm dev`. O
-> `MONGO_URL` precisa de `?replicaSet=rs0`.
+> `MONGO_URL` precisa de `?replicaSet=rs0`. O `SENTRY_DSN` é opcional; localmente, ele vem de um
+> projeto criado no Bugsink (`http://localhost:8000`, `admin` / `admin`).
 
 ---
 
@@ -99,7 +100,13 @@ provedor OAuth.
       `GET` até 2 vezes em erro de rede ou `408`/`500`/`502`/`503`/`504`, com backoff exponencial
       e jitter total (até 300 ms e 600 ms), dentro do mesmo prazo de 10 s por chamada; `POST` sai
       uma vez só. Cada nova tentativa loga `shared.external_call_retried`
-- [ ] **Sentry** para erros e **OpenTelemetry** para métricas e traces (_planned_)
+- [x] **Sentry** para erros (ADR-008): o `HttpErrorMapper` reporta todo erro inesperado (`500`) pela
+      porta `ErrorReporter`, com `requestId`, `method`, `route`, `operation` e `accountId` como tags
+      e sem IP, cabeçalhos, corpo ou e-mail; crashes do processo também vão. Desligado sem
+      `SENTRY_DSN`; localmente o `docker compose up` sobe o Bugsink (compatível com o Sentry) em
+      `http://localhost:8000`
+  - [-] Criar o projeto no Sentry e definir `SENTRY_DSN` no ambiente de produção
+- [-] **OpenTelemetry** para métricas e traces (_planned_)
 - [ ] **Dockerfile da API** e serviço no `docker-compose.yml` (hoje o compose sobe Mongo e Redis)
 - [-] **CI no GitHub Actions:** lint, typecheck e as quatro coberturas
 
