@@ -16,6 +16,7 @@ import { DeactivateAccountUseCase } from "@/identity/application/use-cases/deact
 import { GetMeUseCase } from "@/identity/application/use-cases/get-me.use-case";
 import { InviteMemberUseCase } from "@/identity/application/use-cases/invite-member.use-case";
 import { LinkOAuthUseCase } from "@/identity/application/use-cases/link-oauth.use-case";
+import { ListCredentialsUseCase } from "@/identity/application/use-cases/list-credentials.use-case";
 import { ListInvitationsUseCase } from "@/identity/application/use-cases/list-invitations.use-case";
 import { ListSessionsUseCase } from "@/identity/application/use-cases/list-sessions.use-case";
 import { ReactivateAccountUseCase } from "@/identity/application/use-cases/reactivate-account.use-case";
@@ -81,6 +82,7 @@ const PROTECTED_ROUTES: [HttpMethod, string, UseCaseClass][] = [
   ["POST", "/me/email-verification", RequestEmailVerificationUseCase],
   ["GET", "/me/sessions", ListSessionsUseCase],
   ["DELETE", "/me/sessions", RevokeOtherSessionsUseCase],
+  ["GET", "/me/credentials", ListCredentialsUseCase],
   ["POST", "/me/oauth/:provider", LinkOAuthUseCase],
   ["DELETE", "/me/oauth/:provider", UnlinkOAuthUseCase],
   ["DELETE", "/sessions/:sessionId", RevokeSessionUseCase],
@@ -377,7 +379,7 @@ describe("identity routes", () => {
     const { routes } = createIdentityHttp();
     const names = routes.map((route) => route.handler.name);
 
-    expect(names).toHaveLength(28);
+    expect(names).toHaveLength(29);
     expect(names.filter((name) => !OPERATION_NAME.test(name))).toStrictEqual(
       [],
     );
@@ -388,7 +390,7 @@ describe("identity routes", () => {
     const { routes } = createIdentityHttp();
     const schemas = routes.map((route) => route.handler.input ?? NO_INPUT);
 
-    expect(schemas).toHaveLength(28);
+    expect(schemas).toHaveLength(29);
     for (const schema of schemas) {
       const json: unknown = JSON.parse(JSON.stringify(schema));
 

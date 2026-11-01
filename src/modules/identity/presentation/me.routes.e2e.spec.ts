@@ -136,6 +136,30 @@ describe("identity protected routes", () => {
     ).toBe(true);
   });
 
+  it("lists my credentials with 200", async () => {
+    const http = createIdentityHttp();
+    const ana = await http.signIn();
+    http.ctx.clock.advance(1_000);
+    const google = await saveGoogleCredential(http, ana.accountId);
+
+    const out = await http.call("GET", "/me/credentials", { token: ana.token });
+
+    expect(out.status).toBe(200);
+    expect(out.body).toEqual({
+      credentials: [
+        expect.objectContaining({
+          provider: AuthProvider.EMAIL,
+          providerEmail: ana.email,
+        }) as unknown,
+        expect.objectContaining({
+          id: google.id.value,
+          provider: AuthProvider.GOOGLE,
+        }) as unknown,
+      ],
+    });
+    expect(JSON.stringify(out.body)).not.toContain("passwordHash");
+  });
+
   it("links an oauth provider with 201", async () => {
     const http = createIdentityHttp();
     const ana = await http.signIn();
