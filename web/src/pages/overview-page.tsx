@@ -1,0 +1,172 @@
+import { ALL_PERMISSIONS } from "../api/identity.types";
+import { useMe } from "../auth/auth-context";
+import { useAction } from "../hooks/use-action";
+import { useResource } from "../hooks/use-resource";
+import { PERMISSION_LABELS, ROLE_LABELS } from "../i18n/labels";
+import { AppLayout } from "../layouts/app-layout";
+import { format, identityApi } from "../services";
+import { Link } from "../router/router";
+import { Button } from "../ui/button";
+import { CopyButton } from "../ui/copy-button";
+import { Alert, Card } from "../ui/feedback";
+import {
+  ArrowRightIcon,
+  AsteriskLogo,
+  CheckIcon,
+  ClockIcon,
+  KeyIcon,
+  LockIcon,
+  MonitorIcon,
+} from "../ui/icons";
+import { useToast } from "../ui/toast";
+
+export const OverviewPage = () => {
+  const me = useMe();
+  const toast = useToast();
+  const sessions = useResource(() => identityApi.listSessions(), []);
+  const resend = useAction(async () => {
+    await identityApi.requestEmailVerification();
+    toast.show({
+      tone: "success",
+      title: "Link de confirmação enviado",
+      description: `Confira ${me.account.email}.`,
+    });
+  });
+
+  const held = me.membership.permissions;
+  const details: Array<[string, string, boolean]> = [
+    ["ID da conta", me.account.id, true],
+    ["E-mail", me.account.email, false],
+    ["ID do membro", me.membership.id, true],
+    ["Criada em", format.dateTime(me.account.createdAt), false],
+    [
+      "E-mail confirmado em",
+      me.account.emailVerifiedAt
+        ? format.dateTime(me.account.emailVerifiedAt)
+        : "Ainda não",
+      false,
+    ],
+  ];
+
+  return (
+    <AppLayout>
+      <section class="hero">
+        <div class="mesh" />
+        <div class="mesh-grain" />
+        <div class="hero-content">
+          <p class="hero-eyebrow">Que bom te ver por aqui</p>
+          <h1>Olá, {format.firstName(me.account.name)}</h1>
+          <p class="hero-text">{me.account.email}</p>
+          <div class="hero-badges">
+            <span class="glass-badge">{ROLE_LABELS[me.membership.role]}</span>
+            <span class="glass-badge">
+              {me.account.emailVerifiedAt
+                ? "E-mail confirmado"
+                : "E-mail pendente"}
+            </span>
+          </div>
+        </div>
+        <AsteriskLogo size={120} class="hero-logo" />
+      </section>
+
+      {!me.account.emailVerifiedAt && (
+        <Alert
+          tone="warning"
+          title="Confirme seu e-mail"
+          action={
+            <Button
+              size="sm"
+              variant="primary"
+              pending={resend.pending}
+              onClick={() => void resend.run()}
+            >
+              Reenviar link
+            </Button>
+          }
+        >
+          Enviamos um link para {me.account.email} no cadastro. Ele ajuda a
+          recuperar a conta se você esquecer a senha.
+        </Alert>
+      )}
+
+      <div class="stat-grid">
+        <Link href="/security" class="stat stat-link">
+          <span class="icon-tile">
+            <MonitorIcon />
+          </span>
+          <div>
+            <span class="stat-label">Sessões ativas</span>
+            <strong class="stat-value">
+              {sessions.data ? sessions.data.sessions.length : "–"}
+            </strong>
+          </div>
+          <ArrowRightIcon size={16} class="stat-arrow" />
+        </Link>
+        <div class="stat">
+          <span class="icon-tile">
+            <KeyIcon />
+          </span>
+          <div>
+            <span class="stat-label">Permissões</span>
+            <strong class="stat-value">
+              {held.length}
+              <small> de {ALL_PERMISSIONS.length}</small>
+            </strong>
+          </div>
+        </div>
+        <div class="stat">
+          <span class="icon-tile">
+            <ClockIcon />
+          </span>
+          <div>
+            <span class="stat-label">Membro desde</span>
+            <strong class="stat-value stat-value-sm">
+              {format.date(me.account.createdAt)}
+            </strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <Card
+          title="Suas permissões"
+          description="O papel é só um rótulo; o que vale são as permissões abaixo."
+        >
+          <ul class="permission-list">
+            {ALL_PERMISSIONS.map((permission) => {
+              const granted = held.includes(permission);
+              return (
+                <li key={permission} class={granted ? "is-granted" : ""}>
+                  <span class="permission-icon">
+                    {granted ? <CheckIcon size={14} /> : <LockIcon size={14} />}
+                  </span>
+                  <span>{PERMISSION_LABELS[permission]}</span>
+                  <code>{permission}</code>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+
+        <Card
+          title="Detalhes da conta"
+          description="Copie o ID para usar no Explorador de rotas."
+        >
+          <dl class="details">
+            {details.map(([label, value, copyable]) => (
+              <div key={label} class="details-row">
+                <dt>{label}</dt>
+                <dd>
+                  <span class={copyable ? "mono" : ""}>{value}</span>
+                  {copyable && (
+                    <CopyButton value={value} label={`Copiar ${label}`} />
+                  )}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </Card>
+      </div>
+    </AppLayout>
+  );
+};
