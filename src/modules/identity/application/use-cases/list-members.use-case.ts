@@ -19,7 +19,7 @@ export class ListMembersUseCase extends UseCase<{
   deps: ListMembersDeps;
   actor: Actor;
 }> {
-  readonly permissions = [MembershipPermission.MEMBER_READ];
+  readonly access = { permissions: [MembershipPermission.MEMBER_READ] };
 
   async execute(
     input: ListMembersInput,

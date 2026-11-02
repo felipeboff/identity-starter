@@ -1,4 +1,4 @@
-import { UseCase } from "@shared/application/use-cases";
+import { Access, UseCase } from "@shared/application/use-cases";
 import { AppError } from "@shared/domain/errors/app-error";
 
 import { Actor } from "../actor";
@@ -12,6 +12,8 @@ export class AuthenticateUseCase extends UseCase<{
   output: Actor;
   deps: AuthenticateDeps;
 }> {
+  readonly access = Access.ANYONE;
+
   async execute(input: AuthenticateInput): Promise<Actor> {
     const claims = await this.deps.accessToken.verify(input.accessToken);
     if (!claims) throw new AppError(IdentityError.InvalidAccessToken);

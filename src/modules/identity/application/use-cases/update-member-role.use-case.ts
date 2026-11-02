@@ -20,7 +20,7 @@ export class UpdateMemberRoleUseCase extends UseCase<{
   deps: UpdateMemberRoleDeps;
   actor: Actor;
 }> {
-  readonly permissions = [MembershipPermission.MEMBER_ROLE_UPDATE];
+  readonly access = { permissions: [MembershipPermission.MEMBER_ROLE_UPDATE] };
 
   async execute(
     input: UpdateMemberRoleInput,

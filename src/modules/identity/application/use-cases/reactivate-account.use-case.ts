@@ -20,7 +20,7 @@ export class ReactivateAccountUseCase extends UseCase<{
   deps: ReactivateAccountDeps;
   actor: Actor;
 }> {
-  readonly permissions = [MembershipPermission.ACCOUNT_REACTIVATE];
+  readonly access = { permissions: [MembershipPermission.ACCOUNT_REACTIVATE] };
 
   async execute(
     input: ReactivateAccountInput,

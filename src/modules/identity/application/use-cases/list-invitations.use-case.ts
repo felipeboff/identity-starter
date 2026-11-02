@@ -15,7 +15,7 @@ export class ListInvitationsUseCase extends UseCase<{
   deps: ListInvitationsDeps;
   actor: Actor;
 }> {
-  readonly permissions = [MembershipPermission.INVITATION_READ];
+  readonly access = { permissions: [MembershipPermission.INVITATION_READ] };
 
   async execute(_actor: Actor): Promise<ListInvitationsOutput> {
     const at = this.deps.clock.now();

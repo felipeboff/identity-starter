@@ -1,4 +1,4 @@
-import { UseCase } from "@shared/application/use-cases";
+import { Access, UseCase } from "@shared/application/use-cases";
 import { AppError } from "@shared/domain/errors/app-error";
 
 import { IdentityUseCaseLogEvent } from "../use-case.log-event";
@@ -15,6 +15,8 @@ export class ResetPasswordUseCase extends UseCase<{
   input: ResetPasswordInput;
   deps: ResetPasswordDeps;
 }> {
+  readonly access = Access.ANYONE;
+
   async execute(input: ResetPasswordInput): Promise<void> {
     const at = this.deps.clock.now();
 

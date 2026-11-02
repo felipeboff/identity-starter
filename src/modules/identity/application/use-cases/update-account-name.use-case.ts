@@ -1,4 +1,4 @@
-import { UseCase } from "@shared/application/use-cases";
+import { Access, UseCase } from "@shared/application/use-cases";
 
 import { Actor } from "../actor";
 import { toOutputAccount } from "../mappers/toOutputAccount";
@@ -15,6 +15,8 @@ export class UpdateAccountNameUseCase extends UseCase<{
   deps: UpdateAccountNameDeps;
   actor: Actor;
 }> {
+  readonly access = Access.MEMBER;
+
   async execute(
     input: UpdateAccountNameInput,
     actor: Actor,

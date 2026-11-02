@@ -21,7 +21,7 @@ export class InviteMemberUseCase extends UseCase<{
   deps: InviteMemberDeps;
   actor: Actor;
 }> {
-  readonly permissions = [MembershipPermission.INVITATION_CREATE];
+  readonly access = { permissions: [MembershipPermission.INVITATION_CREATE] };
 
   async execute(
     input: InviteMemberInput,

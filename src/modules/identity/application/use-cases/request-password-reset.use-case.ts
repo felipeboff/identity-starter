@@ -1,4 +1,4 @@
-import { UseCase } from "@shared/application/use-cases";
+import { Access, UseCase } from "@shared/application/use-cases";
 
 import { IdentityOutboxEffect } from "../outbox/identity-outbox-effect";
 import { RateLimitPolicy } from "../rate-limit.policy";
@@ -20,6 +20,8 @@ export class RequestPasswordResetUseCase extends UseCase<{
   input: RequestPasswordResetInput;
   deps: RequestPasswordResetDeps;
 }> {
+  readonly access = Access.ANYONE;
+
   async execute(input: RequestPasswordResetInput): Promise<void> {
     const decision = await this.deps.rateLimiter.hit(
       RateLimitPolicy.PASSWORD_RESET_REQUEST_PER_EMAIL,

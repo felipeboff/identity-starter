@@ -1,4 +1,4 @@
-import { UseCase } from "@shared/application/use-cases";
+import { Access, UseCase } from "@shared/application/use-cases";
 
 import { Actor } from "../actor";
 
@@ -14,6 +14,8 @@ export class RevokeOtherSessionsUseCase extends UseCase<{
   deps: RevokeOtherSessionsDeps;
   actor: Actor;
 }> {
+  readonly access = Access.MEMBER;
+
   async execute(actor: Actor): Promise<RevokeOtherSessionsOutput> {
     return this.deps.transactions.run(async () => {
       const revoked = await this.deps.sessionRevoker.revokeActive(

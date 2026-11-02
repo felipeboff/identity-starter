@@ -1,7 +1,8 @@
 # ADR-006: Use Cases Declare Required Permissions, Checked by the UseCase Base
 
 - **Date**: 2026-10-30
-- **Status**: Accepted
+- **Status**: Accepted; superseded in part by [ADR-011](011-every-use-case-declares-its-access.md)
+  (the optional props and the role as a label)
 - **Deciders**: Felipe Boff
 - **Tags**: architecture, application, authorization, api-contract
 

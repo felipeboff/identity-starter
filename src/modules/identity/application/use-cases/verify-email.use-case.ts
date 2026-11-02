@@ -1,4 +1,4 @@
-import { UseCase } from "@shared/application/use-cases";
+import { Access, UseCase } from "@shared/application/use-cases";
 import { AppError } from "@shared/domain/errors/app-error";
 
 import { toOutputAccount } from "../mappers/toOutputAccount";
@@ -16,6 +16,8 @@ export class VerifyEmailUseCase extends UseCase<{
   output: VerifyEmailOutput;
   deps: VerifyEmailDeps;
 }> {
+  readonly access = Access.ANYONE;
+
   async execute(input: VerifyEmailInput): Promise<VerifyEmailOutput> {
     const account = await this.deps.transactions.run(async () => {
       const at = this.deps.clock.now();

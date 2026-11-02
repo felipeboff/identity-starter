@@ -1,4 +1,4 @@
-import { UseCase } from "@shared/application/use-cases";
+import { Access, UseCase } from "@shared/application/use-cases";
 import { AppError } from "@shared/domain/errors/app-error";
 
 import { Actor } from "../actor";
@@ -13,6 +13,8 @@ export class SignOutUseCase extends UseCase<{
   deps: SignOutDeps;
   actor: Actor;
 }> {
+  readonly access = Access.MEMBER;
+
   async execute(actor: Actor): Promise<SignOutOutput> {
     const session = await this.deps.sessions.findById(actor.sessionId);
     if (!session) {

@@ -1,4 +1,4 @@
-import { UseCase } from "@shared/application/use-cases";
+import { Access, UseCase } from "@shared/application/use-cases";
 import { AppError } from "@shared/domain/errors/app-error";
 
 import { toOutputAccount } from "../mappers/toOutputAccount";
@@ -27,6 +27,8 @@ export class RefreshSessionUseCase extends UseCase<{
   output: RefreshSessionOutput;
   deps: RefreshSessionDeps;
 }> {
+  readonly access = Access.ANYONE;
+
   async execute(input: RefreshSessionInput): Promise<RefreshSessionOutput> {
     const refreshed = await this.deps.transactions.run<Refresh>(async () => {
       const at = this.deps.clock.now();

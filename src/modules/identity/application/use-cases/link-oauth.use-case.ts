@@ -1,4 +1,4 @@
-import { UseCase } from "@shared/application/use-cases";
+import { Access, UseCase } from "@shared/application/use-cases";
 import { AppError } from "@shared/domain/errors/app-error";
 
 import { Actor } from "../actor";
@@ -21,6 +21,8 @@ export class LinkOAuthUseCase extends UseCase<{
   deps: LinkOAuthDeps;
   actor: Actor;
 }> {
+  readonly access = Access.MEMBER;
+
   async execute(input: LinkOAuthInput, actor: Actor): Promise<LinkOAuthOutput> {
     const provider = OAuthProvider.create(input.provider).value;
 

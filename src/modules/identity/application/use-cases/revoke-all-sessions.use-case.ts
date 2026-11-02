@@ -1,4 +1,4 @@
-import { UseCase } from "@shared/application/use-cases";
+import { Access, UseCase } from "@shared/application/use-cases";
 
 import { Actor } from "../actor";
 
@@ -18,6 +18,8 @@ export class RevokeAllSessionsUseCase extends UseCase<{
   deps: RevokeAllSessionsDeps;
   actor: Actor;
 }> {
+  readonly access = Access.MEMBER;
+
   async execute(
     input: RevokeAllSessionsInput,
     actor: Actor,

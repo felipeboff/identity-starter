@@ -1,4 +1,4 @@
-import { UseCase } from "@shared/application/use-cases";
+import { Access, UseCase } from "@shared/application/use-cases";
 import { AppError } from "@shared/domain/errors/app-error";
 
 import { Actor } from "../actor";
@@ -18,6 +18,8 @@ export class RequestEmailChangeUseCase extends UseCase<{
   deps: RequestEmailChangeDeps;
   actor: Actor;
 }> {
+  readonly access = Access.MEMBER;
+
   async execute(input: RequestEmailChangeInput, actor: Actor): Promise<void> {
     const account = await this.deps.accountResolver.resolveActive(
       actor.accountId,

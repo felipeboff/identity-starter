@@ -1,4 +1,4 @@
-import { UseCase } from "@shared/application/use-cases";
+import { Access, UseCase } from "@shared/application/use-cases";
 
 import { Actor } from "../actor";
 import { toPublicSession } from "../mappers/toPublicSession";
@@ -17,6 +17,8 @@ export class ListAccountSessionsUseCase extends UseCase<{
   deps: ListAccountSessionsDeps;
   actor: Actor;
 }> {
+  readonly access = Access.MEMBER;
+
   async execute(
     input: ListAccountSessionsInput,
     actor: Actor,

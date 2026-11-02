@@ -1,4 +1,4 @@
-import { UseCase } from "@shared/application/use-cases";
+import { Access, UseCase } from "@shared/application/use-cases";
 import { AppError } from "@shared/domain/errors/app-error";
 
 import { toOutputAccount } from "../mappers/toOutputAccount";
@@ -40,6 +40,8 @@ export class SignInWithOAuthUseCase extends UseCase<{
   output: SignInWithOAuthOutput;
   deps: SignInWithOAuthDeps;
 }> {
+  readonly access = Access.ANYONE;
+
   async execute(input: SignInWithOAuthInput): Promise<SignInWithOAuthOutput> {
     try {
       return await this.signInOrUp(input);

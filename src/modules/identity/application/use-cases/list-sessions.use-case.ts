@@ -1,4 +1,4 @@
-import { UseCase } from "@shared/application/use-cases";
+import { Access, UseCase } from "@shared/application/use-cases";
 
 import { Actor } from "../actor";
 import { toPublicSession } from "../mappers/toPublicSession";
@@ -10,6 +10,8 @@ export class ListSessionsUseCase extends UseCase<{
   deps: ListSessionsDeps;
   actor: Actor;
 }> {
+  readonly access = Access.MEMBER;
+
   async execute(actor: Actor): Promise<ListSessionsOutput> {
     const at = this.deps.clock.now();
     const sessions = await this.deps.sessions.listByAccountId(actor.accountId);

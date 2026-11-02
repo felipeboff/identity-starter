@@ -1,4 +1,4 @@
-import { UseCase } from "@shared/application/use-cases";
+import { Access, UseCase } from "@shared/application/use-cases";
 
 import { IdentityOutboxEffect } from "../outbox/identity-outbox-effect";
 import { IdentityUseCaseLogEvent } from "../use-case.log-event";
@@ -12,6 +12,8 @@ export class SendEmailVerificationEmailUseCase extends UseCase<{
   input: SendEmailVerificationEmailInput;
   deps: SendEmailVerificationEmailDeps;
 }> {
+  readonly access = Access.ANYONE;
+
   async execute(input: SendEmailVerificationEmailInput): Promise<void> {
     if (this.deps.clock.now() >= input.expiresAt) {
       this.deps.logger.info(

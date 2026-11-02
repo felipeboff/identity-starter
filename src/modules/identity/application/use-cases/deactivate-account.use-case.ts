@@ -1,4 +1,4 @@
-import { UseCase } from "@shared/application/use-cases";
+import { Access, UseCase } from "@shared/application/use-cases";
 import { AppError } from "@shared/domain/errors/app-error";
 
 import { Actor } from "../actor";
@@ -18,6 +18,8 @@ export class DeactivateAccountUseCase extends UseCase<{
   deps: DeactivateAccountDeps;
   actor: Actor;
 }> {
+  readonly access = Access.MEMBER;
+
   async execute(input: DeactivateAccountInput, actor: Actor): Promise<void> {
     return this.deps.transactions.run(async () => {
       this.deps.accessPolicy.ensureCanManageAccount(

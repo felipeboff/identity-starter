@@ -33,8 +33,8 @@ every route.
 **Access control**
 
 - Each account has a membership with a role (`user`, `admin`) and a list of permissions
-- Use cases declare the permissions they need, and may also require a role; the API answers
-  `403` when one is missing
+- Every use case declares its access: anyone, any member, or the permissions and roles it
+  requires; the API answers `403` when one is missing
 - Invitations by e-mail: whoever invites can only grant permissions they already hold
 
 **Security and operation**
@@ -272,6 +272,6 @@ checks Conventional Commits.
 ## Decisions
 
 The [ADRs](docs/adr/) record why the code looks the way it does: the transport-neutral handler
-layer, optimistic concurrency on every write, TypeBox schemas on handlers, permissions declared
-by use cases, retrying idempotent outbound calls, Sentry reporting, the Docker image and the
+layer, optimistic concurrency on every write, TypeBox schemas on handlers, the access every use
+case declares, retrying idempotent outbound calls, Sentry reporting, the Docker image and the
 Mongo outbox.

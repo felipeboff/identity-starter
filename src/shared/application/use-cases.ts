@@ -30,15 +30,45 @@ type ExecuteArgs<S> = S extends { input: infer I }
     ? [actor: A]
     : [];
 
-type ResolvePermissions<S> = S extends {
-  actor: { permissions: readonly (infer P)[] };
-}
-  ? readonly P[]
-  : never;
+export const Access = {
+  ANYONE: "anyone",
+  MEMBER: "member",
+} as const;
 
-type ResolveRoles<S> = S extends { actor: { role: infer R } }
-  ? readonly R[]
+type PermissionOf<A> = A extends { permissions: readonly (infer P)[] }
+  ? P
   : never;
+type RoleOf<A> = A extends { role: infer R } ? R : never;
+
+type Requirement<P, R> =
+  | Readonly<{
+      permissions: readonly P[];
+      anyPermissions?: readonly P[];
+      roles?: readonly R[];
+    }>
+  | Readonly<{
+      permissions?: readonly P[];
+      anyPermissions: readonly P[];
+      roles?: readonly R[];
+    }>
+  | Readonly<{
+      permissions?: readonly P[];
+      anyPermissions?: readonly P[];
+      roles: readonly R[];
+    }>;
+
+type ResolveAccess<S> = S extends { actor: infer A }
+  ? typeof Access.MEMBER | Requirement<PermissionOf<A>, RoleOf<A>>
+  : typeof Access.ANYONE;
+
+type AccessRule =
+  | typeof Access.ANYONE
+  | typeof Access.MEMBER
+  | Readonly<{
+      permissions?: readonly string[];
+      anyPermissions?: readonly string[];
+      roles?: readonly string[];
+    }>;
 
 type ActorAccess = Readonly<{
   permissions?: readonly string[];
@@ -46,12 +76,12 @@ type ActorAccess = Readonly<{
 }>;
 
 export abstract class UseCase<S extends UseCaseShape = Record<string, never>> {
-  /** Every code the actor must hold; checked before `execute` runs. */
-  readonly permissions?: ResolvePermissions<S>;
-  /** At least one code the actor must hold; checked after `permissions`. */
-  readonly anyPermissions?: ResolvePermissions<S>;
-  /** One of these roles the actor must have; checked after the permissions. */
-  readonly roles?: ResolveRoles<S>;
+  /**
+   * Who may run it, checked before `execute`: `Access.ANYONE` without an actor,
+   * `Access.MEMBER` for any actor, or every `permissions`, one of
+   * `anyPermissions` and one of `roles`, in that order.
+   */
+  abstract readonly access: ResolveAccess<S>;
 
   constructor(protected readonly deps: ResolveDeps<S>) {
     const prototype = Object.getPrototypeOf(this) as UseCase<S>;
@@ -64,21 +94,24 @@ export abstract class UseCase<S extends UseCaseShape = Record<string, never>> {
   abstract execute(...args: ExecuteArgs<S>): Promise<ResolveOutput<S>>;
 
   private ensureAccess(actor: ActorAccess | undefined): void {
+    const access = this.access as AccessRule;
+    if (access === Access.ANYONE || access === Access.MEMBER) return;
+
     const holds = (permission: string) =>
       actor?.permissions?.includes(permission) === true;
 
-    const required = (this.permissions ?? []) as readonly string[];
+    const required = access.permissions ?? [];
     const missing = required.find((permission) => !holds(permission));
     if (missing !== undefined) {
       throw new AppError(SharedError.PermissionMissing, { required: missing });
     }
 
-    const anyOf = (this.anyPermissions ?? []) as readonly string[];
+    const anyOf = access.anyPermissions ?? [];
     if (anyOf.length > 0 && !anyOf.some(holds)) {
       throw new AppError(SharedError.PermissionMissing, { anyOf });
     }
 
-    const roles = (this.roles ?? []) as readonly string[];
+    const roles = access.roles ?? [];
     if (
       roles.length > 0 &&
       (actor?.role === undefined || !roles.includes(actor.role))

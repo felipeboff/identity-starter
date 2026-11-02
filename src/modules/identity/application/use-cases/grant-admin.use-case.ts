@@ -1,4 +1,4 @@
-import { UseCase } from "@shared/application/use-cases";
+import { Access, UseCase } from "@shared/application/use-cases";
 import { AppError } from "@shared/domain/errors/app-error";
 import { Email } from "@shared/domain/value-objects/email.value-object";
 
@@ -23,6 +23,8 @@ export class GrantAdminUseCase extends UseCase<{
   output: GrantAdminOutput;
   deps: GrantAdminDeps;
 }> {
+  readonly access = Access.ANYONE;
+
   async execute(input: GrantAdminInput): Promise<GrantAdminOutput> {
     try {
       return await this.grant(input);

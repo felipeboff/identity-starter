@@ -1,4 +1,4 @@
-import { UseCase } from "@shared/application/use-cases";
+import { Access, UseCase } from "@shared/application/use-cases";
 
 import { Actor } from "../actor";
 import { toPublicCredential } from "../mappers/toPublicCredential";
@@ -13,6 +13,8 @@ export class ListCredentialsUseCase extends UseCase<{
   deps: ListCredentialsDeps;
   actor: Actor;
 }> {
+  readonly access = Access.MEMBER;
+
   async execute(actor: Actor): Promise<ListCredentialsOutput> {
     const credentials = await this.deps.credentials.listByAccountId(
       actor.accountId,

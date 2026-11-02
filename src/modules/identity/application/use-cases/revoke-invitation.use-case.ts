@@ -16,7 +16,7 @@ export class RevokeInvitationUseCase extends UseCase<{
   deps: RevokeInvitationDeps;
   actor: Actor;
 }> {
-  readonly permissions = [MembershipPermission.INVITATION_REVOKE];
+  readonly access = { permissions: [MembershipPermission.INVITATION_REVOKE] };
 
   async execute(input: RevokeInvitationInput, _actor: Actor): Promise<void> {
     const invitation = await this.deps.invitations.findById(input.invitationId);

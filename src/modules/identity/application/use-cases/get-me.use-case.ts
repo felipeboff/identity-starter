@@ -1,4 +1,4 @@
-import { UseCase } from "@shared/application/use-cases";
+import { Access, UseCase } from "@shared/application/use-cases";
 import { AppError } from "@shared/domain/errors/app-error";
 
 import { Actor } from "../actor";
@@ -14,6 +14,8 @@ export class GetMeUseCase extends UseCase<{
   deps: GetMeDeps;
   actor: Actor;
 }> {
+  readonly access = Access.MEMBER;
+
   async execute(actor: Actor): Promise<GetMeOutput> {
     const session = await this.deps.sessions.findById(actor.sessionId);
     // A session that belongs to someone else is treated as missing.

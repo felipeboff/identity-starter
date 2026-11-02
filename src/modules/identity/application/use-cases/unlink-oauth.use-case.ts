@@ -1,4 +1,4 @@
-import { UseCase } from "@shared/application/use-cases";
+import { Access, UseCase } from "@shared/application/use-cases";
 import { AppError } from "@shared/domain/errors/app-error";
 
 import { Actor } from "../actor";
@@ -15,6 +15,8 @@ export class UnlinkOAuthUseCase extends UseCase<{
   deps: UnlinkOAuthDeps;
   actor: Actor;
 }> {
+  readonly access = Access.MEMBER;
+
   async execute(input: UnlinkOAuthInput, actor: Actor): Promise<void> {
     const provider = OAuthProvider.create(input.provider).value;
 

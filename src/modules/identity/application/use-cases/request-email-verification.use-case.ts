@@ -1,4 +1,4 @@
-import { UseCase } from "@shared/application/use-cases";
+import { Access, UseCase } from "@shared/application/use-cases";
 import { AppError } from "@shared/domain/errors/app-error";
 
 import { Actor } from "../actor";
@@ -11,6 +11,8 @@ export class RequestEmailVerificationUseCase extends UseCase<{
   deps: RequestEmailVerificationDeps;
   actor: Actor;
 }> {
+  readonly access = Access.MEMBER;
+
   async execute(actor: Actor): Promise<void> {
     await this.deps.transactions.run(() => this.issue(actor));
   }

@@ -3,7 +3,7 @@ import { SharedError } from "@shared/domain/errors/shared.error";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { UseCase } from "./use-cases";
+import { Access, UseCase } from "./use-cases";
 
 const Permission = {
   READ: "read",
@@ -21,7 +21,10 @@ const NoteRole = {
 
 type NoteRole = (typeof NoteRole)[keyof typeof NoteRole];
 
-type NoteActor = Readonly<{ permissions: readonly Permission[] }>;
+type NoteActor = Readonly<{
+  permissions: readonly Permission[];
+  role: NoteRole;
+}>;
 type NoteInput = Readonly<{ noteId: string }>;
 type NoteDeps = Readonly<{ reads: string[] }>;
 type NoteShape = {
@@ -31,69 +34,59 @@ type NoteShape = {
   actor: NoteActor;
 };
 
-type MemberActor = Readonly<{
-  permissions: readonly Permission[];
-  role: NoteRole;
-}>;
-type MemberShape = {
-  input: NoteInput;
-  output: string;
-  deps: NoteDeps;
-  actor: MemberActor;
-};
-
-class EditNoteUseCase extends UseCase<NoteShape> {
-  readonly permissions = [Permission.WRITE, Permission.READ];
-
+abstract class NoteUseCase extends UseCase<NoteShape> {
   execute(input: NoteInput, _actor: NoteActor): Promise<string> {
     this.deps.reads.push(input.noteId);
     return Promise.resolve(input.noteId);
   }
 }
 
-class ViewNoteUseCase extends UseCase<NoteShape> {
-  execute(input: NoteInput, _actor: NoteActor): Promise<string> {
-    this.deps.reads.push(input.noteId);
-    return Promise.resolve(input.noteId);
+class ViewNoteUseCase extends NoteUseCase {
+  readonly access = Access.MEMBER;
+}
+
+class EditNoteUseCase extends NoteUseCase {
+  readonly access = { permissions: [Permission.WRITE, Permission.READ] };
+}
+
+class ShareNoteUseCase extends NoteUseCase {
+  readonly access = { anyPermissions: [Permission.WRITE, Permission.DELETE] };
+}
+
+class MoveNoteUseCase extends NoteUseCase {
+  readonly access = {
+    permissions: [Permission.READ],
+    anyPermissions: [Permission.WRITE, Permission.DELETE],
+  };
+}
+
+class ReviewNoteUseCase extends NoteUseCase {
+  readonly access = { roles: [NoteRole.EDITOR, NoteRole.OWNER] };
+}
+
+class PublishNoteUseCase extends NoteUseCase {
+  readonly access = {
+    permissions: [Permission.WRITE],
+    roles: [NoteRole.EDITOR, NoteRole.OWNER],
+  };
+}
+
+class CountNotesUseCase extends UseCase<{ output: number; deps: NoteDeps }> {
+  readonly access = Access.ANYONE;
+
+  execute(): Promise<number> {
+    return Promise.resolve(this.deps.reads.length);
   }
-}
-
-class OpenNoteUseCase extends ViewNoteUseCase {
-  readonly permissions = [];
-}
-
-class ShareNoteUseCase extends ViewNoteUseCase {
-  readonly anyPermissions = [Permission.WRITE, Permission.DELETE];
-}
-
-class MoveNoteUseCase extends ViewNoteUseCase {
-  readonly permissions = [Permission.READ];
-  readonly anyPermissions = [Permission.WRITE, Permission.DELETE];
-}
-
-class PublicNoteUseCase extends ViewNoteUseCase {
-  readonly anyPermissions = [];
-}
-
-class ReviewNoteUseCase extends UseCase<MemberShape> {
-  readonly roles = [NoteRole.EDITOR, NoteRole.OWNER];
-
-  execute(input: NoteInput, _actor: MemberActor): Promise<string> {
-    this.deps.reads.push(input.noteId);
-    return Promise.resolve(input.noteId);
-  }
-}
-
-class CommentNoteUseCase extends ReviewNoteUseCase {
-  readonly roles = [];
-}
-
-class PublishNoteUseCase extends ReviewNoteUseCase {
-  readonly permissions = [Permission.WRITE];
 }
 
 const buildInput = (): NoteInput => ({
   noteId: faker.database.mongodbObjectId(),
+});
+
+const buildActor = (overrides: Partial<NoteActor> = {}): NoteActor => ({
+  permissions: [],
+  role: NoteRole.VIEWER,
+  ...overrides,
 });
 
 describe("UseCase", () => {
@@ -101,224 +94,134 @@ describe("UseCase", () => {
     vi.restoreAllMocks();
   });
 
-  it("runs the body for an actor holding every declared permission", async () => {
-    const deps = { reads: [] };
-    const useCase = new EditNoteUseCase(deps);
-    const input = buildInput();
+  describe("Access.ANYONE", () => {
+    it("runs the body without an actor", async () => {
+      const reads = [faker.database.mongodbObjectId()];
 
-    const out = await useCase.execute(input, {
-      permissions: [Permission.READ, Permission.WRITE],
+      const out = await new CountNotesUseCase({ reads }).execute();
+
+      expect(out).toBe(reads.length);
     });
-
-    expect(out).toBe(input.noteId);
-    expect(deps.reads).toStrictEqual([input.noteId]);
   });
 
-  it.each([
-    ["none", [], Permission.WRITE],
-    ["only the second one", [Permission.READ], Permission.WRITE],
-    ["only the first one", [Permission.WRITE], Permission.READ],
-  ] as const)(
-    "refuses with permission_missing naming the first missing code in declared order (holds %s)",
-    async (_, permissions, required) => {
-      const useCase = new EditNoteUseCase({ reads: [] });
-
-      const out = useCase.execute(buildInput(), { permissions });
-
-      await expectAppError(out, SharedError.PermissionMissing, { required });
-      await expect(out).rejects.toMatchObject({ kind: "forbidden" });
-    },
-  );
-
-  it("does not run the body when it refuses", async () => {
-    const deps = { reads: [] };
-    const useCase = new EditNoteUseCase(deps);
-
-    await expectAppError(
-      useCase.execute(buildInput(), { permissions: [Permission.READ] }),
-      SharedError.PermissionMissing,
-    );
-
-    expect(deps.reads).toStrictEqual([]);
-  });
-
-  it.each([
-    ["undeclared", ViewNoteUseCase],
-    ["empty permissions", OpenNoteUseCase],
-    ["empty anyPermissions", PublicNoteUseCase],
-  ])(
-    "runs the body for any actor when nothing is required (%s)",
-    async (_, NoteUseCase) => {
+  describe("Access.MEMBER", () => {
+    it("runs the body for any actor", async () => {
       const deps = { reads: [] };
-      const useCase = new NoteUseCase(deps);
       const input = buildInput();
 
-      const out = await useCase.execute(input, { permissions: [] });
+      const out = await new ViewNoteUseCase(deps).execute(input, buildActor());
 
       expect(out).toBe(input.noteId);
       expect(deps.reads).toStrictEqual([input.noteId]);
-    },
-  );
+    });
+  });
 
-  it("runs the body for an actor holding one of anyPermissions", async () => {
-    const deps = { reads: [] };
-    const useCase = new ShareNoteUseCase(deps);
-    const input = buildInput();
+  describe("permissions", () => {
+    it("runs the body for an actor holding every declared permission", async () => {
+      const deps = { reads: [] };
+      const input = buildInput();
 
-    const out = await useCase.execute(input, {
-      permissions: [Permission.DELETE],
+      const out = await new EditNoteUseCase(deps).execute(
+        input,
+        buildActor({ permissions: [Permission.READ, Permission.WRITE] }),
+      );
+
+      expect(out).toBe(input.noteId);
+      expect(deps.reads).toStrictEqual([input.noteId]);
     });
 
-    expect(out).toBe(input.noteId);
-    expect(deps.reads).toStrictEqual([input.noteId]);
+    it.each([
+      ["none", [], Permission.WRITE],
+      ["only the second one", [Permission.READ], Permission.WRITE],
+      ["only the first one", [Permission.WRITE], Permission.READ],
+    ] as const)(
+      "refuses with permission_missing naming the first missing code in declared order (holds %s)",
+      async (_, permissions, required) => {
+        const deps = { reads: [] };
+
+        const out = new EditNoteUseCase(deps).execute(
+          buildInput(),
+          buildActor({ permissions }),
+        );
+
+        await expectAppError(out, SharedError.PermissionMissing, { required });
+        await expect(out).rejects.toMatchObject({ kind: "forbidden" });
+        expect(deps.reads).toStrictEqual([]);
+      },
+    );
   });
 
-  it("refuses with permission_missing listing anyOf when the actor holds none", async () => {
-    const deps = { reads: [] };
-    const useCase = new ShareNoteUseCase(deps);
+  describe("anyPermissions", () => {
+    it("runs the body for an actor holding one of them", async () => {
+      const input = buildInput();
 
-    const out = useCase.execute(buildInput(), {
-      permissions: [Permission.READ],
+      const out = await new ShareNoteUseCase({ reads: [] }).execute(
+        input,
+        buildActor({ permissions: [Permission.DELETE] }),
+      );
+
+      expect(out).toBe(input.noteId);
     });
 
-    await expectAppError(out, SharedError.PermissionMissing, {
-      anyOf: [Permission.WRITE, Permission.DELETE],
+    it("refuses with permission_missing listing anyOf when the actor holds none", async () => {
+      const deps = { reads: [] };
+
+      const out = new ShareNoteUseCase(deps).execute(
+        buildInput(),
+        buildActor({ permissions: [Permission.READ] }),
+      );
+
+      await expectAppError(out, SharedError.PermissionMissing, {
+        anyOf: [Permission.WRITE, Permission.DELETE],
+      });
+      expect(deps.reads).toStrictEqual([]);
     });
-    await expect(out).rejects.toMatchObject({ kind: "forbidden" });
-    expect(deps.reads).toStrictEqual([]);
-  });
 
-  it("requires every permission and one of anyPermissions, checking permissions first", async () => {
-    const useCase = new MoveNoteUseCase({ reads: [] });
-    const input = buildInput();
+    it("requires every permission and one of anyPermissions, checking permissions first", async () => {
+      const useCase = new MoveNoteUseCase({ reads: [] });
+      const input = buildInput();
 
-    await expectAppError(
-      useCase.execute(input, { permissions: [] }),
-      SharedError.PermissionMissing,
-      { required: Permission.READ },
-    );
-    await expectAppError(
-      useCase.execute(input, { permissions: [Permission.READ] }),
-      SharedError.PermissionMissing,
-      { anyOf: [Permission.WRITE, Permission.DELETE] },
-    );
-    await expect(
-      useCase.execute(input, {
-        permissions: [Permission.READ, Permission.WRITE],
-      }),
-    ).resolves.toBe(input.noteId);
-  });
-
-  it("calls the subclass execute found at call time, so a later spy sees it", async () => {
-    const useCase = new EditNoteUseCase({ reads: [] });
-    const execute = vi.spyOn(EditNoteUseCase.prototype, "execute");
-    const input = buildInput();
-    const actor = { permissions: [Permission.READ, Permission.WRITE] };
-
-    await useCase.execute(input, actor);
-
-    expect(execute).toHaveBeenCalledExactlyOnceWith(input, actor);
-  });
-
-  it("rejects permissions the shape cannot hold at compile time", async () => {
-    const unknownCode = faker.string.alpha(12);
-
-    class StampUseCase extends UseCase<{ output: string }> {
-      // @ts-expect-error a shape without actor cannot declare permissions
-      readonly permissions = [Permission.READ];
-
-      execute(): Promise<string> {
-        return Promise.resolve(unknownCode);
-      }
-    }
-
-    class ArchiveNoteUseCase extends UseCase<{
-      output: string;
-      actor: NoteActor;
-    }> {
-      // @ts-expect-error only the actor's permission codes are accepted
-      readonly permissions = [unknownCode];
-
-      execute(_actor: NoteActor): Promise<string> {
-        return Promise.resolve(unknownCode);
-      }
-    }
-
-    await expectAppError(
-      new StampUseCase().execute(),
-      SharedError.PermissionMissing,
-      { required: Permission.READ },
-    );
-    await expectAppError(
-      new ArchiveNoteUseCase().execute({
-        permissions: Object.values(Permission),
-      }),
-      SharedError.PermissionMissing,
-      { required: unknownCode },
-    );
-  });
-
-  it("rejects anyPermissions the shape cannot hold at compile time", async () => {
-    const unknownCode = faker.string.alpha(12);
-
-    class StampUseCase extends UseCase<{ output: string }> {
-      // @ts-expect-error a shape without actor cannot declare anyPermissions
-      readonly anyPermissions = [Permission.READ];
-
-      execute(): Promise<string> {
-        return Promise.resolve(unknownCode);
-      }
-    }
-
-    class ArchiveNoteUseCase extends UseCase<{
-      output: string;
-      actor: NoteActor;
-    }> {
-      // @ts-expect-error only the actor's permission codes are accepted
-      readonly anyPermissions = [unknownCode];
-
-      execute(_actor: NoteActor): Promise<string> {
-        return Promise.resolve(unknownCode);
-      }
-    }
-
-    await expectAppError(
-      new StampUseCase().execute(),
-      SharedError.PermissionMissing,
-      { anyOf: [Permission.READ] },
-    );
-    await expectAppError(
-      new ArchiveNoteUseCase().execute({
-        permissions: Object.values(Permission),
-      }),
-      SharedError.PermissionMissing,
-      { anyOf: [unknownCode] },
-    );
+      await expectAppError(
+        useCase.execute(input, buildActor()),
+        SharedError.PermissionMissing,
+        { required: Permission.READ },
+      );
+      await expectAppError(
+        useCase.execute(input, buildActor({ permissions: [Permission.READ] })),
+        SharedError.PermissionMissing,
+        { anyOf: [Permission.WRITE, Permission.DELETE] },
+      );
+      await expect(
+        useCase.execute(
+          input,
+          buildActor({ permissions: [Permission.READ, Permission.WRITE] }),
+        ),
+      ).resolves.toBe(input.noteId);
+    });
   });
 
   describe("roles", () => {
     it.each([NoteRole.EDITOR, NoteRole.OWNER])(
       "runs the body for an actor with one of the declared roles (%s)",
       async (role) => {
-        const deps = { reads: [] };
-        const useCase = new ReviewNoteUseCase(deps);
         const input = buildInput();
 
-        const out = await useCase.execute(input, { permissions: [], role });
+        const out = await new ReviewNoteUseCase({ reads: [] }).execute(
+          input,
+          buildActor({ role }),
+        );
 
         expect(out).toBe(input.noteId);
-        expect(deps.reads).toStrictEqual([input.noteId]);
       },
     );
 
     it("refuses with role_missing listing the roles when the actor has another one", async () => {
       const deps = { reads: [] };
-      const useCase = new ReviewNoteUseCase(deps);
 
-      const out = useCase.execute(buildInput(), {
-        permissions: Object.values(Permission),
-        role: NoteRole.VIEWER,
-      });
+      const out = new ReviewNoteUseCase(deps).execute(
+        buildInput(),
+        buildActor({ permissions: Object.values(Permission) }),
+      );
 
       await expectAppError(out, SharedError.RoleMissing, {
         roles: [NoteRole.EDITOR, NoteRole.OWNER],
@@ -327,79 +230,111 @@ describe("UseCase", () => {
       expect(deps.reads).toStrictEqual([]);
     });
 
-    it("runs the body for any role when the declared roles are empty", async () => {
-      const useCase = new CommentNoteUseCase({ reads: [] });
-      const input = buildInput();
-
-      const out = await useCase.execute(input, {
-        permissions: [],
-        role: NoteRole.VIEWER,
-      });
-
-      expect(out).toBe(input.noteId);
-    });
-
     it("requires the permissions and one of the roles, checking permissions first", async () => {
       const useCase = new PublishNoteUseCase({ reads: [] });
       const input = buildInput();
 
       await expectAppError(
-        useCase.execute(input, { permissions: [], role: NoteRole.VIEWER }),
+        useCase.execute(input, buildActor()),
         SharedError.PermissionMissing,
         { required: Permission.WRITE },
       );
       await expectAppError(
-        useCase.execute(input, {
-          permissions: [Permission.WRITE],
-          role: NoteRole.VIEWER,
-        }),
+        useCase.execute(input, buildActor({ permissions: [Permission.WRITE] })),
         SharedError.RoleMissing,
         { roles: [NoteRole.EDITOR, NoteRole.OWNER] },
       );
       await expect(
-        useCase.execute(input, {
-          permissions: [Permission.WRITE],
-          role: NoteRole.EDITOR,
-        }),
+        useCase.execute(
+          input,
+          buildActor({ permissions: [Permission.WRITE], role: NoteRole.OWNER }),
+        ),
       ).resolves.toBe(input.noteId);
     });
+  });
 
-    it("rejects roles the shape cannot hold at compile time", async () => {
-      const unknownRole = faker.string.alpha(12);
+  it("calls the subclass execute found at call time, so a later spy sees it", async () => {
+    const useCase = new EditNoteUseCase({ reads: [] });
+    const execute = vi.spyOn(EditNoteUseCase.prototype, "execute");
+    const input = buildInput();
+    const actor = buildActor({
+      permissions: [Permission.READ, Permission.WRITE],
+    });
 
+    await useCase.execute(input, actor);
+
+    expect(execute).toHaveBeenCalledExactlyOnceWith(input, actor);
+  });
+
+  describe("at compile time", () => {
+    it("requires every use case to declare its access, and fails closed without it", async () => {
+      // @ts-expect-error a use case that declares no access does not compile
+      class ArchiveNoteUseCase extends NoteUseCase {}
+      const deps = { reads: [] };
+
+      await expect(
+        new ArchiveNoteUseCase(deps).execute(buildInput(), buildActor()),
+      ).rejects.toThrow(TypeError);
+      expect(deps.reads).toStrictEqual([]);
+    });
+
+    it("accepts only Access.ANYONE without an actor", async () => {
       class StampUseCase extends UseCase<{ output: string }> {
-        // @ts-expect-error a shape without actor cannot declare roles
-        readonly roles = [NoteRole.EDITOR];
+        // @ts-expect-error a shape without actor cannot require permissions
+        readonly access = { permissions: [Permission.READ] };
 
         execute(): Promise<string> {
-          return Promise.resolve(unknownRole);
-        }
-      }
-
-      class ArchiveNoteUseCase extends UseCase<{
-        output: string;
-        actor: MemberActor;
-      }> {
-        // @ts-expect-error only the actor's roles are accepted
-        readonly roles = [unknownRole];
-
-        execute(_actor: MemberActor): Promise<string> {
-          return Promise.resolve(unknownRole);
+          return Promise.resolve(faker.lorem.word());
         }
       }
 
       await expectAppError(
         new StampUseCase().execute(),
-        SharedError.RoleMissing,
-        {
-          roles: [NoteRole.EDITOR],
-        },
+        SharedError.PermissionMissing,
+        { required: Permission.READ },
+      );
+    });
+
+    it("refuses Access.ANYONE and an empty requirement with an actor", () => {
+      class OpenNoteUseCase extends NoteUseCase {
+        // @ts-expect-error a use case with an actor must say what it requires
+        readonly access = Access.ANYONE;
+      }
+      class BlankNoteUseCase extends NoteUseCase {
+        // @ts-expect-error an empty requirement says nothing; use Access.MEMBER
+        readonly access = {};
+      }
+
+      expect(new OpenNoteUseCase({ reads: [] }).access).toBe(Access.ANYONE);
+      expect(new BlankNoteUseCase({ reads: [] }).access).toStrictEqual({});
+    });
+
+    it("accepts only the actor's permission codes and roles", async () => {
+      const unknownCode = faker.string.alpha(12);
+      const unknownRole = faker.string.alpha(12);
+
+      class PinNoteUseCase extends NoteUseCase {
+        // @ts-expect-error only the actor's permission codes are accepted
+        readonly access = { permissions: [unknownCode] };
+      }
+      class LockNoteUseCase extends NoteUseCase {
+        // @ts-expect-error only the actor's roles are accepted
+        readonly access = { roles: [unknownRole] };
+      }
+
+      await expectAppError(
+        new PinNoteUseCase({ reads: [] }).execute(
+          buildInput(),
+          buildActor({ permissions: Object.values(Permission) }),
+        ),
+        SharedError.PermissionMissing,
+        { required: unknownCode },
       );
       await expectAppError(
-        new ArchiveNoteUseCase().execute({
-          permissions: [],
-          role: NoteRole.OWNER,
-        }),
+        new LockNoteUseCase({ reads: [] }).execute(
+          buildInput(),
+          buildActor({ role: NoteRole.OWNER }),
+        ),
         SharedError.RoleMissing,
         { roles: [unknownRole] },
       );

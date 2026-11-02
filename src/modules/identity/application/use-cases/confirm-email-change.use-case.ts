@@ -1,4 +1,4 @@
-import { UseCase } from "@shared/application/use-cases";
+import { Access, UseCase } from "@shared/application/use-cases";
 import { AppError } from "@shared/domain/errors/app-error";
 
 import { toOutputAccount } from "../mappers/toOutputAccount";
@@ -19,6 +19,8 @@ export class ConfirmEmailChangeUseCase extends UseCase<{
   output: ConfirmEmailChangeOutput;
   deps: ConfirmEmailChangeDeps;
 }> {
+  readonly access = Access.ANYONE;
+
   async execute(
     input: ConfirmEmailChangeInput,
   ): Promise<ConfirmEmailChangeOutput> {
