@@ -16,7 +16,6 @@ export type RequestPasswordResetHandlerDeps = {
 export class RequestPasswordResetHandler extends Handler<{
   deps: RequestPasswordResetHandlerDeps;
   input: typeof inputSchema;
-  output: void;
 }> {
   readonly name = "identity.request_password_reset";
   readonly input = inputSchema;

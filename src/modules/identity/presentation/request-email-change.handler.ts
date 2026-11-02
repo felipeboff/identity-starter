@@ -20,7 +20,6 @@ export class RequestEmailChangeHandler extends Handler<{
   deps: RequestEmailChangeHandlerDeps;
   actor: Actor;
   input: typeof inputSchema;
-  output: void;
 }> {
   readonly name = "identity.request_email_change";
   readonly input = inputSchema;

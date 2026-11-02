@@ -18,7 +18,6 @@ export class UnlinkOAuthHandler extends Handler<{
   deps: UnlinkOAuthHandlerDeps;
   actor: Actor;
   input: typeof inputSchema;
-  output: void;
 }> {
   readonly name = "identity.unlink_oauth";
   readonly input = inputSchema;

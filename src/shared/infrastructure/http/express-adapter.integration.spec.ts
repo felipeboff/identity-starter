@@ -21,13 +21,16 @@ import { ExpressAdapter } from "./express-adapter";
 
 const anyInput = Type.Record(Type.String(), Type.Unknown());
 
+const anyOutput = Type.Unknown();
+
 class EchoHandler extends Handler<{
   actor: unknown;
   input: typeof anyInput;
-  output: unknown;
+  output: typeof anyOutput;
 }> {
   readonly name = `${faker.lorem.word()}.${faker.lorem.word()}`;
   readonly input = anyInput;
+  readonly output = anyOutput;
 
   handle(inbound: Inbound<unknown>): Promise<unknown> {
     return Promise.resolve(inbound);
@@ -37,7 +40,7 @@ class EchoHandler extends Handler<{
 class FailingHandler extends Handler<{
   deps: { error: Error };
   actor: unknown;
-  output: unknown;
+  output: typeof anyOutput;
 }> {
   readonly name = `${faker.lorem.word()}.${faker.lorem.word()}`;
 
@@ -60,7 +63,7 @@ const buildRoute = (
 class ContextHandler extends Handler<{
   deps: { logContext: AsyncLocalLogContext };
   actor: unknown;
-  output: unknown;
+  output: typeof anyOutput;
 }> {
   readonly name = `${faker.lorem.word()}.${faker.lorem.word()}`;
 

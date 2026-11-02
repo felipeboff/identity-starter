@@ -2,6 +2,8 @@ import { OBJECT_ID_PATTERN } from "@shared/domain/value-objects/id.value-object"
 import { Handler, Inbound } from "@shared/presentation/handler";
 import Type from "typebox";
 
+import { accountOutputSchema } from "./output.schema";
+
 import { Actor } from "@/identity/application/actor";
 import { ReactivateAccountOutput } from "@/identity/application/use-cases/reactivate-account.types";
 import { ReactivateAccountUseCase } from "@/identity/application/use-cases/reactivate-account.use-case";
@@ -12,6 +14,8 @@ const inputSchema = Type.Object({
 
 type Input = Type.StaticDecode<typeof inputSchema>;
 
+const outputSchema = Type.Object({ account: accountOutputSchema });
+
 export type ReactivateAccountHandlerDeps = {
   reactivateAccount: ReactivateAccountUseCase;
 };
@@ -20,10 +24,11 @@ export class ReactivateAccountHandler extends Handler<{
   deps: ReactivateAccountHandlerDeps;
   actor: Actor;
   input: typeof inputSchema;
-  output: ReactivateAccountOutput;
+  output: typeof outputSchema;
 }> {
   readonly name = "identity.reactivate_account";
   readonly input = inputSchema;
+  readonly output = outputSchema;
 
   async handle(
     inbound: Inbound<Actor, Input>,

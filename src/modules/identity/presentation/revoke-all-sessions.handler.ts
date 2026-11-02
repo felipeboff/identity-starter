@@ -12,6 +12,10 @@ const inputSchema = Type.Object({
 
 type Input = Type.StaticDecode<typeof inputSchema>;
 
+const outputSchema = Type.Object({
+  revokedCount: Type.Integer({ minimum: 0 }),
+});
+
 export type RevokeAllSessionsHandlerDeps = {
   revokeAllSessions: RevokeAllSessionsUseCase;
 };
@@ -20,10 +24,11 @@ export class RevokeAllSessionsHandler extends Handler<{
   deps: RevokeAllSessionsHandlerDeps;
   actor: Actor;
   input: typeof inputSchema;
-  output: RevokeAllSessionsOutput;
+  output: typeof outputSchema;
 }> {
   readonly name = "identity.revoke_all_sessions";
   readonly input = inputSchema;
+  readonly output = outputSchema;
 
   async handle(
     inbound: Inbound<Actor, Input>,

@@ -20,15 +20,21 @@ export type HandlerShape = Readonly<{
   deps?: unknown;
   actor?: unknown;
   input?: TSchema;
-  output?: unknown;
+  output?: TSchema;
 }>;
 
-type ResolveOutput<S> = S extends { output: infer O } ? O : unknown;
+type ResolveOutputSchema<S> = S extends { output: infer O extends TSchema }
+  ? O
+  : never;
+type ResolveOutput<S> = S extends { output: infer O extends TSchema }
+  ? StaticDecode<O>
+  : void;
 
 export abstract class Handler<S extends HandlerShape = Record<string, never>> {
   constructor(protected readonly deps: ResolveDeps<S>) {}
   abstract readonly name: string;
   readonly input?: ResolveInput<S>;
+  readonly output?: ResolveOutputSchema<S>;
   abstract handle(
     inbound: Inbound<ResolveActor<S>, StaticDecode<ResolveInput<S>>>,
   ): Promise<ResolveOutput<S>>;
@@ -68,6 +74,6 @@ export type Entry<TActor = undefined> = Readonly<{
     deps: unknown;
     actor: TActor;
     input: TSchema;
-    output: unknown;
+    output: TSchema;
   }>;
 }>;

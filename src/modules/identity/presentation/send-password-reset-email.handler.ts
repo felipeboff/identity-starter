@@ -11,7 +11,6 @@ export type SendPasswordResetEmailHandlerDeps = {
 export class SendPasswordResetEmailHandler extends Handler<{
   deps: SendPasswordResetEmailHandlerDeps;
   input: typeof tokenEmailSchema;
-  output: void;
 }> {
   readonly name = "identity.send_password_reset_email";
   readonly input = tokenEmailSchema;

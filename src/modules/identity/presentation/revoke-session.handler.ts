@@ -19,7 +19,6 @@ export class RevokeSessionHandler extends Handler<{
   deps: RevokeSessionHandlerDeps;
   actor: Actor;
   input: typeof inputSchema;
-  output: void;
 }> {
   readonly name = "identity.revoke_session";
   readonly input = inputSchema;

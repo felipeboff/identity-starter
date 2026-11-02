@@ -361,6 +361,7 @@ describe("createServer", () => {
       expect(document.paths["/auth/sign-up"]?.post).toMatchObject({
         operationId: "identity.sign_up_with_email",
         requestBody: { required: true },
+        responses: { "201": { content: { "application/json": {} } } },
       });
       expect(document.paths["/auth/sign-up"]?.post).not.toHaveProperty(
         "security",

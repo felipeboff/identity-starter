@@ -19,7 +19,6 @@ export class RevokeInvitationHandler extends Handler<{
   deps: RevokeInvitationHandlerDeps;
   actor: Actor;
   input: typeof inputSchema;
-  output: void;
 }> {
   readonly name = "identity.revoke_invitation";
   readonly input = inputSchema;

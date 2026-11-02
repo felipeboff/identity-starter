@@ -2,6 +2,8 @@ import { OBJECT_ID_PATTERN } from "@shared/domain/value-objects/id.value-object"
 import { Handler, Inbound } from "@shared/presentation/handler";
 import Type from "typebox";
 
+import { membershipOutputSchema } from "./output.schema";
+
 import { Actor } from "@/identity/application/actor";
 import { UpdateMemberPermissionsOutput } from "@/identity/application/use-cases/update-member-permissions.types";
 import { UpdateMemberPermissionsUseCase } from "@/identity/application/use-cases/update-member-permissions.use-case";
@@ -14,6 +16,8 @@ const inputSchema = Type.Object({
 
 type Input = Type.StaticDecode<typeof inputSchema>;
 
+const outputSchema = Type.Object({ membership: membershipOutputSchema });
+
 export type UpdateMemberPermissionsHandlerDeps = {
   updateMemberPermissions: UpdateMemberPermissionsUseCase;
 };
@@ -22,10 +26,11 @@ export class UpdateMemberPermissionsHandler extends Handler<{
   deps: UpdateMemberPermissionsHandlerDeps;
   actor: Actor;
   input: typeof inputSchema;
-  output: UpdateMemberPermissionsOutput;
+  output: typeof outputSchema;
 }> {
   readonly name = "identity.update_member_permissions";
   readonly input = inputSchema;
+  readonly output = outputSchema;
 
   async handle(
     inbound: Inbound<Actor, Input>,

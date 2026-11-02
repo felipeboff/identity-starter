@@ -11,6 +11,7 @@ import { HttpRouter } from "@shared/presentation/http/http-router";
 import { SchemaParser } from "@shared/presentation/schema-parser";
 import { FakeErrorReporter } from "@shared/testing/fake-error-reporter";
 import { FakeLogger } from "@shared/testing/fake-logger";
+import { OutputSchemaCheck } from "@shared/testing/output-schema-check";
 import { RouteStatusMatrix } from "@shared/testing/route-status-matrix";
 import express from "express";
 import request from "supertest";
@@ -96,6 +97,11 @@ export const createIdentityHttp = () => {
       routeStatusFile,
       RouteStatusMatrix.observationLine(route, response.status),
     );
+
+    OutputSchemaCheck.assert(route, {
+      status: response.status,
+      body: response.body as unknown,
+    });
 
     if (response.status === 204) return { status: 204 };
     const contentType = response.headers["content-type"];

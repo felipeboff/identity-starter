@@ -26,7 +26,6 @@ export class ChangePasswordHandler extends Handler<{
   deps: ChangePasswordHandlerDeps;
   actor: Actor;
   input: typeof inputSchema;
-  output: void;
 }> {
   readonly name = "identity.change_password";
   readonly input = inputSchema;

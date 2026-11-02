@@ -10,7 +10,6 @@ export type RequestEmailVerificationHandlerDeps = {
 export class RequestEmailVerificationHandler extends Handler<{
   deps: RequestEmailVerificationHandlerDeps;
   actor: Actor;
-  output: void;
 }> {
   readonly name = "identity.request_email_verification";
 

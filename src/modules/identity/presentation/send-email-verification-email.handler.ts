@@ -11,7 +11,6 @@ export type SendEmailVerificationEmailHandlerDeps = {
 export class SendEmailVerificationEmailHandler extends Handler<{
   deps: SendEmailVerificationEmailHandlerDeps;
   input: typeof tokenEmailSchema;
-  output: void;
 }> {
   readonly name = "identity.send_email_verification_email";
   readonly input = tokenEmailSchema;

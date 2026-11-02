@@ -1,6 +1,8 @@
 import { Handler, Inbound } from "@shared/presentation/handler";
 import Type from "typebox";
 
+import { invitationOutputSchema } from "./output.schema";
+
 import { Actor } from "@/identity/application/actor";
 import { InviteMemberOutput } from "@/identity/application/use-cases/invite-member.types";
 import { InviteMemberUseCase } from "@/identity/application/use-cases/invite-member.use-case";
@@ -17,6 +19,8 @@ const inputSchema = Type.Object({
 
 type Input = Type.StaticDecode<typeof inputSchema>;
 
+const outputSchema = Type.Object({ invitation: invitationOutputSchema });
+
 export type InviteMemberHandlerDeps = {
   inviteMember: InviteMemberUseCase;
 };
@@ -25,10 +29,11 @@ export class InviteMemberHandler extends Handler<{
   deps: InviteMemberHandlerDeps;
   actor: Actor;
   input: typeof inputSchema;
-  output: InviteMemberOutput;
+  output: typeof outputSchema;
 }> {
   readonly name = "identity.invite_member";
   readonly input = inputSchema;
+  readonly output = outputSchema;
 
   async handle(inbound: Inbound<Actor, Input>): Promise<InviteMemberOutput> {
     return this.deps.inviteMember.execute(inbound.input, inbound.actor);

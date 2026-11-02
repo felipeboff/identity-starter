@@ -12,3 +12,9 @@ export const dateSchema = Type.Codec(
 )
   .Decode((value) => new Date(value))
   .Encode((value) => value.toISOString());
+
+/** A `Date` in the handler, an ISO 8601 string in the JSON it answers. */
+export const dateTimeSchema = Type.Unsafe<Date>({
+  type: "string",
+  format: "date-time",
+});

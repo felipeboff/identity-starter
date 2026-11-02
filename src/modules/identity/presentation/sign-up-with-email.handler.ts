@@ -2,6 +2,7 @@ import { Handler, Inbound } from "@shared/presentation/handler";
 import Type from "typebox";
 
 import { toSessionOrigin } from "./mappers/toSessionOrigin";
+import { signedInOutputFields } from "./output.schema";
 
 import {
   PASSWORD_MAX_LENGTH,
@@ -21,6 +22,8 @@ const inputSchema = Type.Object({
 
 type Input = Type.StaticDecode<typeof inputSchema>;
 
+const outputSchema = Type.Object(signedInOutputFields);
+
 export type SignUpWithEmailHandlerDeps = {
   signUpWithEmail: SignUpWithEmailUseCase;
 };
@@ -28,10 +31,11 @@ export type SignUpWithEmailHandlerDeps = {
 export class SignUpWithEmailHandler extends Handler<{
   deps: SignUpWithEmailHandlerDeps;
   input: typeof inputSchema;
-  output: SignUpWithEmailOutput;
+  output: typeof outputSchema;
 }> {
   readonly name = "identity.sign_up_with_email";
   readonly input = inputSchema;
+  readonly output = outputSchema;
 
   async handle(
     inbound: Inbound<undefined, Input>,

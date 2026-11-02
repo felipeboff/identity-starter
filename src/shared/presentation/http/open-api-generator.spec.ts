@@ -2,7 +2,7 @@ import { faker } from "@faker-js/faker";
 import Type, { type TSchema } from "typebox";
 import { describe, expect, it } from "vitest";
 
-import { dateSchema } from "../date.schema";
+import { dateSchema, dateTimeSchema } from "../date.schema";
 import { Handler, Inbound, Middleware, Next } from "../handler";
 
 import { HttpRoute } from "./http-route";
@@ -35,6 +35,18 @@ class InputHandler extends Handler<{ input: TSchema }> {
 
   handle(): Promise<void> {
     return Promise.resolve();
+  }
+}
+
+class OutputHandler extends Handler<{ output: TSchema }> {
+  readonly name = buildName();
+
+  constructor(readonly output: TSchema) {
+    super();
+  }
+
+  handle(): Promise<unknown> {
+    return Promise.resolve(undefined);
   }
 }
 
@@ -253,6 +265,40 @@ describe("OpenApiGenerator", () => {
       { bearer: [] },
     ]);
     expect(operationOf(other)).not.toHaveProperty("security");
+  });
+
+  it("describes the success body with the handler's output schema, dates as strings", () => {
+    const at = field();
+    const route = buildRoute({
+      status: 201,
+      handler: new OutputHandler(
+        Type.Object({
+          [at]: Type.Union([dateTimeSchema, Type.Null()]),
+        }),
+      ),
+    });
+
+    expect(operationOf(route)?.responses).toStrictEqual({
+      "201": {
+        description: "Created",
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              required: [at],
+              properties: {
+                [at]: {
+                  anyOf: [
+                    { type: "string", format: "date-time" },
+                    { type: "null" },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      },
+    });
   });
 
   it("answers each declared failure with a problem details body", () => {

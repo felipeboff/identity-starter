@@ -189,8 +189,14 @@ export class OpenApiGenerator {
     const problem = {
       [PROBLEM_MEDIA]: { schema: { $ref: `#/components/schemas/${PROBLEM}` } },
     };
+    const output = route.handler.output;
     const responses: Record<string, OpenApiResponse> = {
-      [route.status]: { description: STATUS_TEXT[route.status] },
+      [route.status]: {
+        description: STATUS_TEXT[route.status],
+        ...(output === undefined
+          ? {}
+          : { content: { [JSON_MEDIA]: { schema: this.toJson(output) } } }),
+      },
     };
     for (const status of route.failures) {
       responses[status] = {

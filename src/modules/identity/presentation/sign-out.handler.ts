@@ -10,7 +10,6 @@ export type SignOutHandlerDeps = {
 export class SignOutHandler extends Handler<{
   deps: SignOutHandlerDeps;
   actor: Actor;
-  output: void;
 }> {
   readonly name = "identity.sign_out";
 

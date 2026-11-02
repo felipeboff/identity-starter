@@ -3,6 +3,7 @@ import Type from "typebox";
 
 import { codeVerifierSchema } from "./code-verifier";
 import { toSessionOrigin } from "./mappers/toSessionOrigin";
+import { signedInOutputFields } from "./output.schema";
 
 import { SignInWithOAuthOutput } from "@/identity/application/use-cases/sign-in-with-oauth.types";
 import { SignInWithOAuthUseCase } from "@/identity/application/use-cases/sign-in-with-oauth.use-case";
@@ -15,6 +16,11 @@ const inputSchema = Type.Object({
 
 type Input = Type.StaticDecode<typeof inputSchema>;
 
+const outputSchema = Type.Object({
+  ...signedInOutputFields,
+  isNewAccount: Type.Boolean(),
+});
+
 export type SignInWithOAuthHandlerDeps = {
   signInWithOAuth: SignInWithOAuthUseCase;
 };
@@ -22,10 +28,11 @@ export type SignInWithOAuthHandlerDeps = {
 export class SignInWithOAuthHandler extends Handler<{
   deps: SignInWithOAuthHandlerDeps;
   input: typeof inputSchema;
-  output: SignInWithOAuthOutput;
+  output: typeof outputSchema;
 }> {
   readonly name = "identity.sign_in_with_oauth";
   readonly input = inputSchema;
+  readonly output = outputSchema;
 
   async handle(
     inbound: Inbound<undefined, Input>,

@@ -20,7 +20,6 @@ export class DeactivateAccountHandler extends Handler<{
   deps: DeactivateAccountHandlerDeps;
   actor: Actor;
   input: typeof inputSchema;
-  output: void;
 }> {
   readonly name = "identity.deactivate_account";
   readonly input = inputSchema;

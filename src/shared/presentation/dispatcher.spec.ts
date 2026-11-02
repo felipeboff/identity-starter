@@ -19,12 +19,15 @@ const buildInbound = (overrides: Partial<Inbound> = {}): Inbound => ({
   ...overrides,
 });
 
+const echoOutput = Type.Union([Type.String(), Type.Undefined()]);
+
 class EchoHandler extends Handler<{
   deps: { received: Inbound<unknown>[]; output?: string };
   actor: unknown;
-  output: string | undefined;
+  output: typeof echoOutput;
 }> {
   readonly name = `${faker.lorem.word()}.${faker.lorem.word()}`;
+  readonly output = echoOutput;
 
   handle(inbound: Inbound<unknown>): Promise<string | undefined> {
     this.deps.received.push(inbound);

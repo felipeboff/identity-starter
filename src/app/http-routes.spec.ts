@@ -12,7 +12,7 @@ import { createHttpRoutes } from "./http-routes";
 
 import { IdentityModule } from "@/identity/identity.module";
 
-class NoopHandler extends Handler<{ output: void }> {
+class NoopHandler extends Handler {
   readonly name = `${faker.lorem.word()}.${faker.lorem.word()}`;
 
   handle(): Promise<void> {
