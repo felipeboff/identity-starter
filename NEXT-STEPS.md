@@ -124,12 +124,13 @@ usuário recebe `422` e não há nova tentativa. O `afterCommit` do `Transaction
 porque se o processo cair entre o commit e o envio, o efeito se perde. Ordem combinada: primeiro o
 outbox no próprio Mongo, e o transporte muda depois sem mexer nos use cases.
 
-- [ ] **Outbox no Mongo** (sem broker)
+- [x] **Outbox no Mongo** (sem broker)
   - [x] Coleção `outbox` e uma porta para o use case registrar o efeito dentro da mesma transação
         (`{ type, payload, attempts, nextAttemptAt, processedAt }`)
   - [x] Relay fora da requisição: lê os pendentes (polling, ou change streams, já que o replica
         set está ligado), executa o handler, faz retry com backoff e marca `processedAt`
-  - [ ] Handlers idempotentes pelo id do evento (a entrega é "pelo menos uma vez")
+  - [x] Handlers recebem o id do efeito no `metadata` (`OutboxMetadata.EFFECT_ID`) para descartar
+        uma repetição; os de e-mail aceitam o reenvio, que leva o mesmo link (ADR-010)
   - [x] Índice TTL para apagar os processados depois de alguns dias
   - [x] Primeiro uso: e-mails de reset e de verificação saem do outbox, e a rota responde `204`
         mesmo com a MailerSend fora do ar

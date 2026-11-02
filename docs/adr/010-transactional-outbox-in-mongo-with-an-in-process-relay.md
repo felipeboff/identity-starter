@@ -52,6 +52,9 @@ the commit-to-send gap with the transaction the use cases already run, and adds 
   `OutboxConsumer` per effect type: a presentation `Handler` with a TypeBox `input` that calls a
   use case); `OutboxConsumerAdapter` dispatches each payload through the `Dispatcher`, and a
   payload the schema refuses (`shared.input_invalid`) abandons the effect at once
+- The handler gets the effect id in `inbound.metadata[OutboxMetadata.EFFECT_ID]` (`effect-id`),
+  the key a handler with its own writes uses to skip an effect it already applied; the e-mail
+  handlers do not use it
 
 ### Positive Consequences
 
@@ -63,7 +66,9 @@ the commit-to-send gap with the transaction the use cases already run, and adds 
 
 ### Negative Consequences
 
-- Delivery is at least once: a crash after the send and before `processedAt` resends the e-mail
+- Delivery is at least once: a crash after the send and before `processedAt` resends the e-mail.
+  Accepted for e-mails: the MailerSend `POST` takes no idempotency key, and the second copy
+  carries the same link, so it does no harm
 - The plain-text token sits in Mongo while the effect is pending
 - Every API instance polls Mongo once per second while idle
 - An abandoned effect is only visible in the log; there is no reprocessing route yet
