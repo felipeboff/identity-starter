@@ -137,10 +137,12 @@ outbox no próprio Mongo, e o transporte muda depois sem mexer nos use cases.
   - [x] Primeiro uso: e-mails de reset e de verificação saem do outbox, e a rota responde `204`
         mesmo com a MailerSend fora do ar
   - [x] ADR da decisão: outbox no Mongo primeiro, transporte trocável depois
-- [ ] **BullMQ**, sobre o Redis que já está no compose
-  - [ ] Repeatable jobs no lugar de cron, para tarefas agendadas sem gravação por trás (lembretes,
-        relatórios)
-  - [ ] Relay do outbox passa a enfileirar no BullMQ o trabalho pesado ou com atraso
+- [x] **BullMQ**, sobre o Redis que já está no compose (ADR-012)
+  - [x] Jobs agendados no lugar de cron: um módulo declara `ScheduledJob`s (cron + fuso) como
+        declara rotas, e o `start` mantém um scheduler do BullMQ por job, com uma execução por
+        ocorrência mesmo com várias instâncias. Nenhum módulo declara um job ainda
+  - [x] O relay do outbox entrega cada efeito à fila `outbox` do BullMQ, que executa com retry e
+        backoff; o Mongo continua como registro transacional
 - [ ] **RabbitMQ + outbox**, quando existir um segundo módulo que precise ouvir eventos
   - [ ] Relay publica os eventos de domínio (`identity.account_registered` e outros)
   - [ ] Consumidores idempotentes, com uma coleção `inbox` de eventos já processados, e fila de

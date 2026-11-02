@@ -1,7 +1,7 @@
 # ADR-010: Transactional Outbox in MongoDB With an In-Process Polling Relay
 
 - **Date**: 2026-11-02
-- **Status**: Accepted
+- **Status**: Accepted; running and retry superseded by [ADR-012](012-run-outbox-effects-and-scheduled-jobs-on-bullmq.md)
 - **Deciders**: Felipe Boff
 - **Tags**: integration, resilience, database, identity
 

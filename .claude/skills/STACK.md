@@ -45,7 +45,7 @@ file deserve an ADR (`create-adr`).
   [ADR-003](../../docs/adr/003-optimistic-concurrency-on-repository-writes.md)).
 - **Redis** (ioredis): the `Cache` port (`RedisCache`: get, set, setIfNewer, delete, increment, ttl). The
   shared `RateLimiter` sits on it (fixed window, lets requests through if Redis is down).
-  BullMQ backend is _planned_.
+  BullMQ runs on the same Redis, which must use `maxmemory-policy noeviction`.
 - **Text search:** MongoDB text index; revisit (Atlas Search / Elasticsearch) only on a real
   relevance need.
 - **Attachments:** S3 behind a storage port. _planned_
@@ -62,13 +62,19 @@ file deserve an ADR (`create-adr`).
 ## Messaging and jobs
 
 - **Outbox** in MongoDB (`outbox` collection): use cases record side effects through the `Outbox`
-  port inside their transaction; an `OutboxRelay` in the API process polls every second, retries
-  with backoff up to 8 attempts and erases the payload of a finished effect, which a TTL index
-  removes 7 days later ([ADR-010](../../docs/adr/010-transactional-outbox-in-mongo-with-an-in-process-relay.md)).
+  port inside their transaction; an `OutboxRelay` in the API process polls every second and hands
+  each due effect to BullMQ's `outbox` queue (`jobId` = effect id), holding it for 2 h; a finished
+  effect loses its payload and a TTL index removes it 7 days later
+  ([ADR-010](../../docs/adr/010-transactional-outbox-in-mongo-with-an-in-process-relay.md),
+  [ADR-012](../../docs/adr/012-run-outbox-effects-and-scheduled-jobs-on-bullmq.md)).
 - **RabbitMQ** for events between modules, published through a transactional outbox stored in
   MongoDB. _planned_
-- **BullMQ** for background and scheduled jobs (repeatable jobs replace cron: session cleanup,
-  reminders). _planned_
+- **BullMQ** (`src/shared/infrastructure/jobs`,
+  [ADR-012](../../docs/adr/012-run-outbox-effects-and-scheduled-jobs-on-bullmq.md)): a worker runs
+  the outbox effects through `OutboxEffectRunner` (8 attempts, exponential backoff from 30 s with
+  jitter, 5 at a time); modules declare `ScheduledJob`s (cron pattern + time zone) like routes, and
+  `start` keeps one BullMQ job scheduler per job, so each occurrence runs once across instances.
+  The queues use the `RedisConnection` client; the workers have their own blocking connections.
 
 ## Identity
 

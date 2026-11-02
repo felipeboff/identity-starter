@@ -40,8 +40,10 @@ every route.
 **Security and operation**
 
 - Rate limiting per IP on every sensitive route (Redis), plus a lock after 5 wrong passwords
-- Transactional outbox in MongoDB: reset and verification e-mails leave after the commit, with
-  retry and backoff
+- Transactional outbox in MongoDB: reset and verification e-mails leave after the commit, run by
+  a BullMQ worker with retry and backoff
+- Scheduled jobs on BullMQ, declared by each module with a cron pattern and a time zone, run once
+  per occurrence however many API instances there are
 - Errors as RFC 9457 problem details with a stable `code`
 - Structured logs with Pino, one event per request, with its request id
 - Unexpected errors reported to Sentry (or a local Bugsink), without personal data
@@ -57,6 +59,7 @@ every route.
 | Validation      | TypeBox                                                      |
 | Database        | MongoDB 8 (replica set, for transactions) through Mongoose   |
 | Cache and limit | Redis through ioredis                                        |
+| Jobs            | BullMQ on the same Redis (outbox effects and scheduled jobs) |
 | Tokens          | `jose` (HS256) and opaque refresh tokens                     |
 | E-mail          | MailerSend, or a logging mailer for development              |
 | Errors          | Sentry (`@sentry/node`); Bugsink locally                     |
