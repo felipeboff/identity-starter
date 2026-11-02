@@ -76,6 +76,11 @@ export class ConfirmEmailChangeUseCase extends UseCase<{
         notice: { to: oldEmail, name: account.name, newEmail },
       };
     });
+    this.deps.logger.info(IdentityUseCaseLogEvent.EmailChanged, {
+      accountId: changed.account.id.value,
+      oldEmail: changed.notice.to,
+      newEmail: changed.notice.newEmail,
+    });
 
     await this.deps.mailer
       .sendEmailChanged(changed.notice)

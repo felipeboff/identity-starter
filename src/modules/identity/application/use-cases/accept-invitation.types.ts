@@ -1,5 +1,6 @@
 import { Clock } from "@shared/application/ports/clock";
 import { IdGenerator } from "@shared/application/ports/id-generator";
+import type { Logger } from "@shared/application/ports/logger";
 import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
 
 import { AccountOutput } from "../mappers/toOutputAccount";
@@ -39,4 +40,5 @@ export type AcceptInvitationDeps = {
 
   clock: Clock;
   ids: IdGenerator;
+  logger: Logger;
 };

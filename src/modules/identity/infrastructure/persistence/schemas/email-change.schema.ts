@@ -60,3 +60,5 @@ export const emailChangeSchema = new Schema<EmailChangeDocument>(
     versionKey: false,
   },
 );
+
+emailChangeSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });

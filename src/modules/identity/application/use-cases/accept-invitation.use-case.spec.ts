@@ -1,4 +1,5 @@
 import { faker } from "@faker-js/faker";
+import { LogLevel } from "@shared/application/ports/logger";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -8,6 +9,7 @@ import {
   seedAccount,
 } from "../testing/identity-context";
 import { INVITATION_TTL_MS } from "../token.policy";
+import { IdentityUseCaseLogEvent } from "../use-case.log-event";
 
 import { AcceptInvitationUseCase } from "./accept-invitation.use-case";
 import { InviteMemberUseCase } from "./invite-member.use-case";
@@ -86,6 +88,22 @@ describe("AcceptInvitationUseCase", () => {
       (await ctx.invitations.findById(invitationId))?.toSnapshot(),
     ).toMatchObject({ acceptedAt: now, acceptedByAccountId: accountId });
     expect(output.accessToken).toMatch(`access:${accountId}:`);
+  });
+
+  it("logs identity.invitation_accepted", async () => {
+    const { admin, invitationId, token } = await givenInvitation();
+
+    const output = await useCase.execute(makeInput(token));
+
+    expect(ctx.logger.entries).toContainEqual({
+      level: LogLevel.INFO,
+      event: IdentityUseCaseLogEvent.InvitationAccepted.name,
+      fields: {
+        invitationId,
+        accountId: output.account.id,
+        createdBy: admin.accountId,
+      },
+    });
   });
 
   it("throws InvalidInvitationToken for an unknown token", async () => {

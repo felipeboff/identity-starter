@@ -69,6 +69,18 @@ describe("ConfirmEmailChangeUseCase", () => {
     ]);
   });
 
+  it("logs identity.email_changed", async () => {
+    const { ana, newEmail, token } = await givenChange();
+
+    await useCase.execute({ token });
+
+    expect(ctx.logger.entries).toContainEqual({
+      level: LogLevel.INFO,
+      event: IdentityUseCaseLogEvent.EmailChanged.name,
+      fields: { accountId: ana.accountId, oldEmail: ana.email, newEmail },
+    });
+  });
+
   it("still changes the e-mail, and logs it, when the notice cannot be sent", async () => {
     const { ana, newEmail, token } = await givenChange();
     const error = new Error(faker.lorem.sentence());
@@ -80,6 +92,11 @@ describe("ConfirmEmailChangeUseCase", () => {
       newEmail,
     );
     expect(ctx.logger.entries).toStrictEqual([
+      {
+        level: LogLevel.INFO,
+        event: IdentityUseCaseLogEvent.EmailChanged.name,
+        fields: { accountId: ana.accountId, oldEmail: ana.email, newEmail },
+      },
       {
         level: LogLevel.WARN,
         event: IdentityUseCaseLogEvent.EmailChangedNoticeNotSent.name,

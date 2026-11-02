@@ -91,13 +91,15 @@ provedor OAuth.
 - [x] **`commandTimeout` no `RedisConnection`** (500 ms): um Redis que trava sem recusar a conexão
       falha o comando em vez de segurar a requisição
 - [x] **Limpeza de expirados:** índice TTL (`expiresAt`, `expireAfterSeconds: 0`) em sessões,
-      resets de senha e verificações de e-mail
-  - [ ] Decidir se trocas de e-mail e convites também expiram do banco (hoje guardam histórico)
+      resets de senha, verificações de e-mail, trocas de e-mail e convites. O histórico das trocas
+      e dos convites aceitos fica nos eventos `identity.email_changed` e
+      `identity.invitation_accepted`
 - [x] **Eventos de segurança no log:** `identity.signed_in` e `identity.sign_in_failed` (motivo é
       o código do erro, com IP e, no e-mail, o endereço tentado), `identity.password_changed`,
-      `identity.password_reset` e `identity.sessions_revoked` (toda revogação passa pelo
-      `SessionRevoker` e loga depois do commit; a rotação do refresh não loga). O reuso de refresh
-      token já logava `identity.refresh_token_reused`
+      `identity.password_reset`, `identity.email_changed` (e-mail antigo e novo),
+      `identity.invitation_accepted` (quem convidou) e `identity.sessions_revoked` (toda
+      revogação passa pelo `SessionRevoker` e loga depois do commit; a rotação do refresh não
+      loga). O reuso de refresh token já logava `identity.refresh_token_reused`
 - [x] **Retry nas chamadas externas** (ADR-007): `ky` por baixo do `FetchHttpClient` repete um
       `GET` até 2 vezes em erro de rede ou `408`/`500`/`502`/`503`/`504`, com backoff exponencial
       e jitter total (até 300 ms e 600 ms), dentro do mesmo prazo de 10 s por chamada; `POST` sai

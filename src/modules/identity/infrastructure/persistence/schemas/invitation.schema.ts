@@ -80,3 +80,5 @@ export const invitationSchema = new Schema<InvitationDocument>(
     versionKey: false,
   },
 );
+
+invitationSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });

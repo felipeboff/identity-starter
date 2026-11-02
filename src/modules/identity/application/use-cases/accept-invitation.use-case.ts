@@ -2,6 +2,7 @@ import { Access, UseCase } from "@shared/application/use-cases";
 import { AppError } from "@shared/domain/errors/app-error";
 
 import { toOutputAccount } from "../mappers/toOutputAccount";
+import { IdentityUseCaseLogEvent } from "../use-case.log-event";
 
 import {
   AcceptInvitationDeps,
@@ -92,7 +93,12 @@ export class AcceptInvitationUseCase extends UseCase<{
         at,
       );
 
-      return { account, issued };
+      return { invitation, account, issued };
+    });
+    this.deps.logger.info(IdentityUseCaseLogEvent.InvitationAccepted, {
+      invitationId: accepted.invitation.id.value,
+      accountId: accepted.account.id.value,
+      createdBy: accepted.invitation.createdBy.value,
     });
 
     return {

@@ -21,6 +21,16 @@ export const IdentityUseCaseLogEvent = {
   PasswordReset: defineLogEvent<{ accountId: string }>(
     "identity.password_reset",
   ),
+  EmailChanged: defineLogEvent<{
+    accountId: string;
+    oldEmail: string;
+    newEmail: string;
+  }>("identity.email_changed"),
+  InvitationAccepted: defineLogEvent<{
+    invitationId: string;
+    accountId: string;
+    createdBy: string;
+  }>("identity.invitation_accepted"),
   SessionsRevoked: defineLogEvent<{
     accountId: string;
     reason: SessionRevocationReason;
