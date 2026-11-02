@@ -76,7 +76,12 @@ Show "try again in N seconds" from `retryAfterSeconds`; do not retry automatical
 
 `POST /auth/sign-up` e-mails a verification link to the new address (`<APP_URL>/verify-email?token=`).
 The sign-up answers `201` even if that e-mail fails; `POST /me/email-verification` sends a new
-link. The `/verify-email` page posts the token to `POST /auth/email-verification`. Accounts
+link.
+
+Reset and verification e-mails leave after the response, and are tried again for a while when the
+e-mail provider fails: `POST /auth/password-reset/request` and `POST /me/email-verification`
+answer `204` even with the provider down, and never `422 identity.email_delivery_failed`. Tell the
+user the e-mail can take a minute to arrive. The `/verify-email` page posts the token to `POST /auth/email-verification`. Accounts
 created through OAuth or an invitation start verified.
 
 ## Permissions

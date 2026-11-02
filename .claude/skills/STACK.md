@@ -10,12 +10,17 @@ file deserve an ADR (`create-adr`).
 - **Inbound edge** ([ADR-001](../../docs/adr/001-transport-neutral-handler-layer.md)): one
   transport-neutral `Handler` per entry point, wrapped by `Middleware`s
   (`src/shared/presentation/handler.ts`), bound to each transport by a small declaration: `HttpRoute`
-  (method, path, success status), later `McpTool` and `MessageConsumer`. Express (or Fastify), MCP
+  (method, path, success status), `OutboxConsumer` (effect type, dispatched for the outbox relay by
+  `OutboxConsumerAdapter`), later `McpTool` and `MessageConsumer`. Express (or Fastify), MCP
   and RabbitMQ are thin adapters that build the `Inbound` and translate errors; HTTP errors are
   RFC 9457 problem details. Express is the first adapter (`src/shared/infrastructure/http/`);
   `McpTool` and `MessageConsumer` are _planned_.
 - **Dependency injection: manual.** One composition root per module instantiates adapters and
   use cases; no DI container, no decorators.
+- **One instance per process of each shared adapter** (clock, logger, log context, connections,
+  outbox): `start` creates it and passes it down through each module's runtime
+  (`IdentityRuntime`); a module creates only its own adapters (repositories, mailer, OAuth
+  gateway) and never a second instance of one `start` already has.
 - **Input validation:** TypeBox (`typebox`, [ADR-005](../../docs/adr/005-typebox-input-schemas-declared-on-the-handler.md)).
   Each handler declares `name` and `input` (a TypeBox schema); the dispatcher interprets it
   through `SchemaParser` (`src/shared/presentation`) after the middlewares. Application and
@@ -49,6 +54,10 @@ file deserve an ADR (`create-adr`).
 
 ## Messaging and jobs
 
+- **Outbox** in MongoDB (`outbox` collection): use cases record side effects through the `Outbox`
+  port inside their transaction; an `OutboxRelay` in the API process polls every second, retries
+  with backoff up to 8 attempts and erases the payload of a finished effect, which a TTL index
+  removes 7 days later ([ADR-010](../../docs/adr/010-transactional-outbox-in-mongo-with-an-in-process-relay.md)).
 - **RabbitMQ** for events between modules, published through a transactional outbox stored in
   MongoDB. _planned_
 - **BullMQ** for background and scheduled jobs (repeatable jobs replace cron: SLA escalation,
@@ -60,7 +69,7 @@ file deserve an ADR (`create-adr`).
   [ADR-002](../../docs/adr/002-asynchronous-access-token-port.md)) + refresh tokens issued by the
   project (no external IdP). Passwords hashed with argon2id.
 - OAuth providers: Google and GitHub, through `FetchOAuthGateway`. Apple is _planned_.
-- Transactional e-mail: MailerSend behind the `IdentityMailer` port; a logging mailer for
+- Transactional e-mail: MailerSend behind the `IdentityMailer` port, sent by the outbox relay; a logging mailer for
   development (`MAILER=log`).
 
 ## Observability
