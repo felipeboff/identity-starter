@@ -9,6 +9,9 @@ import { SystemClock } from "@shared/infrastructure/time/system-clock";
 
 import { createIdentityModule } from "@/identity/identity.module";
 
+// Gives an existing account the admin role and every permission, reading .env:
+//   pnpm identity:grant-admin ana@example.com
+// Exits with 1 and logs identity.admin_grant_failed when the account is missing or deactivated.
 const logContext = new AsyncLocalLogContext();
 const logger = PinoLogger.create({
   service: env.APP_NAME,
