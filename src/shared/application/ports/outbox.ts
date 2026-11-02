@@ -9,8 +9,13 @@ export type Outbox = {
   record(effect: OutboxEffectInput): Promise<void>;
 };
 
+export type OutboxDelivery = Readonly<{
+  id: string;
+  payload: OutboxPayload;
+}>;
+
 export type OutboxEffectHandler = {
-  handle(payload: OutboxPayload): Promise<void>;
+  handle(delivery: OutboxDelivery): Promise<void>;
 };
 
 export type OutboxEffectHandlers = Readonly<

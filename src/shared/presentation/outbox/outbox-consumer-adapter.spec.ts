@@ -9,6 +9,7 @@ import { Dispatcher } from "../dispatcher";
 import { Handler, type Inbound } from "../handler";
 import { SchemaParser } from "../schema-parser";
 
+import { OutboxMetadata } from "./outbox-consumer";
 import { OutboxConsumerAdapter } from "./outbox-consumer-adapter";
 
 const inputSchema = Type.Object({
@@ -36,21 +37,27 @@ describe("OutboxConsumerAdapter", () => {
     dispatcher: new Dispatcher({ parser: new SchemaParser() }),
   });
 
-  it("dispatches the payload to the consumer of its type, decoded by its schema", async () => {
+  it("dispatches the payload to the consumer of its type, decoded by its schema, with the effect id", async () => {
     const first = { type: buildType(), handler: new RecordingHandler() };
     const second = { type: buildType(), handler: new RecordingHandler() };
+    const id = faker.database.mongodbObjectId();
     const input = { to: faker.internet.email(), at: faker.date.soon() };
     const handlers = adapter.toHandlers([first, second]);
 
     await handlers[second.type].handle({
-      ...input,
-      [faker.string.alpha(12)]: faker.lorem.word(),
+      id,
+      payload: { ...input, [faker.string.alpha(12)]: faker.lorem.word() },
     });
 
     expect(Object.keys(handlers)).toStrictEqual([first.type, second.type]);
     expect(first.handler.received).toStrictEqual([]);
     expect(second.handler.received).toStrictEqual([
-      { input, metadata: {}, ip: "", actor: undefined },
+      {
+        input,
+        metadata: { [OutboxMetadata.EFFECT_ID]: id },
+        ip: "",
+        actor: undefined,
+      },
     ]);
   });
 
@@ -60,8 +67,8 @@ describe("OutboxConsumerAdapter", () => {
 
     await expectAppError(
       handlers[consumer.type].handle({
-        to: faker.lorem.word(),
-        at: faker.lorem.word(),
+        id: faker.database.mongodbObjectId(),
+        payload: { to: faker.lorem.word(), at: faker.lorem.word() },
       }),
       SharedError.InputInvalid,
       {

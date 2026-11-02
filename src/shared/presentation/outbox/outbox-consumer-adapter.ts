@@ -1,10 +1,10 @@
 import type {
+  OutboxDelivery,
   OutboxEffectHandlers,
-  OutboxPayload,
 } from "../../application/ports/outbox";
 import type { Dispatcher } from "../dispatcher";
 
-import type { OutboxConsumer } from "./outbox-consumer";
+import { type OutboxConsumer, OutboxMetadata } from "./outbox-consumer";
 
 export type OutboxConsumerAdapterDeps = Readonly<{
   dispatcher: Dispatcher;
@@ -18,7 +18,8 @@ export class OutboxConsumerAdapter {
       consumers.map((consumer) => [
         consumer.type,
         {
-          handle: (payload: OutboxPayload) => this.dispatch(consumer, payload),
+          handle: (delivery: OutboxDelivery) =>
+            this.dispatch(consumer, delivery),
         },
       ]),
     );
@@ -26,11 +27,11 @@ export class OutboxConsumerAdapter {
 
   private async dispatch(
     consumer: OutboxConsumer,
-    payload: OutboxPayload,
+    delivery: OutboxDelivery,
   ): Promise<void> {
     await this.deps.dispatcher.dispatch(consumer, {
-      input: payload,
-      metadata: {},
+      input: delivery.payload,
+      metadata: { [OutboxMetadata.EFFECT_ID]: delivery.id },
       ip: "",
       actor: undefined,
     });

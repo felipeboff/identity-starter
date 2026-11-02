@@ -77,7 +77,7 @@ describe("OutboxRelay", () => {
     const relayed = await relay.relayNext();
 
     expect(relayed).toBe(true);
-    expect(handle.mock.calls).toStrictEqual([[payload]]);
+    expect(handle.mock.calls).toStrictEqual([[{ id: effect.id, payload }]]);
     expect(outbox.effects()).toStrictEqual([
       {
         ...effect,
@@ -293,13 +293,16 @@ describe("OutboxRelay", () => {
       const reserve = vi.spyOn(outbox, "reserve");
       const first = buildPayload();
       const second = buildPayload();
-      await recordOne(first);
-      await recordOne(second);
+      const firstEffect = await recordOne(first);
+      const secondEffect = await recordOne(second);
 
       relay.start();
       await vi.advanceTimersByTimeAsync(0);
 
-      expect(handle.mock.calls).toStrictEqual([[first], [second]]);
+      expect(handle.mock.calls).toStrictEqual([
+        [{ id: firstEffect.id, payload: first }],
+        [{ id: secondEffect.id, payload: second }],
+      ]);
       expect(reserve).toHaveBeenCalledTimes(3);
     });
 

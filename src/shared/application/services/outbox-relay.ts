@@ -53,7 +53,7 @@ export class OutboxRelay {
     }
 
     try {
-      await handler.handle(effect.payload);
+      await handler.handle({ id: effect.id, payload: effect.payload });
     } catch (error) {
       await this.fail(effect, error);
       return true;
