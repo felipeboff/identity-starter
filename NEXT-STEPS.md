@@ -25,10 +25,9 @@ Abaixo está o que falta, em ordem de prioridade.
       (`afterCommit`). Agora a transação devolve as entidades e o output sai depois do commit
 - [x] **Conta criada por OAuth nascia com `emailVerifiedAt: null`.** O `SignInWithOAuthUseCase`
       marca o e-mail como verificado ao registrar a conta
-- [ ] **`pnpm format:check` falha com `EACCES` em `.data/mongo`.** O bind mount do compose cria
-      pastas do root dentro do projeto. O ESLint já ignora `.data/**`, mas o Prettier varre a
-      pasta antes de aplicar o `.prettierignore`. Trocar por um volume nomeado do Docker (os dados
-      atuais de desenvolvimento se perdem)
+- [x] **`pnpm format:check` falhava com `EACCES` em `.data/mongo`.** O bind mount do compose
+      criava pastas do root dentro do projeto, e o Prettier varre a pasta antes de aplicar o
+      `.prettierignore`. O Mongo agora guarda os dados no volume nomeado `mongo-data`
 
 ## 2. Segurança (antes de produção)
 

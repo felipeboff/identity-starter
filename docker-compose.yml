@@ -5,7 +5,7 @@ services:
     ports:
       - "27017:27017"
     volumes:
-      - ./.data/mongo:/data/db:z
+      - mongo-data:/data/db
     healthcheck:
       test:
         - CMD
@@ -60,3 +60,6 @@ services:
       PORT: "8000"
     ports:
       - "127.0.0.1:8000:8000"
+
+volumes:
+  mongo-data:
