@@ -51,9 +51,7 @@ export class ChangePasswordUseCase extends UseCase<{
       credential.passwordHash.value,
     );
     if (!ok) {
-      throw new AppError(IdentityError.InvalidCredentials, {
-        email: account.email.value,
-      });
+      throw new AppError(IdentityError.InvalidCredentials);
     }
 
     const at = this.deps.clock.now();

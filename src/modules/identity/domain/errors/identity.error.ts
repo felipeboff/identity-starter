@@ -18,7 +18,7 @@ export const IdentityError = {
     "identity.invalid_refresh_token",
     "unauthenticated",
   ),
-  InvalidCredentials: defineError<{ email: string }>(
+  InvalidCredentials: defineError(
     "identity.invalid_credentials",
     "unauthenticated",
   ),

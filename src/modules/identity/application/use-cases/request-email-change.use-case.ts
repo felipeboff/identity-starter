@@ -39,9 +39,7 @@ export class RequestEmailChangeUseCase extends UseCase<{
       credential.passwordHash.value,
     );
     if (!ok) {
-      throw new AppError(IdentityError.InvalidCredentials, {
-        email: account.email.value,
-      });
+      throw new AppError(IdentityError.InvalidCredentials);
     }
 
     const email = await this.deps.transactions.run(async () => {

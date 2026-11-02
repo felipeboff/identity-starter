@@ -15,7 +15,7 @@ export class SignInThrottle {
   constructor(private readonly deps: SignInThrottleDeps) {}
 
   async ensureAllowed(email: string): Promise<void> {
-    const decision = await this.deps.rateLimiter.check(RULE, email);
+    const decision = await this.deps.rateLimiter.check(RULE, this.keyOf(email));
     if (decision.limited) {
       throw new AppError(IdentityError.SignInLocked, {
         retryAfterSeconds: decision.retryAfterSeconds,
@@ -24,10 +24,14 @@ export class SignInThrottle {
   }
 
   async recordFailure(email: string): Promise<void> {
-    await this.deps.rateLimiter.hit(RULE, email);
+    await this.deps.rateLimiter.hit(RULE, this.keyOf(email));
   }
 
   async reset(email: string): Promise<void> {
-    await this.deps.rateLimiter.reset(RULE, email);
+    await this.deps.rateLimiter.reset(RULE, this.keyOf(email));
+  }
+
+  private keyOf(email: string): string {
+    return email.trim().toLowerCase();
   }
 }

@@ -32,6 +32,12 @@ describe("fakes", () => {
       expect(await hasher.verify(password, hash)).toBe(true);
       expect(await hasher.verify(faker.internet.password(), hash)).toBe(false);
     });
+
+    it("refuses any password when there is no hash", async () => {
+      const hasher = new FakePasswordHasher();
+
+      expect(await hasher.verify(faker.internet.password(), null)).toBe(false);
+    });
   });
 
   describe("FakeTokenIssuer", () => {

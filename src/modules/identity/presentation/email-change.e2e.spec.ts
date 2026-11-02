@@ -53,7 +53,7 @@ describe("e-mail change", () => {
       });
     });
 
-    it("answers 401 for a wrong password", async () => {
+    it("answers 401 with no data for a wrong password", async () => {
       const http = createIdentityHttp();
       const ana = await http.signIn();
 
@@ -69,6 +69,7 @@ describe("e-mail change", () => {
         status: 401,
         code: IdentityError.InvalidCredentials.code,
       });
+      expect(out.body).not.toHaveProperty("data");
     });
 
     it("answers 422 when the link cannot be delivered", async () => {

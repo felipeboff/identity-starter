@@ -77,6 +77,13 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: verification.md F3 - outbox-relay.spec.ts:260 (C13) (tests)
 - last seen: 2026-11-02T13:55:45Z
 
+### L-010 - Give each operand of a compound condition its own proving case, not only the combined outcome
+
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `shared-http` · harmful: 0
+- features: sign-in-enumeration
+- evidence: C16 - src/shared/presentation/http/http-error-mapper.ts:53 (shared-http)
+- last seen: 2026-11-02T15:52:25Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

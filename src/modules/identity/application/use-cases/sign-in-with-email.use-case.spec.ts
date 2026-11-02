@@ -13,11 +13,20 @@ import {
 } from "../testing/identity-context";
 import { IdentityUseCaseLogEvent } from "../use-case.log-event";
 
+import { SignInWithEmailInput } from "./sign-in-with-email.types";
 import { SignInWithEmailUseCase } from "./sign-in-with-email.use-case";
 
 import { Account } from "@/identity/domain/account.entity";
 import { AuthProvider, Credential } from "@/identity/domain/credential.entity";
 import { IdentityError } from "@/identity/domain/errors/identity.error";
+
+type Arrange = () => Promise<SignInWithEmailInput>;
+
+type FailureCase = readonly [label: string, reason: string, arrange: Arrange];
+
+type ReasonCase = readonly [reason: string, arrange: Arrange];
+
+const LOCK = RateLimitPolicy.SIGN_IN_FAILURES_PER_EMAIL;
 
 describe("SignInWithEmailUseCase", () => {
   let ctx: IdentityContext;
@@ -50,6 +59,106 @@ describe("SignInWithEmailUseCase", () => {
     );
     return accountId;
   };
+
+  const noAccount: Arrange = () =>
+    Promise.resolve(makeInput(randomCredentials()));
+
+  const accountWithoutCredential: Arrange = async () => {
+    const input = makeInput(randomCredentials());
+    await saveAccountOnly(input.email);
+    return input;
+  };
+
+  const deletedCredential: Arrange = async () => {
+    const ana = await seedAccount(ctx);
+    ana.credential.markAsDeleted(ctx.clock.now());
+    await ctx.credentials.save(ana.credential);
+    return makeInput(ana);
+  };
+
+  const credentialWithoutPassword: Arrange = async () => {
+    const ana = await seedAccount(ctx);
+    const now = ctx.clock.now();
+    const withoutPassword = Credential.restore({
+      id: faker.database.mongodbObjectId(),
+      accountId: ana.accountId,
+      provider: AuthProvider.EMAIL,
+      subject: ana.email,
+      providerEmail: ana.email,
+      passwordHash: "",
+      createdAt: now,
+      updatedAt: now,
+      version: 0,
+      deletedAt: null,
+    });
+    // The in-memory repo cannot persist an e-mail credential without a hash.
+    vi.spyOn(ctx.credentials, "findByEmail").mockResolvedValue(withoutPassword);
+    return makeInput(ana);
+  };
+
+  const oauthCredential: Arrange = async () => {
+    const ana = await seedAccount(ctx);
+    const google = Credential.register(
+      {
+        id: faker.database.mongodbObjectId(),
+        accountId: ana.accountId,
+        provider: AuthProvider.GOOGLE,
+        subject: faker.string.numeric(21),
+        providerEmail: ana.email,
+      },
+      ctx.clock.now(),
+    );
+    // The in-memory findByEmail only returns e-mail credentials.
+    vi.spyOn(ctx.credentials, "findByEmail").mockResolvedValue(google);
+    return makeInput(ana);
+  };
+
+  const wrongPassword: Arrange = async () => {
+    const ana = await seedAccount(ctx);
+    return makeInput({ email: ana.email, password: faker.internet.password() });
+  };
+
+  const NO_STORED_PASSWORD: readonly FailureCase[] = [
+    [
+      "no account uses the e-mail",
+      IdentityError.AccountNotFound.code,
+      noAccount,
+    ],
+    [
+      "the account has no e-mail credential",
+      IdentityError.CredentialNotFound.code,
+      accountWithoutCredential,
+    ],
+    [
+      "the e-mail credential is deleted",
+      IdentityError.CredentialDeleted.code,
+      deletedCredential,
+    ],
+    [
+      "the credential has no password hash",
+      IdentityError.CredentialPasswordNotSet.code,
+      credentialWithoutPassword,
+    ],
+    [
+      "the credential is not an e-mail one",
+      IdentityError.PasswordHashNotAllowedForProvider.code,
+      oauthCredential,
+    ],
+  ];
+
+  const INVALID_CREDENTIALS: readonly FailureCase[] = [
+    ...NO_STORED_PASSWORD,
+    [
+      "the password is wrong",
+      IdentityError.InvalidCredentials.code,
+      wrongPassword,
+    ],
+  ];
+
+  const failWrongPassword = (email: string) =>
+    useCase
+      .execute(makeInput({ email, password: faker.internet.password() }))
+      .catch(() => undefined);
 
   beforeEach(() => {
     ctx = createIdentityContext();
@@ -100,17 +209,87 @@ describe("SignInWithEmailUseCase", () => {
     ).toBe(true);
   });
 
-  it("throws AccountNotFound when no account uses the e-mail", async () => {
-    const input = makeInput(randomCredentials());
+  it.each(NO_STORED_PASSWORD)(
+    "throws InvalidCredentials with no stored password: %s",
+    async (_, __, arrange) => {
+      const input = await arrange();
+
+      await expectAppError(
+        useCase.execute(input),
+        IdentityError.InvalidCredentials,
+      );
+    },
+  );
+
+  it("throws InvalidCredentials when the password is wrong", async () => {
+    const ana = await seedAccount(ctx);
 
     await expectAppError(
-      useCase.execute(input),
-      IdentityError.AccountNotFound,
-      { email: input.email },
+      useCase.execute(
+        makeInput({ email: ana.email, password: faker.internet.password() }),
+      ),
+      IdentityError.InvalidCredentials,
     );
   });
 
-  it("throws AccountDeleted when the account is deleted", async () => {
+  it("throws InvalidCredentials for a deactivated account with a wrong password", async () => {
+    const ana = await seedAccount(ctx);
+    ana.account.markAsDeleted(ctx.clock.now());
+    await ctx.accounts.save(ana.account);
+
+    await expectAppError(
+      useCase.execute(
+        makeInput({ email: ana.email, password: faker.internet.password() }),
+      ),
+      IdentityError.InvalidCredentials,
+    );
+  });
+
+  it.each(NO_STORED_PASSWORD)(
+    "verifies the password exactly once against no hash when %s",
+    async (_, __, arrange) => {
+      const input = await arrange();
+      const verify = vi.spyOn(ctx.passwordHasher, "verify");
+
+      await useCase.execute(input).catch(() => undefined);
+
+      expect(verify.mock.calls).toStrictEqual([[input.password, null]]);
+    },
+  );
+
+  it.each([
+    ["right", true],
+    ["wrong", false],
+  ])(
+    "verifies the password exactly once against the stored hash when it is %s",
+    async (_, right) => {
+      const ana = await seedAccount(ctx);
+      const password = right ? ana.password : faker.internet.password();
+      const verify = vi.spyOn(ctx.passwordHasher, "verify");
+
+      await useCase
+        .execute(makeInput({ email: ana.email, password }))
+        .catch(() => undefined);
+
+      expect(verify.mock.calls).toStrictEqual([
+        [password, ana.credential.passwordHash?.value],
+      ]);
+    },
+  );
+
+  it.each(INVALID_CREDENTIALS)(
+    "records one sign-in failure when %s",
+    async (_, __, arrange) => {
+      const input = await arrange();
+      const recordFailure = vi.spyOn(ctx.signInThrottle, "recordFailure");
+
+      await useCase.execute(input).catch(() => undefined);
+
+      expect(recordFailure.mock.calls).toStrictEqual([[input.email]]);
+    },
+  );
+
+  it("throws AccountDeleted for a deactivated account with the right password", async () => {
     const ana = await seedAccount(ctx);
     ana.account.markAsDeleted(ctx.clock.now());
     await ctx.accounts.save(ana.account);
@@ -119,29 +298,6 @@ describe("SignInWithEmailUseCase", () => {
       useCase.execute(makeInput(ana)),
       IdentityError.AccountDeleted,
       { accountId: ana.accountId },
-    );
-  });
-
-  it("throws CredentialNotFound when the account has no e-mail credential", async () => {
-    const input = makeInput(randomCredentials());
-    await saveAccountOnly(input.email);
-
-    await expectAppError(
-      useCase.execute(input),
-      IdentityError.CredentialNotFound,
-      { email: input.email },
-    );
-  });
-
-  it("throws CredentialDeleted when the credential is deleted", async () => {
-    const ana = await seedAccount(ctx);
-    ana.credential.markAsDeleted(ctx.clock.now());
-    await ctx.credentials.save(ana.credential);
-
-    await expectAppError(
-      useCase.execute(makeInput(ana)),
-      IdentityError.CredentialDeleted,
-      { credentialId: ana.credential.id.value },
     );
   });
 
@@ -157,7 +313,7 @@ describe("SignInWithEmailUseCase", () => {
           provider: AuthProvider.EMAIL,
           subject: input.email,
           providerEmail: input.email,
-          passwordHash: `$fake$${input.password}`,
+          passwordHash: await ctx.passwordHasher.hash(input.password),
         },
         ctx.clock.now(),
       ),
@@ -167,65 +323,6 @@ describe("SignInWithEmailUseCase", () => {
       useCase.execute(input),
       IdentityError.CredentialAccountMismatch,
       { accountId: anaId, credentialAccountId: brunoId },
-    );
-  });
-
-  it("throws PasswordHashNotAllowedForProvider when the credential is not an e-mail one", async () => {
-    const ana = await seedAccount(ctx);
-    const google = Credential.register(
-      {
-        id: faker.database.mongodbObjectId(),
-        accountId: ana.accountId,
-        provider: AuthProvider.GOOGLE,
-        subject: faker.string.numeric(21),
-        providerEmail: ana.email,
-      },
-      ctx.clock.now(),
-    );
-    // The in-memory findByEmail only returns e-mail credentials.
-    vi.spyOn(ctx.credentials, "findByEmail").mockResolvedValue(google);
-
-    await expectAppError(
-      useCase.execute(makeInput(ana)),
-      IdentityError.PasswordHashNotAllowedForProvider,
-      { provider: AuthProvider.GOOGLE },
-    );
-  });
-
-  it("throws CredentialPasswordNotSet when the credential has no password hash", async () => {
-    const ana = await seedAccount(ctx);
-    const now = ctx.clock.now();
-    const withoutPassword = Credential.restore({
-      id: faker.database.mongodbObjectId(),
-      accountId: ana.accountId,
-      provider: AuthProvider.EMAIL,
-      subject: ana.email,
-      providerEmail: ana.email,
-      passwordHash: "",
-      createdAt: now,
-      updatedAt: now,
-      version: 0,
-      deletedAt: null,
-    });
-    // The in-memory repo cannot persist an e-mail credential without a hash.
-    vi.spyOn(ctx.credentials, "findByEmail").mockResolvedValue(withoutPassword);
-
-    await expectAppError(
-      useCase.execute(makeInput(ana)),
-      IdentityError.CredentialPasswordNotSet,
-      { credentialId: withoutPassword.id.value },
-    );
-  });
-
-  it("throws InvalidCredentials when the password is wrong", async () => {
-    const ana = await seedAccount(ctx);
-
-    await expectAppError(
-      useCase.execute(
-        makeInput({ email: ana.email, password: faker.internet.password() }),
-      ),
-      IdentityError.InvalidCredentials,
-      { email: ana.email },
     );
   });
 
@@ -277,37 +374,47 @@ describe("SignInWithEmailUseCase", () => {
 
   it("locks the e-mail after too many wrong passwords, even with the right one", async () => {
     const ana = await seedAccount(ctx);
-    const limit = RateLimitPolicy.SIGN_IN_FAILURES_PER_EMAIL.limit;
-    for (let i = 0; i < limit; i++) {
-      await useCase
-        .execute(
-          makeInput({ email: ana.email, password: faker.internet.password() }),
-        )
-        .catch(() => undefined);
+    for (let i = 0; i < LOCK.limit; i++) await failWrongPassword(ana.email);
+
+    await expectAppError(
+      useCase.execute(makeInput(ana)),
+      IdentityError.SignInLocked,
+      { retryAfterSeconds: LOCK.windowMs / 1000 },
+    );
+  });
+
+  it("locks an e-mail with no account after too many failures", async () => {
+    const { email } = randomCredentials();
+    for (let i = 0; i < LOCK.limit; i++) await failWrongPassword(email);
+
+    await expectAppError(
+      useCase.execute(
+        makeInput({ email, password: faker.internet.password() }),
+      ),
+      IdentityError.SignInLocked,
+      { retryAfterSeconds: LOCK.windowMs / 1000 },
+    );
+  });
+
+  it("counts the case and spacing variants of an e-mail in the same lock window", async () => {
+    const ana = await seedAccount(ctx);
+    const variants = [ana.email.toUpperCase(), `  ${ana.email}  `];
+    for (let i = 0; i < LOCK.limit; i++) {
+      await failWrongPassword(variants[i % variants.length] ?? ana.email);
     }
 
     await expectAppError(
       useCase.execute(makeInput(ana)),
       IdentityError.SignInLocked,
-      {
-        retryAfterSeconds:
-          RateLimitPolicy.SIGN_IN_FAILURES_PER_EMAIL.windowMs / 1000,
-      },
+      { retryAfterSeconds: LOCK.windowMs / 1000 },
     );
   });
 
   it("forgets the wrong passwords once the right one is used", async () => {
     const ana = await seedAccount(ctx);
-    const limit = RateLimitPolicy.SIGN_IN_FAILURES_PER_EMAIL.limit;
-    const wrong = () =>
-      useCase
-        .execute(
-          makeInput({ email: ana.email, password: faker.internet.password() }),
-        )
-        .catch(() => undefined);
-    for (let i = 0; i < limit - 1; i++) await wrong();
+    for (let i = 0; i < LOCK.limit - 1; i++) await failWrongPassword(ana.email);
     await useCase.execute(makeInput(ana));
-    for (let i = 0; i < limit - 1; i++) await wrong();
+    for (let i = 0; i < LOCK.limit - 1; i++) await failWrongPassword(ana.email);
 
     const output = await useCase.execute(makeInput(ana));
 
@@ -338,28 +445,32 @@ describe("SignInWithEmailUseCase", () => {
       ]);
     });
 
-    it("logs identity.sign_in_failed with the error code as reason", async () => {
-      const ana = await seedAccount(ctx);
-      const input = makeInput({
-        email: ana.email,
-        password: faker.internet.password(),
-      });
+    it.each(
+      INVALID_CREDENTIALS.map(([, reason, arrange]): ReasonCase => [
+        reason,
+        arrange,
+      ]),
+    )(
+      "logs identity.sign_in_failed with %s as reason",
+      async (reason, arrange) => {
+        const input = await arrange();
 
-      await useCase.execute(input).catch(() => undefined);
+        await useCase.execute(input).catch(() => undefined);
 
-      expect(ctx.logger.entries).toStrictEqual([
-        {
-          level: LogLevel.WARN,
-          event: IdentityUseCaseLogEvent.SignInFailed.name,
-          fields: {
-            provider: AuthProvider.EMAIL,
-            reason: IdentityError.InvalidCredentials.code,
-            ipAddress: input.ipAddress,
-            email: input.email,
+        expect(ctx.logger.entries).toStrictEqual([
+          {
+            level: LogLevel.WARN,
+            event: IdentityUseCaseLogEvent.SignInFailed.name,
+            fields: {
+              provider: AuthProvider.EMAIL,
+              reason,
+              ipAddress: input.ipAddress,
+              email: input.email,
+            },
           },
-        },
-      ]);
-    });
+        ]);
+      },
+    );
 
     it("does not log an unexpected failure as a failed sign-in", async () => {
       const ana = await seedAccount(ctx);

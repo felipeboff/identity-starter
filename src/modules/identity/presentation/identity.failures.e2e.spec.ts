@@ -115,19 +115,43 @@ const failMail = (
 
 describe("identity route failures", () => {
   describe("POST /auth/sign-in", () => {
-    it("answers 404 for an unknown e-mail", async () => {
+    it("answers the same 401 with no data for an unknown e-mail and a wrong password", async () => {
       const http = createIdentityHttp();
+      const ana = await seedAccount(http.ctx);
 
-      const out = await http.call("POST", "/auth/sign-in", {
+      const unknown = await http.call("POST", "/auth/sign-in", {
         body: {
           email: faker.internet.email().toLowerCase(),
           password: faker.internet.password(),
         },
       });
+      const wrong = await http.call("POST", "/auth/sign-in", {
+        body: { email: ana.email, password: faker.internet.password() },
+      });
+
+      expect(unknown.status).toBe(401);
+      expect(unknown.body).toStrictEqual({
+        type: `tag:${http.appName},2026:${IdentityError.InvalidCredentials.code}`,
+        title: "Invalid credentials",
+        status: 401,
+        code: IdentityError.InvalidCredentials.code,
+      });
+      expect(wrong.status).toBe(401);
+      expect(wrong.body).toStrictEqual(unknown.body);
+    });
+
+    it("answers 404 when the account has no membership", async () => {
+      const http = createIdentityHttp();
+      const ana = await seedAccount(http.ctx);
+      vi.spyOn(http.ctx.memberships, "findByAccountId").mockResolvedValue(null);
+
+      const out = await http.call("POST", "/auth/sign-in", {
+        body: { email: ana.email, password: ana.password },
+      });
 
       expect(failure(out)).toStrictEqual({
         status: 404,
-        code: IdentityError.AccountNotFound.code,
+        code: IdentityError.MembershipNotFound.code,
       });
     });
 
@@ -173,17 +197,24 @@ describe("identity route failures", () => {
       });
     });
 
-    it("answers 422 for a deactivated account", async () => {
+    it("answers 401 for a deactivated account with a wrong password and 422 with the right one", async () => {
       const http = createIdentityHttp();
       const ana = await seedAccount(http.ctx);
       ana.account.markAsDeleted(http.ctx.clock.now());
       await http.ctx.accounts.save(ana.account);
 
-      const out = await http.call("POST", "/auth/sign-in", {
+      const wrong = await http.call("POST", "/auth/sign-in", {
+        body: { email: ana.email, password: faker.internet.password() },
+      });
+      const right = await http.call("POST", "/auth/sign-in", {
         body: { email: ana.email, password: ana.password },
       });
 
-      expect(failure(out)).toStrictEqual({
+      expect(failure(wrong)).toStrictEqual({
+        status: 401,
+        code: IdentityError.InvalidCredentials.code,
+      });
+      expect(failure(right)).toStrictEqual({
         status: 422,
         code: IdentityError.AccountDeleted.code,
       });
@@ -464,6 +495,25 @@ describe("identity route failures", () => {
         status: 422,
         code: IdentityError.CredentialDeleted.code,
       });
+    });
+
+    it("answers 401 with no data for a wrong old password", async () => {
+      const http = createIdentityHttp();
+      const ana = await http.signIn();
+
+      const out = await http.call("PUT", "/me/password", {
+        token: ana.token,
+        body: {
+          oldPassword: faker.internet.password(),
+          newPassword: faker.internet.password(),
+        },
+      });
+
+      expect(failure(out)).toStrictEqual({
+        status: 401,
+        code: IdentityError.InvalidCredentials.code,
+      });
+      expect(out.body).not.toHaveProperty("data");
     });
   });
 

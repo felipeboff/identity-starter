@@ -36,6 +36,22 @@ code.
 The `redirect_uri` the front end sends must be the one in the API config
 (`GOOGLE_REDIRECT_URI`, `GITHUB_REDIRECT_URI`), character by character.
 
+## E-mail sign-in
+
+`POST /auth/sign-in` never tells whether an e-mail has an account. Until the password matches,
+every failure is the same `401 identity.invalid_credentials`, with no `data`: unknown e-mail,
+wrong password, an account that only signs in with Google or GitHub, a deactivated account.
+Show one message ("wrong e-mail or password") next to the OAuth buttons and the "forgot
+password" link.
+
+Only after the right password:
+
+- `422 identity.account_deleted`: the account was deactivated; the owner has to ask an admin
+  to reactivate it.
+- `409 identity.credential_account_mismatch`, `404 identity.membership_not_found` and
+  `422 identity.membership_deleted`: the account's data is inconsistent; show the generic
+  error.
+
 ## Passwords
 
 `sign-up`, `password-reset` and `me/password` accept 12–128 characters, with no other rule.
@@ -65,8 +81,9 @@ calls them too often:
 
 On top of that:
 
-- 5 wrong passwords for one e-mail in 15 minutes lock that e-mail's sign-in:
-  `429 identity.sign_in_locked`, with `data.retryAfterSeconds`, even with the right password.
+- 5 failed sign-ins for one e-mail in 15 minutes lock that e-mail's sign-in, whether it has an
+  account or not and whatever its letter case: `429 identity.sign_in_locked`, with
+  `data.retryAfterSeconds`, even with the right password.
 - Past 3 reset requests for one e-mail in an hour, the API still answers `204` but sends no
   e-mail, so the answer never tells whether the address has an account.
 

@@ -112,6 +112,29 @@ describe("identity security", () => {
     });
   });
 
+  it("locks sign-in for an e-mail with no account after too many attempts", async () => {
+    const http = createIdentityHttp();
+    const email = faker.internet.email().toLowerCase();
+    const rule = RateLimitPolicy.SIGN_IN_FAILURES_PER_EMAIL;
+    for (let i = 0; i < rule.limit; i++) {
+      await http.call("POST", "/auth/sign-in", {
+        ip: faker.internet.ipv6(),
+        body: { email, password: faker.internet.password() },
+      });
+    }
+
+    const out = await http.call("POST", "/auth/sign-in", {
+      ip: faker.internet.ipv6(),
+      body: { email, password: faker.internet.password() },
+    });
+
+    expect(out.status).toBe(429);
+    expect(out.body).toMatchObject({
+      code: IdentityError.SignInLocked.code,
+      data: { retryAfterSeconds: rule.windowMs / 1000 },
+    });
+  });
+
   it.each([
     ["shorter than the minimum", PASSWORD_MIN_LENGTH - 1],
     ["longer than the maximum", PASSWORD_MAX_LENGTH + 1],

@@ -30,7 +30,7 @@ export class FakePasswordHasher implements PasswordHasher {
     return Promise.resolve(`$fake$${password}`);
   }
 
-  verify(password: string, hash: string): Promise<boolean> {
+  verify(password: string, hash: string | null): Promise<boolean> {
     return Promise.resolve(hash === `$fake$${password}`);
   }
 }

@@ -172,7 +172,6 @@ describe("ChangePasswordUseCase", () => {
         ana.actor,
       ),
       IdentityError.InvalidCredentials,
-      { email: ana.email },
     );
 
     const credential = await ctx.credentials.findById(ana.credential.id.value);

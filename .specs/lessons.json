@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 10,
+  "next_id": 11,
   "lessons": [
     {
       "id": "L-001",
@@ -144,6 +144,22 @@
       ],
       "created": "2026-11-02T13:55:45Z",
       "last_seen": "2026-11-02T13:55:45Z"
+    },
+    {
+      "id": "L-010",
+      "key": "spec_precision_gap::give each operand of a compound condition its own proving case not only the combined outcome",
+      "text": "Give each operand of a compound condition its own proving case, not only the combined outcome",
+      "signal": "spec_precision_gap",
+      "scope": "shared-http",
+      "status": "candidate",
+      "features": ["sign-in-enumeration"],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "C16 - src/shared/presentation/http/http-error-mapper.ts:53 (shared-http)"
+      ],
+      "created": "2026-11-02T15:52:25Z",
+      "last_seen": "2026-11-02T15:52:25Z"
     }
   ]
 }

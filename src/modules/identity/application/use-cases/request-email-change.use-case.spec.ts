@@ -82,7 +82,6 @@ describe("RequestEmailChangeUseCase", () => {
         ana.actor,
       ),
       IdentityError.InvalidCredentials,
-      { email: ana.email },
     );
   });
 
