@@ -7,6 +7,7 @@ import {
 import { useContext, useId, useState } from "preact/hooks";
 
 import { ApiError } from "../api/api-error";
+import type { MessageOverrides } from "../i18n/error-messages";
 import { errorMessages } from "../services";
 
 import { Button, type ButtonProps } from "./button";
@@ -113,6 +114,7 @@ export type FormProps = {
   children: ComponentChildren;
   class?: string;
   resetOnSuccess?: boolean;
+  messages?: MessageOverrides;
 };
 
 export const Form = (props: FormProps) => {
@@ -140,7 +142,7 @@ export const Form = (props: FormProps) => {
     } catch (error) {
       setErrors(fieldValidator.fromFailure(error, form));
       if (!(error instanceof FieldErrorsThrown)) {
-        setFailure(errorMessages.describe(error));
+        setFailure(errorMessages.describe(error, props.messages));
       }
     } finally {
       setPending(false);

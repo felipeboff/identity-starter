@@ -60,7 +60,7 @@ export const ROUTE_CATALOG: readonly CatalogRoute[] = [
     method: "POST",
     path: "/auth/sign-in",
     summary: "Entra com e-mail e senha.",
-    note: "5 senhas erradas para o mesmo e-mail em 15 min bloqueiam o login dele.",
+    note: "Sem a senha certa, toda falha é o mesmo 401, exista a conta ou não. 5 falhas para o mesmo e-mail em 15 min bloqueiam o login dele.",
     authenticated: false,
     status: 200,
     failures: [400, 401, 404, 409, 422, 429],

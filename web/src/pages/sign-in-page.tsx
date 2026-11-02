@@ -8,6 +8,17 @@ import { identityApi } from "../services";
 import { Alert } from "../ui/feedback";
 import { Field, Form, PasswordField, SubmitButton } from "../ui/form";
 
+const ACCOUNT_UNAVAILABLE =
+  "Não foi possível entrar nesta conta. Fale com um administrador.";
+
+const SIGN_IN_MESSAGES = {
+  "identity.account_deleted":
+    "Esta conta está desativada. Peça a um administrador para reativá-la.",
+  "identity.credential_account_mismatch": ACCOUNT_UNAVAILABLE,
+  "identity.membership_not_found": ACCOUNT_UNAVAILABLE,
+  "identity.membership_deleted": ACCOUNT_UNAVAILABLE,
+};
+
 export const SignInPage = () => {
   const auth = useAuth();
   const location = useLocation();
@@ -20,6 +31,7 @@ export const SignInPage = () => {
     >
       {auth.notice && <Alert tone="info">{auth.notice}</Alert>}
       <Form
+        messages={SIGN_IN_MESSAGES}
         action={async (values) => {
           const result = await identityApi.signIn({
             email: values.text("email"),

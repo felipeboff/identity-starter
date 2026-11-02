@@ -1,5 +1,7 @@
 import { ApiError, type Violation } from "../api/api-error";
 
+export type MessageOverrides = Readonly<Record<string, string>>;
+
 const MESSAGES: Record<string, string> = {
   "client.network_failed":
     "Não foi possível falar com a API. Confira se ela está no ar.",
@@ -15,7 +17,7 @@ const MESSAGES: Record<string, string> = {
   "shared.internal": "Algo deu errado do nosso lado. Tente de novo.",
   "identity.invalid_credentials": "E-mail ou senha incorretos.",
   "identity.sign_in_locked":
-    "Muitas senhas erradas para esse e-mail. Tente de novo em {seconds} s.",
+    "Muitas tentativas para esse e-mail. Tente de novo em {seconds} s.",
   "identity.account_email_taken": "Já existe uma conta com esse e-mail.",
   "identity.credential_email_taken": "Já existe uma conta com esse e-mail.",
   "identity.account_deleted": "Esta conta está desativada.",
@@ -91,13 +93,14 @@ const REASONS: Record<string, string> = {
 const PASSWORD_LENGTH = "Use de 12 a 128 caracteres.";
 
 export class ErrorMessages {
-  describe(error: unknown): string {
+  describe(error: unknown, overrides: MessageOverrides = {}): string {
     if (!(error instanceof ApiError)) {
       return error instanceof Error
         ? error.message
         : "Algo deu errado. Tente de novo.";
     }
-    const template = MESSAGES[error.code] ?? error.problem.title;
+    const template =
+      overrides[error.code] ?? MESSAGES[error.code] ?? error.problem.title;
     return template.replace("{seconds}", String(error.retryAfterSeconds ?? 60));
   }
 
