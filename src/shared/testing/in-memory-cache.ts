@@ -21,6 +21,21 @@ export class InMemoryCache implements Cache {
     return Promise.resolve();
   }
 
+  setIfNewer(
+    key: string,
+    value: unknown,
+    version: number,
+    ttlMs: number,
+  ): Promise<void> {
+    const versionKey = `${key}:version`;
+    const stored = this.liveEntry(versionKey);
+    if (stored && Number(stored.raw) >= version) return Promise.resolve();
+    const expiresAt = this.now() + ttlMs;
+    this.entries.set(key, { raw: JSON.stringify(value), expiresAt });
+    this.entries.set(versionKey, { raw: String(version), expiresAt });
+    return Promise.resolve();
+  }
+
   delete(key: string): Promise<void> {
     this.entries.delete(key);
     return Promise.resolve();

@@ -33,7 +33,7 @@ export class CachedMembershipRepository implements MembershipRepository {
 
   async save(membership: Membership): Promise<void> {
     await this.deps.inner.save(membership);
-    this.entities.forget(membership);
+    this.entities.refresh(membership);
   }
 
   findById(id: string): Promise<Membership | null> {

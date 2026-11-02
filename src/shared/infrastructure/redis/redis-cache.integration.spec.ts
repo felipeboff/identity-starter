@@ -42,13 +42,14 @@ describe("RedisCache", () => {
     const calls = await Promise.allSettled([
       cache.get(key),
       cache.set(key, faker.lorem.word(), ttlMs),
+      cache.setIfNewer(key, faker.lorem.word(), 1, ttlMs),
       cache.increment(key, ttlMs),
       cache.delete(key),
       cache.ttl(key),
     ]);
 
     expect(calls.map((call) => call.status)).toStrictEqual(
-      Array<string>(5).fill("rejected"),
+      Array<string>(6).fill("rejected"),
     );
   });
 });

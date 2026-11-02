@@ -12,17 +12,19 @@ import { RedisConnection } from "../redis/redis-connection";
 import { EntityCache, EntityLookup } from "./entity-cache";
 import { FailOpenCache } from "./fail-open-cache";
 
-type NoteEntry = Readonly<{ id: string; email: string }>;
+type NoteEntry = Readonly<{ id: string; email: string; version: number }>;
 
 type Note = Readonly<{
   id: Readonly<{ value: string }>;
   email: string;
+  version: number;
   toSnapshot(): NoteEntry;
 }>;
 
 const toNote = (entry: NoteEntry): Note => ({
   id: { value: entry.id },
   email: entry.email,
+  version: entry.version,
   toSnapshot: () => entry,
 });
 
@@ -30,7 +32,11 @@ const buildNote = () =>
   toNote({
     id: faker.database.mongodbObjectId(),
     email: faker.internet.email().toLowerCase(),
+    version: faker.number.int({ min: 1, max: 1_000 }),
   });
+
+const nextVersionOf = (note: Note, email = note.email) =>
+  toNote({ id: note.id.value, email, version: note.version + 1 });
 
 const loadOf = (note: Note | null) => vi.fn(() => Promise.resolve(note));
 
@@ -176,12 +182,9 @@ describe("EntityCache", () => {
       const { entities } = create();
       const note = buildNote();
       await entities.findBy(byEmail(note.email, loadOf(note)));
-      const moved = toNote({
-        ...note.toSnapshot(),
-        email: `${faker.string.alpha(4)}${note.email}`,
-      });
-      entities.forget(moved);
-      await entities.findById(moved.id.value, loadOf(moved));
+      entities.refresh(
+        nextVersionOf(note, `${faker.string.alpha(4)}${note.email}`),
+      );
       const load = loadOf(null);
 
       const found = await entities.findBy(byEmail(note.email, load));
@@ -191,50 +194,86 @@ describe("EntityCache", () => {
     });
   });
 
-  describe("forget", () => {
-    it("makes the next read load the entity again", async () => {
+  describe("refresh", () => {
+    it("writes the committed entity, so the next read needs no load", async () => {
       const { entities } = create();
       const note = buildNote();
+      await entities.findById(note.id.value, loadOf(note));
+      const saved = nextVersionOf(note, faker.internet.email().toLowerCase());
+      entities.refresh(saved);
       const load = loadOf(note);
-      await entities.findBy(byEmail(note.email, load));
-      entities.forget(note);
 
-      await entities.findBy(byEmail(note.email, load));
+      const found = await entities.findById(note.id.value, load);
 
-      expect(load).toHaveBeenCalledTimes(2);
+      expect(found?.toSnapshot()).toStrictEqual(saved.toSnapshot());
+      expect(load).not.toHaveBeenCalled();
     });
 
-    it("forgets once the transaction that asked for it commits", async () => {
+    it("writes once the transaction that asked for it commits", async () => {
       const { entities, transactions } = create();
       const note = buildNote();
-      const load = loadOf(note);
-      await entities.findById(note.id.value, load);
+      const saved = nextVersionOf(note);
       await transactions.run(() => {
-        entities.forget(note);
+        entities.refresh(saved);
         return Promise.resolve();
       });
+      const load = loadOf(note);
 
-      await entities.findById(note.id.value, load);
+      const found = await entities.findById(note.id.value, load);
 
-      expect(load).toHaveBeenCalledTimes(2);
+      expect(found?.version).toBe(saved.version);
+      expect(load).not.toHaveBeenCalled();
     });
 
-    it("keeps the entity when the transaction that asked for it fails", async () => {
+    it("writes nothing when the transaction that asked for it fails", async () => {
       const { entities, transactions } = create();
       const note = buildNote();
-      const load = loadOf(note);
       const failure = new Error(faker.lorem.sentence());
-      await entities.findById(note.id.value, load);
+      await entities.findById(note.id.value, loadOf(note));
       await expect(
         transactions.run(() => {
-          entities.forget(note);
+          entities.refresh(nextVersionOf(note));
           return Promise.reject(failure);
         }),
       ).rejects.toBe(failure);
 
-      await entities.findById(note.id.value, load);
+      const found = await entities.findById(note.id.value, loadOf(note));
 
-      expect(load).toHaveBeenCalledOnce();
+      expect(found?.version).toBe(note.version);
+    });
+
+    it("keeps the newer entity when a slower read brings back an older one", async () => {
+      const { entities } = create();
+      const note = buildNote();
+      const saved = nextVersionOf(note);
+      const slowLoad = vi.fn(() => {
+        entities.refresh(saved);
+        return Promise.resolve(note);
+      });
+      await entities.findById(note.id.value, slowLoad);
+      const load = loadOf(note);
+
+      const found = await entities.findById(note.id.value, load);
+
+      expect(found?.version).toBe(saved.version);
+      expect(load).not.toHaveBeenCalled();
+    });
+
+    it("keeps the newer entity when a slower lookup by index brings back an older one", async () => {
+      const { entities } = create();
+      const note = buildNote();
+      const saved = nextVersionOf(note);
+      const slowLoad = vi.fn(() => {
+        entities.refresh(saved);
+        return Promise.resolve(note);
+      });
+      await entities.findBy(byEmail(note.email, slowLoad));
+      const load = loadOf(note);
+
+      const found = await entities.findBy(byEmail(note.email, load));
+
+      expect(found?.version).toBe(saved.version);
+      expect(load).not.toHaveBeenCalled();
     });
   });
 });

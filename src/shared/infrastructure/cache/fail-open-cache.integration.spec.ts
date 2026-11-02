@@ -74,12 +74,18 @@ describe("FailOpenCache", () => {
     const key = buildKey();
 
     await cache.set(key, buildValue(), longTtl());
+    await cache.setIfNewer(
+      key,
+      buildValue(),
+      faker.number.int({ min: 1, max: 1_000 }),
+      longTtl(),
+    );
     const cached = await cache.get(key);
     await cache.delete(key);
 
     expect(cached).toBeUndefined();
     expect(logger.entries).toStrictEqual(
-      ["set", "get", "delete"].map((operation) => ({
+      ["set", "setIfNewer", "get", "delete"].map((operation) => ({
         level: LogLevel.WARN,
         event: SharedLogEvent.CacheCallFailed.name,
         fields: { operation, key, error: expect.any(Error) as unknown },

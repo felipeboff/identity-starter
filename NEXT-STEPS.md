@@ -83,7 +83,9 @@ provedor OAuth.
       `CachedMembershipRepository` na infraestrutura, sobre o `EntityCache` compartilhado (Redis,
       TTL de 30 s); os use cases não sabem que existe cache. A entidade fica uma vez, por id, e cada
       busca por outro campo (`email`, `accountId`) é um índice que aponta para o id e é conferido na
-      leitura. Todo `save` apaga a entrada depois do commit; dentro de uma transação a leitura vai
+      leitura. Todo `save` grava a entrada nova depois do commit, e o Redis só aceita
+      (`setIfNewer`, em Lua) se a `version` for maior que a guardada: uma leitura lenta que traz o
+      snapshot de antes de uma revogação não o sobrescreve; dentro de uma transação a leitura vai
       direto ao Mongo; Redis fora do ar cai para o Mongo e loga `shared.cache_call_failed`. A
       sessão nunca entra no cache. Medido com Mongo e Redis em memória, sem rede: autenticação de 3
       para 1 leitura no Mongo (+3 `GET` no Redis), média de 0,90 para 0,55 ms

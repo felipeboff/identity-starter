@@ -32,7 +32,7 @@ export class CachedAccountRepository implements AccountRepository {
 
   async save(account: Account): Promise<void> {
     await this.deps.inner.save(account);
-    this.entities.forget(account);
+    this.entities.refresh(account);
   }
 
   findById(id: string): Promise<Account | null> {

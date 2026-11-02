@@ -7,6 +7,14 @@ if redis.call("PTTL", KEYS[1]) < 0 then redis.call("PEXPIRE", KEYS[1], ARGV[1]) 
 return value
 `;
 
+const SET_IF_NEWER = `
+local stored = redis.call("GET", KEYS[2])
+if stored and tonumber(stored) >= tonumber(ARGV[2]) then return 0 end
+redis.call("SET", KEYS[1], ARGV[1], "PX", ARGV[3])
+redis.call("SET", KEYS[2], ARGV[2], "PX", ARGV[3])
+return 1
+`;
+
 export type RedisCacheDeps = Readonly<{
   client: Redis;
 }>;
@@ -21,6 +29,23 @@ export class RedisCache implements Cache {
 
   async set(key: string, value: unknown, ttlMs: number): Promise<void> {
     await this.deps.client.set(key, JSON.stringify(value), "PX", ttlMs);
+  }
+
+  async setIfNewer(
+    key: string,
+    value: unknown,
+    version: number,
+    ttlMs: number,
+  ): Promise<void> {
+    await this.deps.client.eval(
+      SET_IF_NEWER,
+      2,
+      key,
+      `${key}:version`,
+      JSON.stringify(value),
+      version,
+      ttlMs,
+    );
   }
 
   async delete(key: string): Promise<void> {

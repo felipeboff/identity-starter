@@ -25,7 +25,7 @@ export const SharedLogEvent = {
     "shared.rate_limiter_unavailable",
   ),
   CacheCallFailed: defineLogEvent<{
-    operation: "get" | "set" | "delete";
+    operation: "get" | "set" | "setIfNewer" | "delete";
     key: string;
     error: unknown;
   }>("shared.cache_call_failed"),

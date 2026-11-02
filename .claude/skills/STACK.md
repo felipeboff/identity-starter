@@ -36,7 +36,7 @@ file deserve an ADR (`create-adr`).
   wrapped in the shared `Id` value object.
 - **Optimistic concurrency** on every repository write (`OptimisticWriter`,
   [ADR-003](../../docs/adr/003-optimistic-concurrency-on-repository-writes.md)).
-- **Redis** (ioredis): the `Cache` port (`RedisCache`: get, set, delete, increment, ttl). The
+- **Redis** (ioredis): the `Cache` port (`RedisCache`: get, set, setIfNewer, delete, increment, ttl). The
   shared `RateLimiter` sits on it (fixed window, lets requests through if Redis is down).
   BullMQ backend is _planned_.
 - **Text search:** MongoDB text index; revisit (Atlas Search / Elasticsearch) only on a real

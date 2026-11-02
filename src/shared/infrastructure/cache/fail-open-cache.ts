@@ -2,7 +2,7 @@ import { SharedLogEvent } from "@shared/application/logging/shared.log-event";
 import type { Cache } from "@shared/application/ports/cache";
 import type { Logger } from "@shared/application/ports/logger";
 
-type CacheOperation = "get" | "set" | "delete";
+type CacheOperation = "get" | "set" | "setIfNewer" | "delete";
 
 export type FailOpenCacheDeps = Readonly<{
   cache: Cache;
@@ -26,6 +26,19 @@ export class FailOpenCache {
       await this.deps.cache.set(key, value, ttlMs);
     } catch (error) {
       this.failed("set", key, error);
+    }
+  }
+
+  async setIfNewer(
+    key: string,
+    value: unknown,
+    version: number,
+    ttlMs: number,
+  ): Promise<void> {
+    try {
+      await this.deps.cache.setIfNewer(key, value, version, ttlMs);
+    } catch (error) {
+      this.failed("setIfNewer", key, error);
     }
   }
 

@@ -4,6 +4,7 @@ import { FailOpenCache } from "./fail-open-cache";
 
 export type CacheableEntity = Readonly<{
   id: Readonly<{ value: string }>;
+  version: number;
   toSnapshot(): unknown;
 }>;
 
@@ -59,15 +60,15 @@ export class EntityCache<Entity extends CacheableEntity, Entry> {
     return entity;
   }
 
-  forget(entity: Entity): void {
-    const key = this.keyOf(entity.id.value);
-    this.deps.transactions.afterCommit(() => void this.deps.cache.delete(key));
+  refresh(entity: Entity): void {
+    this.deps.transactions.afterCommit(() => void this.remember(entity));
   }
 
   private async remember(entity: Entity): Promise<void> {
-    await this.deps.cache.set(
+    await this.deps.cache.setIfNewer(
       this.keyOf(entity.id.value),
       entity.toSnapshot(),
+      entity.version,
       this.deps.ttlMs,
     );
   }

@@ -1,5 +1,5 @@
 import { faker } from "@faker-js/faker";
-import { beforeEach, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import type { Cache } from "../../application/ports/cache";
 
@@ -146,5 +146,57 @@ export const cacheContract = (create: () => CacheUnderContract) => {
 
     expect(other).toBe(1);
     expect(await cache.get(key)).toStrictEqual(value);
+  });
+
+  describe("setIfNewer", () => {
+    const buildVersion = () => faker.number.int({ min: 1, max: 1_000 });
+
+    it("writes when the key holds no version yet", async () => {
+      const key = buildKey();
+      const value = buildValue();
+
+      await cache.setIfNewer(key, value, buildVersion(), longTtl());
+
+      expect(await cache.get(key)).toStrictEqual(value);
+    });
+
+    it("replaces an older version", async () => {
+      const key = buildKey();
+      const version = buildVersion();
+      const newer = buildValue();
+      await cache.setIfNewer(key, buildValue(), version, longTtl());
+
+      await cache.setIfNewer(key, newer, version + 1, longTtl());
+
+      expect(await cache.get(key)).toStrictEqual(newer);
+    });
+
+    it.each([
+      ["the same", 0],
+      ["an older", -1],
+    ])("keeps the stored value against %s version", async (_, delta) => {
+      const key = buildKey();
+      const version = buildVersion();
+      const stored = buildValue();
+      await cache.setIfNewer(key, stored, version, longTtl());
+
+      await cache.setIfNewer(key, buildValue(), version + delta, longTtl());
+
+      expect(await cache.get(key)).toStrictEqual(stored);
+    });
+
+    it("forgets the version with the entry once its time is over", async () => {
+      const key = buildKey();
+      const version = buildVersion();
+      const older = buildValue();
+      const ttlMs = shortTtl();
+      await cache.setIfNewer(key, buildValue(), version, ttlMs);
+      await elapse(ttlMs);
+
+      await cache.setIfNewer(key, older, version - 1, longTtl());
+
+      expect(await cache.get(key)).toStrictEqual(older);
+      expect(await cache.ttl(key)).toBeGreaterThan(ttlMs);
+    });
   });
 };
