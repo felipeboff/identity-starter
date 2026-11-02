@@ -130,6 +130,7 @@ Every variable is validated on boot; the API refuses to start and names each inv
 | `MAILER`, `MAIL_FROM_EMAIL`, `MAIL_FROM_NAME`, `MAILERSEND_API_KEY` | `MAILER` is `log` or `mailersend`                                           |
 | `GITHUB_*`, `GOOGLE_*`                                              | client id, secret and redirect URI of each OAuth app                        |
 | `SENTRY_DSN`                                                        | optional; unset turns error reporting off                                   |
+| `DOCS_USERNAME`, `DOCS_PASSWORD`                                    | optional pair; set both to serve the API docs behind HTTP Basic             |
 
 ### OAuth apps
 
@@ -160,6 +161,9 @@ MailerSend outage delays them instead of failing the request. The e-mail copy is
 ## API
 
 Every route is under `/api`. Authenticated routes take `Authorization: Bearer <accessToken>`.
+With `DOCS_USERNAME` and `DOCS_PASSWORD` set, `/docs` serves Swagger UI and `/openapi.json` the
+OpenAPI 3.1 document generated from the routes, both behind HTTP Basic with those credentials;
+without them, neither route exists.
 "Own or `x`" means the route works on your own account without a permission, and on someone
 else's with `x`.
 

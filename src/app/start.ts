@@ -17,7 +17,12 @@ import { OutboxConsumerAdapter } from "@shared/presentation/outbox/outbox-consum
 import { SchemaParser } from "@shared/presentation/schema-parser";
 import type { DestinationStream } from "pino";
 
-import { type Env, NodeEnv, toIdentitySettings } from "./config";
+import {
+  type Env,
+  NodeEnv,
+  toDocsCredentials,
+  toIdentitySettings,
+} from "./config";
 import { createServer } from "./create-server";
 
 import { createIdentityModule } from "@/identity/identity.module";
@@ -108,6 +113,7 @@ export const start = async (options: StartOptions): Promise<RunningApp> => {
     readiness: database,
     trustProxy: env.TRUST_PROXY,
     corsOrigins: env.CORS_ORIGINS.map((origin) => origin.origin),
+    docs: toDocsCredentials(env),
   });
 
   const server = app.listen(env.PORT);

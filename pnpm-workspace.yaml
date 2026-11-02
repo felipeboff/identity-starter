@@ -1,6 +1,7 @@
 packages:
   - web
 allowBuilds:
+  "@scarf/scarf": false
   argon2: true
   esbuild: true
   mongodb-memory-server: true

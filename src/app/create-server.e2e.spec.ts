@@ -4,12 +4,14 @@ import { faker } from "@faker-js/faker";
 import { SharedLogEvent } from "@shared/application/logging/shared.log-event";
 import { LogLevel, type Logger } from "@shared/application/ports/logger";
 import { SharedError } from "@shared/domain/errors/shared.error";
+import type { BasicAuthCredentials } from "@shared/infrastructure/http/basic-auth";
 import { AsyncLocalLogContext } from "@shared/infrastructure/logging/async-local-log-context";
 import { PinoLogger } from "@shared/infrastructure/logging/pino-logger";
 import { MongoOutbox } from "@shared/infrastructure/mongo/mongo-outbox";
 import { RedisConnection } from "@shared/infrastructure/redis/redis-connection";
 import { SystemClock } from "@shared/infrastructure/time/system-clock";
 import { Dispatcher } from "@shared/presentation/dispatcher";
+import type { OpenApiDocument } from "@shared/presentation/http/open-api-generator";
 import { SchemaParser } from "@shared/presentation/schema-parser";
 import { FakeErrorReporter } from "@shared/testing/fake-error-reporter";
 import { FakeLogger } from "@shared/testing/fake-logger";
@@ -17,6 +19,8 @@ import { useMemoryMongo } from "@shared/testing/memory-mongo";
 import { useMemoryRedis } from "@shared/testing/memory-redis";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+import packageJson from "../../package.json" with { type: "json" };
 
 import { createServer } from "./create-server";
 
@@ -69,6 +73,7 @@ const createApp = async (
   ready = true,
   corsOrigins = [ALLOWED_ORIGIN],
   errors = new FakeErrorReporter(),
+  docs: BasicAuthCredentials | null = null,
 ) =>
   createServer({
     appName: identitySettings.appName,
@@ -89,6 +94,7 @@ const createApp = async (
     readiness: { isReady: () => Promise.resolve(ready) },
     trustProxy,
     corsOrigins,
+    docs,
   });
 
 type App = Awaited<ReturnType<typeof createApp>>;
@@ -132,6 +138,7 @@ describe("createServer", () => {
       readiness: { isReady: () => Promise.reject(failure) },
       trustProxy: 0,
       corsOrigins: [ALLOWED_ORIGIN],
+      docs: null,
     });
 
     const response = await request(app).get("/health");
@@ -287,6 +294,98 @@ describe("createServer", () => {
 
       expect(response.status).toBe(503);
       expect(response.body).toStrictEqual({ status: "unavailable" });
+    });
+  });
+
+  describe("API docs", () => {
+    const docs = {
+      username: faker.internet.username(),
+      password: faker.internet.password({ length: 16 }),
+    };
+    const withDocs = () =>
+      createApp(
+        0,
+        undefined,
+        undefined,
+        true,
+        [ALLOWED_ORIGIN],
+        undefined,
+        docs,
+      );
+    const basic = `Basic ${Buffer.from(`${docs.username}:${docs.password}`).toString("base64")}`;
+
+    it.each(["/openapi.json", "/docs/"])(
+      "does not expose %s without docs credentials",
+      async (path) => {
+        const app = await createApp();
+
+        const response = await request(app)
+          .get(path)
+          .set("authorization", basic);
+
+        expect(response.status).toBe(404);
+        expect(response.body).toMatchObject({
+          code: SharedError.RouteNotFound.code,
+        });
+      },
+    );
+
+    it.each(["/openapi.json", "/docs/"])(
+      "asks for the docs credentials on %s",
+      async (path) => {
+        const app = await withDocs();
+
+        const response = await request(app).get(path);
+
+        expect(response.status).toBe(401);
+        expect(response.headers["www-authenticate"]).toBe(
+          `Basic realm="${identitySettings.appName} docs", charset="UTF-8"`,
+        );
+      },
+    );
+
+    it("serves the OpenAPI document of the API routes", async () => {
+      const app = await withDocs();
+
+      const response = await request(app)
+        .get("/openapi.json")
+        .set("authorization", basic);
+
+      const document = response.body as OpenApiDocument;
+      expect(response.status).toBe(200);
+      expect(document).toMatchObject({
+        openapi: "3.1.0",
+        info: { title: identitySettings.appName, version: packageJson.version },
+        servers: [{ url: "/api" }],
+      });
+      expect(document.paths["/auth/sign-up"]?.post).toMatchObject({
+        operationId: "identity.sign_up_with_email",
+        requestBody: { required: true },
+      });
+      expect(document.paths["/auth/sign-up"]?.post).not.toHaveProperty(
+        "security",
+      );
+      expect(document.paths["/sessions/{sessionId}"]?.delete).toMatchObject({
+        security: [{ bearer: [] }],
+        parameters: [{ name: "sessionId", in: "path", required: true }],
+      });
+    });
+
+    it("serves Swagger UI with the same document", async () => {
+      const app = await withDocs();
+
+      const page = await request(app).get("/docs/").set("authorization", basic);
+      const init = await request(app)
+        .get("/docs/swagger-ui-init.js")
+        .set("authorization", basic);
+
+      expect(page.status).toBe(200);
+      expect(page.headers["content-type"]).toMatch(/^text\/html/);
+      expect(page.text).toContain(
+        `<title>${identitySettings.appName} API</title>`,
+      );
+      expect(init.status).toBe(200);
+      expect(init.text).toContain("identity.sign_up_with_email");
     });
   });
 

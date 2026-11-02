@@ -25,7 +25,11 @@ file deserve an ADR (`create-adr`).
   Each handler declares `name` and `input` (a TypeBox schema); the dispatcher interprets it
   through `SchemaParser` (`src/shared/presentation`) after the middlewares. Application and
   domain import no library; TypeBox stays in presentation, infrastructure and `src/app`.
-- **API style:** REST, documented with OpenAPI (Swagger UI). _planned_
+- **API style:** REST, documented with OpenAPI 3.1: `OpenApiGenerator`
+  (`src/shared/presentation/http`) builds the document from the `HttpRoute`s (method, path,
+  status, `failures`, the handler's TypeBox `input`). Only when `DOCS_USERNAME` and
+  `DOCS_PASSWORD` are set, `GET /openapi.json` serves it and `/docs` serves Swagger UI
+  (`swagger-ui-express`), both behind HTTP Basic (`BasicAuth`, `src/shared/infrastructure/http`).
 - **Real-time:** SSE for server → client notifications, when the notifications module needs it.
   _planned_
 

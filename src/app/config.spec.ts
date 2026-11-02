@@ -44,6 +44,7 @@ const {
   loadEnv,
   MailerKind,
   NodeEnv,
+  toDocsCredentials,
   toIdentitySettings,
 } = await import("./config");
 
@@ -156,6 +157,52 @@ describe("loadEnv", () => {
     const env = loadEnv(buildSource({ SENTRY_DSN: dsn }));
 
     expect(env.SENTRY_DSN).toBe(dsn);
+  });
+
+  it("gives the docs credentials when both docs variables are set", () => {
+    const credentials = {
+      username: faker.internet.username(),
+      password: faker.internet.password({ length: 16 }),
+    };
+
+    const env = loadEnv(
+      buildSource({
+        DOCS_USERNAME: credentials.username,
+        DOCS_PASSWORD: credentials.password,
+      }),
+    );
+
+    expect(toDocsCredentials(env)).toStrictEqual(credentials);
+  });
+
+  it("turns the docs off when no docs variable is set", () => {
+    expect(toDocsCredentials(loadEnv(buildSource()))).toBeNull();
+  });
+
+  it.each(["DOCS_USERNAME", "DOCS_PASSWORD"])(
+    "turns the docs off when only %s is set",
+    (name) => {
+      const env = loadEnv(
+        buildSource({ [name]: faker.internet.password({ length: 16 }) }),
+      );
+
+      expect(toDocsCredentials(env)).toBeNull();
+    },
+  );
+
+  it("refuses a docs password shorter than 12 characters", () => {
+    expect(() =>
+      loadEnv(
+        buildSource({
+          DOCS_USERNAME: faker.internet.username(),
+          DOCS_PASSWORD: faker.internet.password({ length: 11 }),
+        }),
+      ),
+    ).toThrow(
+      expect.objectContaining({
+        data: { violations: [{ field: "DOCS_PASSWORD", reason: "minLength" }] },
+      }),
+    );
   });
 
   it("ignores variables it does not know", () => {

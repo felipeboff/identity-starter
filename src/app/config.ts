@@ -1,4 +1,5 @@
 import { LogLevel } from "@shared/application/ports/logger";
+import type { BasicAuthCredentials } from "@shared/infrastructure/http/basic-auth";
 import { SchemaParser } from "@shared/presentation/schema-parser";
 import Type from "typebox";
 
@@ -69,6 +70,8 @@ const envSchema = Type.Object({
   GOOGLE_CLIENT_SECRET: Type.String({ minLength: 30 }),
   GOOGLE_REDIRECT_URI: httpUrlSchema,
   SENTRY_DSN: Type.Optional(Type.String({ pattern: HTTP_URL })),
+  DOCS_USERNAME: Type.Optional(Type.String({ pattern: NOT_BLANK })),
+  DOCS_PASSWORD: Type.Optional(Type.String({ minLength: 12 })),
 });
 
 export type Env = Type.StaticDecode<typeof envSchema>;
@@ -108,5 +111,10 @@ export const toIdentitySettings = (env: Env): IdentitySettings => ({
     redirectUri: env.GITHUB_REDIRECT_URI,
   },
 });
+
+export const toDocsCredentials = (env: Env): BasicAuthCredentials | null =>
+  env.DOCS_USERNAME === undefined || env.DOCS_PASSWORD === undefined
+    ? null
+    : { username: env.DOCS_USERNAME, password: env.DOCS_PASSWORD };
 
 export const env = loadEnv(process.env);

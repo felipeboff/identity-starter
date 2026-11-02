@@ -146,8 +146,11 @@ outbox no próprio Mongo, e o transporte muda depois sem mexer nos use cases.
 
 ## 6. Para servir de boilerplate
 
-- [ ] **OpenAPI/Swagger** gerado a partir das rotas (`HttpRoute` já tem método, path, status e
-      `failures`)
+- [x] **OpenAPI e Swagger UI** gerados a partir das rotas: o `OpenApiGenerator` monta um
+      documento 3.1 com método, path, status, `failures` e o `input` TypeBox de cada handler
+      (path, query ou body); as rotas depois do `authenticate` pedem o bearer. Só com
+      `DOCS_USERNAME` e `DOCS_PASSWORD` definidos, `/openapi.json` e `/docs` (Swagger UI) existem,
+      atrás de HTTP Basic; se faltar um dos dois, nada da documentação sobe
 - [x] **README de uso:** subir o projeto, criar os apps OAuth (GitHub e Google), configurar a
       MailerSend e a lista de rotas
 - [ ] **Exemplo de front** (ou só as páginas): callback do OAuth, reset de senha e verificação de
