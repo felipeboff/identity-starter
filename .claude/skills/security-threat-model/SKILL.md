@@ -19,7 +19,8 @@ Deliver an actionable AppSec-grade threat model that is specific to the reposito
   (outbound e-mail, webhooks); Google/GitHub OAuth callbacks; JWT + refresh-token cookie;
   Sentry/OpenTelemetry exporters (what leaves the process in logs and traces); GitHub Actions
   and Terraform (CI/infra secrets).
-- Multi-tenant help desk: cross-tenant access through memberships is a first-class threat.
+- Authorization rests on memberships (role + permissions): privilege escalation through
+  invitations or member updates is a first-class threat.
 - Write the report to `docs/security/<scope>-threat-model.md`.
 
 ## Quick start

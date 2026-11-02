@@ -25,14 +25,14 @@ them exactly; the hooks reject what does not fit.
 
 ## Branches
 
-- `main` is the default and the integration branch. Work on `main` only when the user is
-  already there and asks for a direct commit (the history so far is linear on `main`).
+- `master` is the default and the integration branch. Work on `master` only when the user is
+  already there and asks for a direct commit (the history so far is linear on `master`).
 - When the user asks for a branch, name it `<type>/<scope>-<short-kebab-description>`, using
   the same `type` and `scope` the first commit will carry:
-  - `feat/tickets-create-ticket-use-case`
+  - `feat/identity-invite-member-use-case`
   - `fix/identity-refresh-token-rotation`
   - `chore/eslint-boundaries`
-- Branch from an up-to-date `main`. Delete the branch after merge if the user asks.
+- Branch from an up-to-date `master`. Delete the branch after merge if the user asks.
 
 ## Commits
 
@@ -44,7 +44,7 @@ each, plus every route × status covered), so a commit takes a while and fails o
 **Format**: `<type>(<scope>)!: <subject>`
 
 - `type`: `feat`, `fix`, `refactor`, `test`, `chore`, `docs`, `perf`, `build`, `ci`.
-- `scope`: the module (`identity`, `tickets`, `shared`) or the tool/config touched
+- `scope`: the module (`identity`, `shared`) or the tool/config touched
   (`eslint`, `vitest`, `husky`, `skills`). Omit only when the change spans the whole repo.
 - `!` for a breaking change in a public contract (`public.ts`, shared ports, snapshots).
 - `subject`: imperative, lowercase, no trailing period, ≤ 72 characters, says what the
@@ -74,9 +74,9 @@ units, propose the split before committing.
 There is no remote yet. When one exists, use `gh`.
 
 - **Before opening**: `pnpm lint`, `pnpm typecheck`, `pnpm test:coverage` green locally;
-  branch rebased on or merged with `main`; commits already in the format above.
+  branch rebased on or merged with `master`; commits already in the format above.
 - **Title**: same format as a commit subject, describing the whole branch
-  (`feat(tickets): add ticket lifecycle use cases`). Squash merges will use it.
+  (`feat(identity): add member invitations`). Squash merges will use it.
 - **Body** (keep it short; the reviewer reads code, not prose):
 
   ```markdown

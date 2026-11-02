@@ -436,9 +436,9 @@ Good domain identification has:
 
 ## Project notes (identity-starter)
 
-- Stack decisions live in [`../STACK.md`](../STACK.md); read it before assuming a technology. Modules are `src/modules/*`; today only `identity` exists. The readme lists the
-  planned contexts (tickets, SLA, notifications, attachments, teams, audit).
+- Stack decisions live in [`../STACK.md`](../STACK.md); read it before assuming a technology. Modules are `src/modules/*`; today only `identity` exists. The project is a
+  starter: the contexts a product adds on top of it live next to `identity`.
 - Integration patterns available: synchronous through `public.ts`, asynchronous through
   RabbitMQ events (see `integration-patterns`). Name the pattern per context-map edge.
-- Likely classification to validate, not assume: tickets + SLA = core; identity, notifications,
-  attachments = generic/supporting.
+- Likely classification to validate, not assume: identity = generic; the core is whatever the
+  product built on the starter adds.

@@ -60,8 +60,8 @@ file deserve an ADR (`create-adr`).
   removes 7 days later ([ADR-010](../../docs/adr/010-transactional-outbox-in-mongo-with-an-in-process-relay.md)).
 - **RabbitMQ** for events between modules, published through a transactional outbox stored in
   MongoDB. _planned_
-- **BullMQ** for background and scheduled jobs (repeatable jobs replace cron: SLA escalation,
-  session cleanup, reminders). _planned_
+- **BullMQ** for background and scheduled jobs (repeatable jobs replace cron: session cleanup,
+  reminders). _planned_
 
 ## Identity
 
