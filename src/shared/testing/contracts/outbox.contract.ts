@@ -140,20 +140,16 @@ export const outboxContract = (create: () => Promise<OutboxUnderContract>) => {
     expect(await reserveNow()).toBeNull();
   });
 
-  it("does not reserve an effect before its next attempt, and reserves it once due", async () => {
+  it("does not reserve an effect before it is due, and reserves it once due", async () => {
     const { id } = await recordOne();
-    const wait = aWait();
-    await outbox.scheduleRetry({
-      id,
-      attempts: 1,
-      lastError: faker.lorem.sentence(),
-      nextAttemptAt: later(clock.now(), wait),
-    });
+    const [{ nextAttemptAt }] = await stored();
+    const lockedUntil = later(nextAttemptAt, aWait());
 
-    clock.advance(wait - 1);
-    const early = await reserveNow();
-    clock.advance(1);
-    const due = await reserveNow();
+    const early = await outbox.reserve({
+      now: later(nextAttemptAt, -1),
+      lockedUntil,
+    });
+    const due = await outbox.reserve({ now: nextAttemptAt, lockedUntil });
 
     expect(early).toBeNull();
     expect(due?.id).toBe(id);
@@ -174,22 +170,19 @@ export const outboxContract = (create: () => Promise<OutboxUnderContract>) => {
     expect(released?.id).toBe(id);
   });
 
-  it("reserves the effect due first", async () => {
-    const { id: first } = await recordOne();
-    clock.advance(aWait());
+  it("reserves the effect due first, not the one recorded first", async () => {
+    const wait = aWait();
+    clock.advance(wait);
     await outbox.record(buildEffect());
-    const second = (await stored())[1];
-    await outbox.scheduleRetry({
-      id: first,
-      attempts: 1,
-      lastError: faker.lorem.sentence(),
-      nextAttemptAt: later(second.nextAttemptAt, 1),
-    });
-    clock.advance(1);
+    const [second] = await stored();
+    clock.advance(-2 * wait);
+    await outbox.record(buildEffect());
+    const first = (await stored()).find((effect) => effect.id !== second.id)!;
+    clock.advance(4 * wait);
 
     const reserved = await reserveNow();
 
-    expect(reserved?.id).toBe(second.id);
+    expect(reserved?.id).toBe(first.id);
   });
 
   it("marks an effect processed, erasing its payload and its lock", async () => {
@@ -206,20 +199,39 @@ export const outboxContract = (create: () => Promise<OutboxUnderContract>) => {
     ]);
   });
 
-  it("schedules a retry, keeping the payload and releasing the lock", async () => {
+  it("holds a handed-over effect until the given time, keeping its payload", async () => {
     const { id } = await recordOne();
     await reserveNow();
     const [before] = await stored();
-    const attempts = faker.number.int({ min: 1, max: 7 });
-    const lastError = faker.lorem.sentence();
-    const nextAttemptAt = later(clock.now(), aWait());
+    const lockedUntil = later(clock.now(), aWait());
 
-    await outbox.scheduleRetry({ id, attempts, lastError, nextAttemptAt });
+    await outbox.markHandedOver({ id, lockedUntil });
 
-    expect(await stored()).toStrictEqual([
-      { ...before, attempts, lastError, nextAttemptAt, lockedUntil: null },
-    ]);
+    expect(await stored()).toStrictEqual([{ ...before, lockedUntil }]);
   });
+
+  it.each(["processed", "failed"])(
+    "does not hold an effect already %s",
+    async (end) => {
+      const { id } = await recordOne();
+      const at = clock.now();
+      const expiresAt = later(at, aWait());
+      await (end === "processed"
+        ? outbox.markProcessed({ id, processedAt: at, expiresAt })
+        : outbox.markFailed({
+            id,
+            attempts: 1,
+            lastError: faker.lorem.sentence(),
+            failedAt: at,
+            expiresAt,
+          }));
+      const [before] = await stored();
+
+      await outbox.markHandedOver({ id, lockedUntil: later(at, aWait()) });
+
+      expect(await stored()).toStrictEqual([before]);
+    },
+  );
 
   it("marks an effect failed, erasing its payload and its lock", async () => {
     const { id } = await recordOne();

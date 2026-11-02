@@ -18,11 +18,9 @@ export type OutboxCompletion = Readonly<{
   expiresAt: Date;
 }>;
 
-export type OutboxRetry = Readonly<{
+export type OutboxHandOver = Readonly<{
   id: string;
-  attempts: number;
-  lastError: string;
-  nextAttemptAt: Date;
+  lockedUntil: Date;
 }>;
 
 export type OutboxAbandonment = Readonly<{
@@ -36,6 +34,6 @@ export type OutboxAbandonment = Readonly<{
 export type OutboxStore = {
   reserve(reservation: OutboxReservation): Promise<OutboxEffect | null>;
   markProcessed(completion: OutboxCompletion): Promise<void>;
-  scheduleRetry(retry: OutboxRetry): Promise<void>;
+  markHandedOver(handOver: OutboxHandOver): Promise<void>;
   markFailed(abandonment: OutboxAbandonment): Promise<void>;
 };

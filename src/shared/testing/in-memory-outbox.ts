@@ -10,8 +10,8 @@ import type {
   OutboxAbandonment,
   OutboxCompletion,
   OutboxEffect,
+  OutboxHandOver,
   OutboxReservation,
-  OutboxRetry,
   OutboxStore,
 } from "../application/ports/outbox-store";
 
@@ -93,13 +93,11 @@ export class InMemoryOutbox implements Outbox, OutboxStore {
     return Promise.resolve();
   }
 
-  scheduleRetry(retry: OutboxRetry): Promise<void> {
-    this.update(retry.id, {
-      attempts: retry.attempts,
-      lastError: retry.lastError,
-      nextAttemptAt: retry.nextAttemptAt,
-      lockedUntil: null,
-    });
+  markHandedOver(handOver: OutboxHandOver): Promise<void> {
+    const effect = this.snapshots.get(handOver.id)!;
+    if (effect.processedAt === null && effect.failedAt === null) {
+      this.update(handOver.id, { lockedUntil: handOver.lockedUntil });
+    }
     return Promise.resolve();
   }
 

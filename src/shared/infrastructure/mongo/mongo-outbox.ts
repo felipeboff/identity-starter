@@ -8,8 +8,8 @@ import type {
   OutboxAbandonment,
   OutboxCompletion,
   OutboxEffect,
+  OutboxHandOver,
   OutboxReservation,
-  OutboxRetry,
   OutboxStore,
 } from "@shared/application/ports/outbox-store";
 import { type Connection, type Model, Types } from "mongoose";
@@ -90,17 +90,10 @@ export class MongoOutbox implements Outbox, OutboxStore {
     );
   }
 
-  async scheduleRetry(retry: OutboxRetry): Promise<void> {
+  async markHandedOver(handOver: OutboxHandOver): Promise<void> {
     await this.model.updateOne(
-      { _id: retry.id },
-      {
-        $set: {
-          attempts: retry.attempts,
-          lastError: retry.lastError,
-          nextAttemptAt: retry.nextAttemptAt,
-          lockedUntil: null,
-        },
-      },
+      { _id: handOver.id, processedAt: null, failedAt: null },
+      { $set: { lockedUntil: handOver.lockedUntil } },
     );
   }
 

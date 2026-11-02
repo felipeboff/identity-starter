@@ -155,7 +155,9 @@ export default defineConfig(
       "no-restricted-syntax": [
         "error",
         {
-          selector: 'ThrowStatement > NewExpression[callee.name!="AppError"]',
+          // BullMQ only skips the retries of a job that fails with its UnrecoverableError.
+          selector:
+            'ThrowStatement > NewExpression[callee.name!="AppError"][callee.name!="UnrecoverableError"]',
           message:
             "Throw an AppError with a definition from defineError instead.",
         },

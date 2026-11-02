@@ -1,19 +1,18 @@
 import { faker } from "@faker-js/faker";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { AppError } from "../../domain/errors/app-error";
-import { SharedError } from "../../domain/errors/shared.error";
 import { FakeClock } from "../../testing/fake-clock";
 import { FakeLogger } from "../../testing/fake-logger";
 import { InMemoryOutbox } from "../../testing/in-memory-outbox";
 import { InMemoryTransactionRunner } from "../../testing/in-memory-transaction-runner";
 import { SharedLogEvent } from "../logging/shared.log-event";
 import { LogLevel } from "../ports/logger";
-import type { OutboxEffectHandler } from "../ports/outbox";
+import type { OutboxQueue } from "../ports/outbox-queue";
 
 import { OutboxRelay } from "./outbox-relay";
 
-const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1_000;
+const TWO_HOURS_MS = 2 * 60 * 60 * 1_000;
+const LOCK_MS = 30_000;
 
 const later = (date: Date, ms: number) => new Date(date.getTime() + ms);
 
@@ -21,8 +20,7 @@ describe("OutboxRelay", () => {
   let clock: FakeClock;
   let outbox: InMemoryOutbox;
   let logger: FakeLogger;
-  let handle: ReturnType<typeof vi.fn<OutboxEffectHandler["handle"]>>;
-  let type: string;
+  let enqueue: ReturnType<typeof vi.fn<OutboxQueue["enqueue"]>>;
   let relay: OutboxRelay;
 
   beforeEach(() => {
@@ -32,11 +30,10 @@ describe("OutboxRelay", () => {
       clock,
     });
     logger = new FakeLogger();
-    handle = vi.fn<OutboxEffectHandler["handle"]>().mockResolvedValue();
-    type = `${faker.lorem.word()}.${faker.lorem.word()}`;
+    enqueue = vi.fn<OutboxQueue["enqueue"]>().mockResolvedValue();
     relay = new OutboxRelay({
       store: outbox,
-      handlers: { [type]: { handle } },
+      queue: { enqueue },
       clock,
       logger,
     });
@@ -48,233 +45,104 @@ describe("OutboxRelay", () => {
     vi.restoreAllMocks();
   });
 
-  const buildPayload = () => ({
-    to: faker.internet.email(),
-    token: faker.string.alphanumeric(32),
-  });
-
-  const recordOne = async (payload = buildPayload(), effectType = type) => {
-    await outbox.record({ type: effectType, payload });
-    return outbox.effects().at(-1)!;
-  };
-
-  const withAttempts = async (attempts: number) => {
-    const effect = await recordOne();
-    await outbox.scheduleRetry({
-      id: effect.id,
-      attempts,
-      lastError: faker.lorem.sentence(),
-      nextAttemptAt: clock.now(),
+  const recordOne = async () => {
+    await outbox.record({
+      type: `${faker.lorem.word()}.${faker.lorem.word()}`,
+      payload: {
+        to: faker.internet.email(),
+        token: faker.string.alphanumeric(32),
+      },
     });
     return outbox.effects().at(-1)!;
   };
 
-  it("hands a due effect to the handler of its type and marks it processed", async () => {
-    const payload = buildPayload();
-    const effect = await recordOne(payload);
+  const handedOver = (effect: Awaited<ReturnType<typeof recordOne>>) => ({
+    id: effect.id,
+    type: effect.type,
+    payload: effect.payload,
+    attempts: effect.attempts,
+  });
+
+  it("hands a due effect to the queue and holds it for 2 hours", async () => {
+    const effect = await recordOne();
     const now = clock.now();
 
     const relayed = await relay.relayNext();
 
     expect(relayed).toBe(true);
-    expect(handle.mock.calls).toStrictEqual([[{ id: effect.id, payload }]]);
+    expect(enqueue.mock.calls).toStrictEqual([[handedOver(effect)]]);
     expect(outbox.effects()).toStrictEqual([
-      {
-        ...effect,
-        payload: null,
-        lockedUntil: null,
-        processedAt: now,
-        expiresAt: later(now, SEVEN_DAYS_MS),
-      },
+      { ...effect, lockedUntil: later(now, TWO_HOURS_MS) },
     ]);
   });
 
   it("answers false when nothing is due", async () => {
     expect(await relay.relayNext()).toBe(false);
-    expect(handle).not.toHaveBeenCalled();
+    expect(enqueue).not.toHaveBeenCalled();
   });
 
-  it("locks the effect it takes for 30 s", async () => {
+  it("locks the effect for 30 s while it hands it over", async () => {
     await recordOne();
     const now = clock.now();
     const seen: (Date | null)[] = [];
-    handle.mockImplementationOnce(() => {
+    enqueue.mockImplementationOnce(() => {
       seen.push(outbox.effects()[0].lockedUntil);
       return Promise.resolve();
     });
 
     await relay.relayNext();
 
-    expect(seen).toStrictEqual([later(now, 30_000)]);
+    expect(seen).toStrictEqual([later(now, LOCK_MS)]);
   });
 
-  it("schedules a new attempt and logs a warning when the handler fails", async () => {
-    const payload = buildPayload();
-    const effect = await recordOne(payload);
-    const error = new Error(faker.lorem.sentence());
-    handle.mockRejectedValueOnce(error);
-    vi.spyOn(Math, "random").mockReturnValue(0.5);
-    const now = clock.now();
-
-    const relayed = await relay.relayNext();
-
-    expect(relayed).toBe(true);
-    expect(outbox.effects()).toStrictEqual([
-      {
-        ...effect,
-        attempts: 1,
-        nextAttemptAt: later(now, 15_000),
-        lastError: error.message,
-        lockedUntil: null,
-      },
-    ]);
-    expect(logger.entries).toStrictEqual([
-      {
-        level: LogLevel.WARN,
-        event: SharedLogEvent.OutboxEffectFailed.name,
-        fields: { id: effect.id, type, attempts: 1, error },
-      },
-    ]);
-  });
-
-  it("keeps a rejection that is not an Error as text", async () => {
-    const reason = faker.lorem.sentence();
-    await recordOne();
-    handle.mockRejectedValueOnce(reason);
-
-    await relay.relayNext();
-
-    expect(outbox.effects()[0].lastError).toBe(reason);
-  });
-
-  it.each([
-    [1, 15_000],
-    [2, 30_000],
-    [3, 60_000],
-    [4, 120_000],
-    [5, 240_000],
-    [6, 480_000],
-    [7, 900_000],
-  ])(
-    "waits a random share of min(30 min, 30 s × 2^(attempts − 1)) after failure %i: %i ms at 0.5",
-    async (attempts, waitMs) => {
-      await withAttempts(attempts - 1);
-      handle.mockRejectedValueOnce(new Error(faker.lorem.sentence()));
-      vi.spyOn(Math, "random").mockReturnValue(0.5);
-      const now = clock.now();
-
-      await relay.relayNext();
-
-      expect(outbox.effects()[0]).toMatchObject({
-        attempts,
-        nextAttemptAt: later(now, waitMs),
-        failedAt: null,
-      });
-    },
-  );
-
-  it("never waits the whole backoff", async () => {
-    await recordOne();
-    handle.mockRejectedValueOnce(new Error(faker.lorem.sentence()));
-    vi.spyOn(Math, "random").mockReturnValue(0.999_999);
-    const now = clock.now();
-
-    await relay.relayNext();
-
-    expect(outbox.effects()[0].nextAttemptAt).toStrictEqual(later(now, 29_999));
-  });
-
-  it("abandons the effect when the 8th attempt fails", async () => {
-    const effect = await withAttempts(7);
-    const error = new Error(faker.lorem.sentence());
-    handle.mockRejectedValueOnce(error);
-    const now = clock.now();
-
-    await relay.relayNext();
-
-    expect(outbox.effects()).toStrictEqual([
-      {
-        ...effect,
-        attempts: 8,
-        payload: null,
-        lockedUntil: null,
-        lastError: error.message,
-        failedAt: now,
-        expiresAt: later(now, SEVEN_DAYS_MS),
-      },
-    ]);
-    expect(logger.entries).toStrictEqual([
-      {
-        level: LogLevel.ERROR,
-        event: SharedLogEvent.OutboxEffectAbandoned.name,
-        fields: { id: effect.id, type, attempts: 8 },
-      },
-    ]);
-  });
-
-  it("abandons at once an effect whose payload its consumer refuses", async () => {
+  it("hands an effect over again once its 2 hours pass", async () => {
     const effect = await recordOne();
-    handle.mockRejectedValueOnce(
-      new AppError(SharedError.InputInvalid, {
-        violations: [{ field: faker.lorem.word(), reason: "required" }],
-      }),
-    );
-    const now = clock.now();
-
     await relay.relayNext();
 
-    expect(outbox.effects()).toStrictEqual([
-      {
-        ...effect,
-        attempts: 1,
-        payload: null,
-        lockedUntil: null,
-        lastError: SharedError.InputInvalid.code,
-        failedAt: now,
-        expiresAt: later(now, SEVEN_DAYS_MS),
-      },
-    ]);
-    expect(logger.entries).toStrictEqual([
-      {
-        level: LogLevel.ERROR,
-        event: SharedLogEvent.OutboxEffectAbandoned.name,
-        fields: { id: effect.id, type, attempts: 1 },
-      },
-    ]);
-  });
+    clock.advance(TWO_HOURS_MS - 1);
+    const held = await relay.relayNext();
+    clock.advance(1);
+    const again = await relay.relayNext();
 
-  it("abandons an effect whose type has no handler", async () => {
-    const unknown = `${faker.lorem.word()}.${faker.string.alpha(12)}`;
-    const effect = await recordOne(buildPayload(), unknown);
-    const now = clock.now();
-
-    const relayed = await relay.relayNext();
-
-    expect(relayed).toBe(true);
-    expect(outbox.effects()).toStrictEqual([
-      {
-        ...effect,
-        attempts: 1,
-        payload: null,
-        lockedUntil: null,
-        lastError: expect.any(String) as string,
-        failedAt: now,
-        expiresAt: later(now, SEVEN_DAYS_MS),
-      },
+    expect(held).toBe(false);
+    expect(again).toBe(true);
+    expect(enqueue.mock.calls).toStrictEqual([
+      [handedOver(effect)],
+      [handedOver(effect)],
     ]);
-    expect(logger.entries).toStrictEqual([
-      {
-        level: LogLevel.ERROR,
-        event: SharedLogEvent.OutboxEffectAbandoned.name,
-        fields: { id: effect.id, type: unknown, attempts: 1 },
-      },
-    ]);
-    expect(handle).not.toHaveBeenCalled();
   });
 
   describe("running", () => {
     beforeEach(() => {
       vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    });
+
+    it("leaves the effect pending when the queue refuses it", async () => {
+      const effect = await recordOne();
+      const error = new Error(faker.lorem.sentence());
+      enqueue.mockRejectedValueOnce(error);
+      const now = clock.now();
+
+      relay.start();
+      await vi.advanceTimersByTimeAsync(0);
+      const afterRefusal = outbox.effects();
+      clock.advance(LOCK_MS);
+      await vi.advanceTimersByTimeAsync(1_000);
+
+      expect(logger.entries).toStrictEqual([
+        {
+          level: LogLevel.ERROR,
+          event: SharedLogEvent.OutboxRelayFailed.name,
+          fields: { error },
+        },
+      ]);
+      expect(afterRefusal).toStrictEqual([
+        { ...effect, lockedUntil: later(now, LOCK_MS) },
+      ]);
+      expect(enqueue.mock.calls).toStrictEqual([
+        [handedOver(effect)],
+        [handedOver(effect)],
+      ]);
     });
 
     it("waits 1 000 ms before looking again when nothing is due", async () => {
@@ -289,19 +157,17 @@ describe("OutboxRelay", () => {
       expect(reserve).toHaveBeenCalledTimes(2);
     });
 
-    it("looks for the next effect right after relaying one", async () => {
+    it("looks for the next effect right after handing one over", async () => {
       const reserve = vi.spyOn(outbox, "reserve");
-      const first = buildPayload();
-      const second = buildPayload();
-      const firstEffect = await recordOne(first);
-      const secondEffect = await recordOne(second);
+      const first = await recordOne();
+      const second = await recordOne();
 
       relay.start();
       await vi.advanceTimersByTimeAsync(0);
 
-      expect(handle.mock.calls).toStrictEqual([
-        [{ id: firstEffect.id, payload: first }],
-        [{ id: secondEffect.id, payload: second }],
+      expect(enqueue.mock.calls).toStrictEqual([
+        [handedOver(first)],
+        [handedOver(second)],
       ]);
       expect(reserve).toHaveBeenCalledTimes(3);
     });
@@ -316,12 +182,12 @@ describe("OutboxRelay", () => {
       expect(reserve).toHaveBeenCalledTimes(1);
     });
 
-    it("finishes the effect in progress before stop resolves", async () => {
+    it("finishes the hand-over in progress before stop resolves", async () => {
       await recordOne();
       await recordOne();
       const reserve = vi.spyOn(outbox, "reserve");
       let finish = () => {};
-      handle.mockReturnValueOnce(
+      enqueue.mockReturnValueOnce(
         new Promise<void>((resolve) => {
           finish = resolve;
         }),
@@ -339,8 +205,10 @@ describe("OutboxRelay", () => {
       await stopping;
 
       expect(stoppedBeforeFinish).toBe(false);
-      expect(outbox.effects()[0].processedAt).toStrictEqual(clock.now());
-      expect(outbox.effects()[1].processedAt).toBeNull();
+      expect(outbox.effects()[0].lockedUntil).toStrictEqual(
+        later(clock.now(), TWO_HOURS_MS),
+      );
+      expect(outbox.effects()[1].lockedUntil).toBeNull();
       expect(reserve).toHaveBeenCalledTimes(1);
     });
 

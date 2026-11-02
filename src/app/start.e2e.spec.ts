@@ -13,12 +13,16 @@ import { SharedLogEvent } from "@shared/application/logging/shared.log-event";
 import { LogLevel } from "@shared/application/ports/logger";
 import { OutboxRelay } from "@shared/application/services/outbox-relay";
 import { SharedError } from "@shared/domain/errors/shared.error";
+import { BullOutboxQueue } from "@shared/infrastructure/jobs/bull-outbox-queue";
+import { BullOutboxWorker } from "@shared/infrastructure/jobs/bull-outbox-worker";
 import { MongoDatabase } from "@shared/infrastructure/mongo/mongo-database";
 import type { OutboxDocument } from "@shared/infrastructure/mongo/outbox.schema";
+import { RedisConnection } from "@shared/infrastructure/redis/redis-connection";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { FakeSentryIngest } from "@shared/testing/fake-sentry-ingest";
 import { memoryMongoUri } from "@shared/testing/memory-mongo";
 import { useMemoryRedis } from "@shared/testing/memory-redis";
+import { Queue } from "bullmq";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import mongoose from "mongoose";
 import request from "supertest";
@@ -411,8 +415,25 @@ describe("start", () => {
     expect(connectionNamed(name)?.readyState).toBe(0);
   });
 
+  const appName = () => faker.string.alpha({ length: 12, casing: "lower" });
+
+  const queueOf = (name: string, prefix: string) => {
+    const queue = new Queue(name, {
+      connection: { url: redis.url() },
+      prefix,
+    });
+    opened.push(queue);
+    return queue;
+  };
+  const opened: Queue[] = [];
+
+  afterEach(async () => {
+    await Promise.all(opened.splice(0).map((queue) => queue.close()));
+  });
+
   it("delivers the e-mails recorded in the outbox while it runs", async () => {
-    const { url, name, output } = await startApp();
+    const prefix = appName();
+    const { url, name, output } = await startApp({ APP_NAME: prefix });
     const outbox = () =>
       connectionNamed(name)!.collection<OutboxDocument>("outbox");
     const email = faker.internet.email().toLowerCase();
@@ -453,6 +474,33 @@ describe("start", () => {
     expect(
       output.events().filter((event) => event === "identity.email_logged"),
     ).toHaveLength(2);
+    const counts = await queueOf("outbox", prefix).getJobCounts();
+    expect(Object.values(counts).every((count) => count === 0)).toBe(true);
+  });
+
+  it("closes the relay and the jobs before Redis and Mongo", async () => {
+    const steps = {
+      relay: vi.spyOn(OutboxRelay.prototype, "stop"),
+      outboxWorker: vi.spyOn(BullOutboxWorker.prototype, "close"),
+      outboxQueue: vi.spyOn(BullOutboxQueue.prototype, "close"),
+      redis: vi.spyOn(RedisConnection.prototype, "close"),
+      mongo: vi.spyOn(MongoDatabase.prototype, "close"),
+    };
+    const { app } = await startApp();
+
+    await app.stop();
+
+    const order = Object.entries(steps)
+      .map(([step, spy]) => [step, spy.mock.invocationCallOrder[0]] as const)
+      .sort(([, first], [, second]) => (first ?? 0) - (second ?? 0))
+      .map(([step]) => step);
+    expect(order).toStrictEqual([
+      "relay",
+      "outboxWorker",
+      "outboxQueue",
+      "redis",
+      "mongo",
+    ]);
   });
 
   it("starts the outbox relay after listening and stops it before closing the database", async () => {

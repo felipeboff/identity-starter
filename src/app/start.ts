@@ -2,10 +2,13 @@ import { once } from "node:events";
 import type { AddressInfo } from "node:net";
 
 import { SharedLogEvent } from "@shared/application/logging/shared.log-event";
+import { OutboxEffectRunner } from "@shared/application/services/outbox-effect-runner";
 import { OutboxRelay } from "@shared/application/services/outbox-relay";
 import { DisabledErrorReporter } from "@shared/infrastructure/errors/disabled-error-reporter";
 import { SentryErrorReporter } from "@shared/infrastructure/errors/sentry-error-reporter";
 import { HttpServerShutdown } from "@shared/infrastructure/http/http-server-shutdown";
+import { BullOutboxQueue } from "@shared/infrastructure/jobs/bull-outbox-queue";
+import { BullOutboxWorker } from "@shared/infrastructure/jobs/bull-outbox-worker";
 import { AsyncLocalLogContext } from "@shared/infrastructure/logging/async-local-log-context";
 import { PinoLogger } from "@shared/infrastructure/logging/pino-logger";
 import { MongoDatabase } from "@shared/infrastructure/mongo/mongo-database";
@@ -129,11 +132,27 @@ export const start = async (options: StartOptions): Promise<RunningApp> => {
   const { port } = server.address() as AddressInfo;
   logger.info(SharedLogEvent.ServerStarted, { port });
 
+  const jobs = {
+    redis: cache.client,
+    url: env.REDIS_URL.href,
+    prefix: env.APP_NAME,
+  };
+  const outboxQueue = new BullOutboxQueue(jobs);
+  const outboxWorker = new BullOutboxWorker({
+    settings: jobs,
+    runner: new OutboxEffectRunner({
+      store: outbox,
+      handlers: new OutboxConsumerAdapter({ dispatcher }).toHandlers(
+        identity.outboxConsumers,
+      ),
+      clock,
+      logger,
+    }),
+  });
+
   const relay = new OutboxRelay({
     store: outbox,
-    handlers: new OutboxConsumerAdapter({ dispatcher }).toHandlers(
-      identity.outboxConsumers,
-    ),
+    queue: outboxQueue,
     clock,
     logger,
   });
@@ -143,6 +162,8 @@ export const start = async (options: StartOptions): Promise<RunningApp> => {
   const shutdown = async (): Promise<0 | 1> => {
     const outcome = await httpShutdown.run();
     await relay.stop();
+    await outboxWorker.close();
+    await outboxQueue.close();
     await cache.close();
     await database.close();
     await sentry?.close();
