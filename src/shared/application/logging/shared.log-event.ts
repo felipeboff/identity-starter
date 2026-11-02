@@ -53,4 +53,9 @@ export const SharedLogEvent = {
   OutboxRelayFailed: defineLogEvent<{ error: unknown }>(
     "shared.outbox_relay_failed",
   ),
+  ScheduledJobFailed: defineLogEvent<{
+    name: string;
+    attempts: number;
+    error: unknown;
+  }>("shared.scheduled_job_failed"),
 };

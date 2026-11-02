@@ -15,6 +15,7 @@ import { OutboxRelay } from "@shared/application/services/outbox-relay";
 import { SharedError } from "@shared/domain/errors/shared.error";
 import { BullOutboxQueue } from "@shared/infrastructure/jobs/bull-outbox-queue";
 import { BullOutboxWorker } from "@shared/infrastructure/jobs/bull-outbox-worker";
+import { BullScheduledJobs } from "@shared/infrastructure/jobs/bull-scheduled-jobs";
 import { MongoDatabase } from "@shared/infrastructure/mongo/mongo-database";
 import type { OutboxDocument } from "@shared/infrastructure/mongo/outbox.schema";
 import { RedisConnection } from "@shared/infrastructure/redis/redis-connection";
@@ -478,10 +479,26 @@ describe("start", () => {
     expect(Object.values(counts).every((count) => count === 0)).toBe(true);
   });
 
+  it("syncs the modules' scheduled jobs on start, removing the ones nobody declares", async () => {
+    const prefix = appName();
+    const scheduled = queueOf("scheduled", prefix);
+    const stale = `${faker.lorem.word()}.${faker.string.alpha(10)}`;
+    await scheduled.upsertJobScheduler(
+      stale,
+      { pattern: "0 9 * * *", tz: "America/Sao_Paulo" },
+      { name: stale },
+    );
+
+    await startApp({ APP_NAME: prefix });
+
+    expect(await scheduled.getJobSchedulers()).toStrictEqual([]);
+  });
+
   it("closes the relay and the jobs before Redis and Mongo", async () => {
     const steps = {
       relay: vi.spyOn(OutboxRelay.prototype, "stop"),
       outboxWorker: vi.spyOn(BullOutboxWorker.prototype, "close"),
+      scheduledJobs: vi.spyOn(BullScheduledJobs.prototype, "close"),
       outboxQueue: vi.spyOn(BullOutboxQueue.prototype, "close"),
       redis: vi.spyOn(RedisConnection.prototype, "close"),
       mongo: vi.spyOn(MongoDatabase.prototype, "close"),
@@ -497,6 +514,7 @@ describe("start", () => {
     expect(order).toStrictEqual([
       "relay",
       "outboxWorker",
+      "scheduledJobs",
       "outboxQueue",
       "redis",
       "mongo",

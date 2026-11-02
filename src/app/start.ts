@@ -9,6 +9,7 @@ import { SentryErrorReporter } from "@shared/infrastructure/errors/sentry-error-
 import { HttpServerShutdown } from "@shared/infrastructure/http/http-server-shutdown";
 import { BullOutboxQueue } from "@shared/infrastructure/jobs/bull-outbox-queue";
 import { BullOutboxWorker } from "@shared/infrastructure/jobs/bull-outbox-worker";
+import { BullScheduledJobs } from "@shared/infrastructure/jobs/bull-scheduled-jobs";
 import { AsyncLocalLogContext } from "@shared/infrastructure/logging/async-local-log-context";
 import { PinoLogger } from "@shared/infrastructure/logging/pino-logger";
 import { MongoDatabase } from "@shared/infrastructure/mongo/mongo-database";
@@ -149,6 +150,13 @@ export const start = async (options: StartOptions): Promise<RunningApp> => {
       logger,
     }),
   });
+  const scheduledJobs = new BullScheduledJobs({
+    settings: jobs,
+    jobs: identity.scheduledJobs,
+    dispatcher,
+    logger,
+  });
+  await scheduledJobs.sync();
 
   const relay = new OutboxRelay({
     store: outbox,
@@ -163,6 +171,7 @@ export const start = async (options: StartOptions): Promise<RunningApp> => {
     const outcome = await httpShutdown.run();
     await relay.stop();
     await outboxWorker.close();
+    await scheduledJobs.close();
     await outboxQueue.close();
     await cache.close();
     await database.close();

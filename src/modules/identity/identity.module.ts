@@ -14,6 +14,7 @@ import { ObjectIdGenerator } from "@shared/infrastructure/mongo/object-id-genera
 import { RedisCache } from "@shared/infrastructure/redis/redis-cache";
 import { HttpRoute } from "@shared/presentation/http/http-route";
 import { OutboxConsumer } from "@shared/presentation/outbox/outbox-consumer";
+import type { ScheduledJob } from "@shared/presentation/scheduling/scheduled-job";
 import type { Redis } from "ioredis";
 import type { Connection } from "mongoose";
 
@@ -162,6 +163,7 @@ export type IdentityModule = {
   publicRoutes: readonly HttpRoute[];
   routes: readonly HttpRoute<Actor>[];
   outboxConsumers: readonly OutboxConsumer[];
+  scheduledJobs: readonly ScheduledJob[];
   grantAdmin: GrantAdminUseCase;
 };
 
@@ -229,6 +231,7 @@ export const assembleIdentityModule = (
     publicRoutes: createIdentityPublicRoutes({ ...useCases, rateLimiter }),
     routes: createIdentityRoutes({ ...useCases, rateLimiter }),
     outboxConsumers: createIdentityOutboxConsumers(useCases),
+    scheduledJobs: [],
     grantAdmin: new GrantAdminUseCase(deps),
   };
 };

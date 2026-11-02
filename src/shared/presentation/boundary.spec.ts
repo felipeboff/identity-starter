@@ -42,6 +42,7 @@ describe("src/shared/presentation", () => {
       path.join("outbox", "outbox-consumer.ts"),
       "page-request.schema.ts",
       "rate-limit.middleware.ts",
+      path.join("scheduling", "scheduled-job.ts"),
       "schema-parser.ts",
     ]);
 
