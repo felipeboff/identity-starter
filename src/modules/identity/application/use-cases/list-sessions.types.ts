@@ -1,9 +1,9 @@
 import { Clock } from "@shared/application/ports/clock";
 
-import { PublicSession } from "../mappers/toPublicSession";
+import { SessionOutput } from "../mappers/toOutputSession";
 import { SessionRepository } from "../ports/session.repository";
 
-export type ListedSession = PublicSession & {
+export type ListedSession = SessionOutput & {
   current: boolean;
 };
 

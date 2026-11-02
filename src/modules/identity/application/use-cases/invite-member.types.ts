@@ -2,7 +2,7 @@ import { Clock } from "@shared/application/ports/clock";
 import { IdGenerator } from "@shared/application/ports/id-generator";
 import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
 
-import { PublicInvitation } from "../mappers/toPublicInvitation";
+import { InvitationOutput } from "../mappers/toOutputInvitation";
 import { AccessPolicy } from "../policies/access.policy";
 import { AccountRepository } from "../ports/account.repository";
 import { IdentityMailer } from "../ports/identity-mailer";
@@ -22,7 +22,7 @@ export type InviteMemberInput = {
 };
 
 export type InviteMemberOutput = {
-  invitation: PublicInvitation;
+  invitation: InvitationOutput;
 };
 
 export type InviteMemberDeps = {

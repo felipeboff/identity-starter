@@ -101,6 +101,19 @@ answer `204` even with the provider down, and never `422 identity.email_delivery
 user the e-mail can take a minute to arrive. The `/verify-email` page posts the token to `POST /auth/email-verification`. Accounts
 created through OAuth or an invitation start verified.
 
+## Response shapes
+
+Every route answers these shapes and nothing else; dates are ISO strings. A field the API does not
+list here is not part of the contract.
+
+| Object       | Fields                                                                                |
+| ------------ | ------------------------------------------------------------------------------------- |
+| `account`    | `id`, `name`, `email`, `emailVerifiedAt`, `lastSeenAt`, `createdAt`, `deactivatedAt`  |
+| `membership` | `id`, `accountId`, `role`, `permissions`, `updatedAt`                                 |
+| `session`    | `id`, `userAgent`, `ipAddress`, `createdAt`, `expiresAt`, plus `current` in the lists |
+| `credential` | `id`, `provider`, `providerEmail`, `createdAt`, `updatedAt`                           |
+| `invitation` | `id`, `email`, `role`, `permissions`, `createdAt`, `expiresAt`                        |
+
 ## Permissions
 
 Access depends on the member's `permissions`. A use case may also require a `role`, and then
@@ -136,7 +149,7 @@ permissions with your changes: the ones you do not hold must stay exactly as the
 ## Members
 
 `GET /members` (`member.read`) lists the members, each as `{ account, membership }`, in
-membership id order. Deactivated accounts are included, with `account.deletedAt` set. `limit` goes
+membership id order. Deactivated accounts are included, with `account.deactivatedAt` set. `limit` goes
 from 1 to 100 (50 by default); send the answer's `nextCursor` as `cursor` to get the next page,
 until it comes back `null`:
 

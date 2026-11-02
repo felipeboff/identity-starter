@@ -1,6 +1,7 @@
 import { faker } from "@faker-js/faker";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { toOutputCredential } from "../mappers/toOutputCredential";
 import {
   IdentityContext,
   createIdentityContext,
@@ -66,8 +67,9 @@ describe("ListCredentialsUseCase", () => {
 
     const output = await useCase.execute(ana.actor);
 
-    const { passwordHash, ...publicFields } = ana.credential.toSnapshot();
-    expect(passwordHash).toBeDefined();
-    expect(output.credentials).toStrictEqual([publicFields]);
+    expect(output.credentials).toStrictEqual([
+      toOutputCredential(ana.credential),
+    ]);
+    expect(output.credentials[0]).not.toHaveProperty("passwordHash");
   });
 });

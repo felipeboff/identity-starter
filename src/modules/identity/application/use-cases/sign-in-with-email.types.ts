@@ -2,14 +2,13 @@ import { Clock } from "@shared/application/ports/clock";
 import type { Logger } from "@shared/application/ports/logger";
 import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
 
+import { AccountOutput } from "../mappers/toOutputAccount";
 import { AccountRepository } from "../ports/account.repository";
 import { CredentialRepository } from "../ports/credential.repository";
 import { MembershipRepository } from "../ports/memberships.repository";
 import { PasswordHasher } from "../ports/password-hasher";
 import { SessionIssuer } from "../services/session-issuer";
 import { SignInThrottle } from "../services/sign-in-throttle";
-
-import { AccountSnapshot } from "@/identity/domain/account.entity";
 
 export type SignInWithEmailInput = {
   email: string;
@@ -19,7 +18,7 @@ export type SignInWithEmailInput = {
 };
 
 export type SignInWithEmailOutput = {
-  account: AccountSnapshot;
+  account: AccountOutput;
 
   accessToken: string;
   refreshToken: string;

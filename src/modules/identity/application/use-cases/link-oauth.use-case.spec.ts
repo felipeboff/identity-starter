@@ -64,10 +64,13 @@ describe("LinkOAuthUseCase", () => {
     );
 
     expect(output.credential).toMatchObject({
-      accountId: ana.accountId,
       provider: AuthProvider.GOOGLE,
-      subject: profile.subject,
       providerEmail: profile.email,
+    });
+    const linked = await ctx.credentials.findById(output.credential.id);
+    expect(linked?.toSnapshot()).toMatchObject({
+      accountId: ana.accountId,
+      subject: profile.subject,
       deletedAt: null,
     });
     expect(output.credential).not.toHaveProperty("passwordHash");
@@ -107,10 +110,7 @@ describe("LinkOAuthUseCase", () => {
       ana.actor,
     );
 
-    expect(output.credential).toMatchObject({
-      id: google.id.value,
-      deletedAt: null,
-    });
+    expect(output.credential.id).toBe(google.id.value);
     const stored = await ctx.credentials.findById(google.id.value);
     expect(stored?.isDeleted()).toBe(false);
   });
@@ -126,7 +126,8 @@ describe("LinkOAuthUseCase", () => {
       ana.actor,
     );
 
-    expect(output.credential.subject).toBe(profile.subject);
+    const linked = await ctx.credentials.findById(output.credential.id);
+    expect(linked?.subject).toBe(profile.subject);
   });
 
   it("throws OAuthLinkedToAnotherAccount when another account owns the identity", async () => {

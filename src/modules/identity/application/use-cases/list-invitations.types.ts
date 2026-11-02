@@ -1,10 +1,10 @@
 import { Clock } from "@shared/application/ports/clock";
 
-import { PublicInvitation } from "../mappers/toPublicInvitation";
+import { InvitationOutput } from "../mappers/toOutputInvitation";
 import { InvitationRepository } from "../ports/invitation.repository";
 
 export type ListInvitationsOutput = {
-  invitations: PublicInvitation[];
+  invitations: InvitationOutput[];
 };
 
 export type ListInvitationsDeps = {

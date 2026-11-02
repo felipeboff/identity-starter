@@ -2,6 +2,7 @@ import { Clock } from "@shared/application/ports/clock";
 import { IdGenerator } from "@shared/application/ports/id-generator";
 import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
 
+import { AccountOutput } from "../mappers/toOutputAccount";
 import { AccountRepository } from "../ports/account.repository";
 import { CredentialRepository } from "../ports/credential.repository";
 import { InvitationRepository } from "../ports/invitation.repository";
@@ -9,8 +10,6 @@ import { MembershipRepository } from "../ports/memberships.repository";
 import { PasswordHasher } from "../ports/password-hasher";
 import { TokenIssuer } from "../ports/token-issuer";
 import { SessionIssuer } from "../services/session-issuer";
-
-import { AccountSnapshot } from "@/identity/domain/account.entity";
 
 export type AcceptInvitationInput = {
   token: string;
@@ -21,7 +20,7 @@ export type AcceptInvitationInput = {
 };
 
 export type AcceptInvitationOutput = {
-  account: AccountSnapshot;
+  account: AccountOutput;
 
   accessToken: string;
   refreshToken: string;

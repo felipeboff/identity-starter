@@ -1,12 +1,10 @@
 import { Clock } from "@shared/application/ports/clock";
 
+import { MembershipOutput } from "../mappers/toOutputMembership";
 import { MembershipRepository } from "../ports/memberships.repository";
 import { MembershipResolver } from "../services/membership-resolver";
 
-import {
-  MembershipRole,
-  MembershipSnapshot,
-} from "@/identity/domain/membership.entity";
+import { MembershipRole } from "@/identity/domain/membership.entity";
 
 export type UpdateMemberRoleInput = {
   accountId: string;
@@ -14,7 +12,7 @@ export type UpdateMemberRoleInput = {
 };
 
 export type UpdateMemberRoleOutput = {
-  membership: MembershipSnapshot;
+  membership: MembershipOutput;
 };
 
 export type UpdateMemberRoleDeps = {

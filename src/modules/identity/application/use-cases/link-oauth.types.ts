@@ -1,7 +1,7 @@
 import { Clock } from "@shared/application/ports/clock";
 import { IdGenerator } from "@shared/application/ports/id-generator";
 
-import { PublicCredential } from "../mappers/toPublicCredential";
+import { CredentialOutput } from "../mappers/toOutputCredential";
 import { CredentialRepository } from "../ports/credential.repository";
 import { OAuthGateway } from "../ports/oauth-gateway";
 import { AccountResolver } from "../services/account-resolver";
@@ -13,7 +13,7 @@ export type LinkOAuthInput = {
 };
 
 export type LinkOAuthOutput = {
-  credential: PublicCredential;
+  credential: CredentialOutput;
 };
 
 export type LinkOAuthDeps = {

@@ -154,9 +154,11 @@ describe("SignInWithOAuthUseCase", () => {
       expect(output.account).toMatchObject({
         name: profile.name,
         email: profile.email,
-        createdBy: accountId,
         lastSeenAt: null,
       });
+      expect((await ctx.accounts.findById(accountId))?.createdBy.value).toBe(
+        accountId,
+      );
 
       const credential = await ctx.credentials.findByProviderAndSubject(
         AuthProvider.GOOGLE,

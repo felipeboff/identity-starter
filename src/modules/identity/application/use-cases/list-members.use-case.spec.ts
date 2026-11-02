@@ -7,6 +7,8 @@ import { SharedError } from "@shared/domain/errors/shared.error";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { toOutputAccount } from "../mappers/toOutputAccount";
+import { toOutputMembership } from "../mappers/toOutputMembership";
 import {
   IdentityContext,
   SeededAccount,
@@ -54,8 +56,8 @@ describe("ListMembersUseCase", () => {
 
     expect(output).toStrictEqual({
       members: [ana, bruno].sort(byMembershipId).map((seeded) => ({
-        account: seeded.account.toSnapshot(),
-        membership: seeded.membership.toSnapshot(),
+        account: toOutputAccount(seeded.account),
+        membership: toOutputMembership(seeded.membership),
       })),
       nextCursor: null,
     });

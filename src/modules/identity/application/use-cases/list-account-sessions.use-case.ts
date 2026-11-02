@@ -1,7 +1,7 @@
 import { Access, UseCase } from "@shared/application/use-cases";
 
 import { Actor } from "../actor";
-import { toPublicSession } from "../mappers/toPublicSession";
+import { toOutputSession } from "../mappers/toOutputSession";
 
 import {
   ListAccountSessionsDeps,
@@ -37,7 +37,7 @@ export class ListAccountSessionsUseCase extends UseCase<{
         .filter((session) => session.isActive(at))
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
         .map((session) => ({
-          ...toPublicSession(session),
+          ...toOutputSession(session),
           current: session.id.value === actor.sessionId,
         })),
     };

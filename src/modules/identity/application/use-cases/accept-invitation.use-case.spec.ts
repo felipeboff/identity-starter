@@ -65,8 +65,10 @@ describe("AcceptInvitationUseCase", () => {
       name: accept.name,
       email: input.email,
       emailVerifiedAt: now,
-      createdBy: admin.accountId,
     });
+    expect((await ctx.accounts.findById(accountId))?.createdBy.value).toBe(
+      admin.accountId,
+    );
     expect(
       (await ctx.memberships.findByAccountId(accountId))?.toSnapshot(),
     ).toMatchObject({

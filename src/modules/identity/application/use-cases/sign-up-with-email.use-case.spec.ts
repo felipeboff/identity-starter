@@ -44,9 +44,11 @@ describe("SignUpWithEmailUseCase", () => {
     expect(output.account).toMatchObject({
       name: input.name,
       email: input.email,
-      createdBy: accountId,
-      deletedAt: null,
+      deactivatedAt: null,
     });
+    expect((await ctx.accounts.findById(accountId))?.createdBy.value).toBe(
+      accountId,
+    );
 
     const [credential] = await ctx.credentials.listByAccountId(accountId);
     expect(credential.toSnapshot()).toMatchObject({

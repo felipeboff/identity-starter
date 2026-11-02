@@ -1,7 +1,7 @@
 import { Access, UseCase } from "@shared/application/use-cases";
 
 import { Actor } from "../actor";
-import { toPublicCredential } from "../mappers/toPublicCredential";
+import { toOutputCredential } from "../mappers/toOutputCredential";
 
 import {
   ListCredentialsDeps,
@@ -23,7 +23,7 @@ export class ListCredentialsUseCase extends UseCase<{
     return {
       credentials: credentials
         .filter((credential) => !credential.isDeleted())
-        .map((credential) => toPublicCredential(credential)),
+        .map((credential) => toOutputCredential(credential)),
     };
   }
 }

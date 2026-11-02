@@ -57,9 +57,9 @@ const MemberActions = (props: MemberActionsProps) => {
   const toast = useToast();
   const isSelf = props.accountId === me.account.id;
   const deactivated = props.member
-    ? props.member.account.deletedAt !== null
+    ? props.member.account.deactivatedAt !== null
     : null;
-  const version = props.member?.membership.version ?? 0;
+  const membershipUpdatedAt = props.member?.membership.updatedAt ?? "";
 
   const canRole = auth.can(Permission.MEMBER_ROLE_UPDATE) && !isSelf;
   const canPermissions =
@@ -89,7 +89,7 @@ const MemberActions = (props: MemberActionsProps) => {
           <h3>{t.members.role}</h3>
           <p class="panel-hint">{t.members.roleHint}</p>
           <Form
-            key={`role-${props.accountId}-${version}`}
+            key={`role-${props.accountId}-${membershipUpdatedAt}`}
             class="form-inline"
             action={async (values) => {
               const output = await identityApi.updateMemberRole({
@@ -123,7 +123,7 @@ const MemberActions = (props: MemberActionsProps) => {
               : t.members.permissionsHintManual}
           </p>
           <Form
-            key={`permissions-${props.accountId}-${version}`}
+            key={`permissions-${props.accountId}-${membershipUpdatedAt}`}
             action={async (values) => {
               const output = await identityApi.updateMemberPermissions({
                 accountId: props.accountId,
@@ -203,7 +203,7 @@ const MemberActions = (props: MemberActionsProps) => {
                     props.onChanged({
                       account: {
                         ...props.member.account,
-                        deletedAt: new Date().toISOString(),
+                        deactivatedAt: new Date().toISOString(),
                       },
                     });
                   }
@@ -347,7 +347,7 @@ const MemberBadges = (props: MemberBadgesProps) => {
   const t = useMessages();
   return (
     <>
-      {props.member.account.deletedAt ? (
+      {props.member.account.deactivatedAt ? (
         <Badge tone="danger">{t.members.deactivatedBadge}</Badge>
       ) : (
         <Badge
@@ -394,7 +394,9 @@ const MemberPanel = (props: MemberPanelProps) => {
   return (
     <>
       <header class="member-head">
-        <span class={`avatar avatar-lg ${account.deletedAt ? "is-muted" : ""}`}>
+        <span
+          class={`avatar avatar-lg ${account.deactivatedAt ? "is-muted" : ""}`}
+        >
           {format.initials(account.name)}
         </span>
         <div class="member-head-text">
@@ -547,7 +549,7 @@ const MemberDirectory = () => {
                   onClick={() => select(member.account.id)}
                 >
                   <span
-                    class={`avatar avatar-sm ${member.account.deletedAt ? "is-muted" : ""}`}
+                    class={`avatar avatar-sm ${member.account.deactivatedAt ? "is-muted" : ""}`}
                   >
                     {format.initials(member.account.name)}
                   </span>

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { toOutputSession } from "../mappers/toOutputSession";
 import {
   IdentityContext,
   createIdentityContext,
@@ -46,9 +47,10 @@ describe("ListSessionsUseCase", () => {
 
     const output = await useCase.execute(ana.actor);
 
-    const { tokenHash, ...publicFields } = session.toSnapshot();
-    expect(tokenHash).toBeDefined();
-    expect(output.sessions).toEqual([{ ...publicFields, current: false }]);
+    expect(output.sessions).toStrictEqual([
+      { ...toOutputSession(session), current: false },
+    ]);
+    expect(output.sessions[0]).not.toHaveProperty("tokenHash");
   });
 
   it("marks the session of the caller as the current one", async () => {

@@ -2,7 +2,7 @@ import { Access, UseCase } from "@shared/application/use-cases";
 import { AppError } from "@shared/domain/errors/app-error";
 
 import { Actor } from "../actor";
-import { toPublicCredential } from "../mappers/toPublicCredential";
+import { toOutputCredential } from "../mappers/toOutputCredential";
 
 import {
   LinkOAuthDeps,
@@ -46,7 +46,7 @@ export class LinkOAuthUseCase extends UseCase<{
       });
     }
     if (existing && !existing.isDeleted()) {
-      return { credential: toPublicCredential(existing) };
+      return { credential: toOutputCredential(existing) };
     }
 
     const owned = await this.deps.credentials.listByAccountId(account.id.value);
@@ -72,6 +72,6 @@ export class LinkOAuthUseCase extends UseCase<{
     credential.reactivate(at);
     await this.deps.credentials.save(credential);
 
-    return { credential: toPublicCredential(credential) };
+    return { credential: toOutputCredential(credential) };
   }
 }

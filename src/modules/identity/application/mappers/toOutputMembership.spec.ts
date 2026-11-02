@@ -7,16 +7,26 @@ import {
 
 import { toOutputMembership } from "./toOutputMembership";
 
-import { MembershipRole } from "@/identity/domain/membership.entity";
+import {
+  MembershipPermission,
+  MembershipRole,
+} from "@/identity/domain/membership.entity";
 
 describe("toOutputMembership", () => {
-  it("returns the membership snapshot", async () => {
+  it("returns exactly the public fields of a membership", async () => {
     const ctx = createIdentityContext();
-    const admin = await seedAccount(ctx, { role: MembershipRole.ADMIN });
+    const permissions = [MembershipPermission.MEMBER_READ];
+    const ana = await seedAccount(ctx, {
+      role: MembershipRole.ADMIN,
+      permissions,
+    });
 
-    const output = toOutputMembership(admin.membership);
-
-    expect(output).toEqual(admin.membership.toSnapshot());
-    expect(output.role).toBe(MembershipRole.ADMIN);
+    expect(toOutputMembership(ana.membership)).toStrictEqual({
+      id: ana.membership.id.value,
+      accountId: ana.accountId,
+      role: MembershipRole.ADMIN,
+      permissions,
+      updatedAt: ana.membership.updatedAt,
+    });
   });
 });

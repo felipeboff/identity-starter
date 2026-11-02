@@ -1,7 +1,7 @@
 import { UseCase } from "@shared/application/use-cases";
 
 import { Actor } from "../actor";
-import { toPublicInvitation } from "../mappers/toPublicInvitation";
+import { toOutputInvitation } from "../mappers/toOutputInvitation";
 
 import {
   ListInvitationsDeps,
@@ -25,7 +25,7 @@ export class ListInvitationsUseCase extends UseCase<{
       invitations: invitations
         .filter((invitation) => invitation.isPending(at))
         .reverse()
-        .map(toPublicInvitation),
+        .map(toOutputInvitation),
     };
   }
 }

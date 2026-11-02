@@ -6,22 +6,20 @@ import {
   seedSession,
 } from "../testing/identity-context";
 
-import { toPublicSession } from "./toPublicSession";
+import { toOutputSession } from "./toOutputSession";
 
-describe("toPublicSession", () => {
-  it("returns the session snapshot without the token hash", async () => {
+describe("toOutputSession", () => {
+  it("returns exactly the public fields of a session", async () => {
     const ctx = createIdentityContext();
     const ana = await seedAccount(ctx);
     const { session } = await seedSession(ctx, ana);
 
-    const output = toPublicSession(session);
-
-    expect(output).not.toHaveProperty("tokenHash");
-    expect(output).toMatchObject({
+    expect(toOutputSession(session)).toStrictEqual({
       id: session.id.value,
-      accountId: ana.accountId,
       userAgent: session.userAgent,
-      revokedAt: null,
+      ipAddress: session.ipAddress,
+      createdAt: session.createdAt,
+      expiresAt: session.expiresAt,
     });
   });
 });

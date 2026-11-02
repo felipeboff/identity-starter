@@ -2,7 +2,7 @@ import { UseCase } from "@shared/application/use-cases";
 import { AppError } from "@shared/domain/errors/app-error";
 
 import { Actor } from "../actor";
-import { toPublicInvitation } from "../mappers/toPublicInvitation";
+import { toOutputInvitation } from "../mappers/toOutputInvitation";
 import { INVITATION_TTL_MS } from "../token.policy";
 
 import {
@@ -74,6 +74,6 @@ export class InviteMemberUseCase extends UseCase<{
     });
 
     await this.deps.mailer.sendInvitation(invited.email);
-    return { invitation: toPublicInvitation(invited.invitation) };
+    return { invitation: toOutputInvitation(invited.invitation) };
   }
 }

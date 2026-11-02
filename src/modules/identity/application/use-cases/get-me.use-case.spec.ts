@@ -2,6 +2,7 @@ import { faker } from "@faker-js/faker";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { toOutputMembership } from "../mappers/toOutputMembership";
 import {
   IdentityContext,
   createIdentityContext,
@@ -34,7 +35,7 @@ describe("GetMeUseCase", () => {
       name: ana.account.name,
       email: ana.email,
     });
-    expect(output.membership).toEqual(ana.membership.toSnapshot());
+    expect(output.membership).toStrictEqual(toOutputMembership(ana.membership));
   });
 
   it("throws SessionNotFound when the session does not exist", async () => {

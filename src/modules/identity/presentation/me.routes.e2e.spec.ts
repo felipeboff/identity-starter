@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 
 import { IdentityHttp, createIdentityHttp } from "./testing/identity-http";
 
+import { toOutputAccount } from "@/identity/application/mappers/toOutputAccount";
+import { toOutputMembership } from "@/identity/application/mappers/toOutputMembership";
 import { IdentityOutboxEffect } from "@/identity/application/outbox/identity-outbox-effect";
 import {
   recordedEmails,
@@ -49,15 +51,24 @@ describe("identity protected routes", () => {
     const out = await http.call("GET", "/me", { token: ana.token });
 
     expect(out.status).toBe(200);
-    expect(out.body).toEqual({
-      account: expect.objectContaining({
-        id: ana.accountId,
-        email: ana.email,
-      }) as unknown,
-      membership: JSON.parse(
-        JSON.stringify(ana.membership.toSnapshot()),
-      ) as unknown,
-    });
+    const account = await http.ctx.accounts.findById(ana.accountId);
+    expect(out.body).toStrictEqual(
+      JSON.parse(
+        JSON.stringify({
+          account: account && toOutputAccount(account),
+          membership: toOutputMembership(ana.membership),
+        }),
+      ),
+    );
+    expect(Object.keys((out.body as { account: object }).account)).toEqual([
+      "id",
+      "name",
+      "email",
+      "emailVerifiedAt",
+      "lastSeenAt",
+      "createdAt",
+      "deactivatedAt",
+    ]);
   });
 
   it("renames me with 200", async () => {
@@ -180,11 +191,14 @@ describe("identity protected routes", () => {
     });
 
     expect(out.status).toBe(201);
-    expect(out.body).toEqual({
-      credential: expect.objectContaining({
-        accountId: ana.accountId,
+    expect(out.body).toStrictEqual({
+      credential: {
+        id: expect.any(String) as unknown,
         provider: AuthProvider.GOOGLE,
-      }) as unknown,
+        providerEmail: ana.email,
+        createdAt: expect.any(String) as unknown,
+        updatedAt: expect.any(String) as unknown,
+      },
     });
   });
 
@@ -292,7 +306,7 @@ describe("identity protected routes", () => {
     expect(out.body).toEqual({
       account: expect.objectContaining({
         id: bruno.accountId,
-        deletedAt: null,
+        deactivatedAt: null,
       }) as unknown,
     });
   });

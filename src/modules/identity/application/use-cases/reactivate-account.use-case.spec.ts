@@ -43,11 +43,11 @@ describe("ReactivateAccountUseCase", () => {
 
     expect(output.account).toMatchObject({
       email: ana.email,
-      deletedAt: null,
-      updatedAt: ctx.clock.now(),
+      deactivatedAt: null,
     });
     const account = await ctx.accounts.findById(ana.accountId);
     expect(account?.isDeleted()).toBe(false);
+    expect(account?.updatedAt).toEqual(ctx.clock.now());
   });
 
   it("refuses permission_missing without account.reactivate, even with the admin role", async () => {

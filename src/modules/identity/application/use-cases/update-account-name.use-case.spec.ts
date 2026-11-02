@@ -29,7 +29,7 @@ describe("UpdateAccountNameUseCase", () => {
     const output = await useCase.execute({ name: newName }, ana.actor);
 
     const now = ctx.clock.now();
-    expect(output.account).toMatchObject({ name: newName, updatedAt: now });
+    expect(output.account).toMatchObject({ name: newName });
     const stored = await ctx.accounts.findById(ana.accountId);
     expect(stored?.toSnapshot()).toMatchObject({
       name: newName,

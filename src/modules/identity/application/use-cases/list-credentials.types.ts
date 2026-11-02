@@ -1,8 +1,8 @@
-import { PublicCredential } from "../mappers/toPublicCredential";
+import { CredentialOutput } from "../mappers/toOutputCredential";
 import { CredentialRepository } from "../ports/credential.repository";
 
 export type ListCredentialsOutput = {
-  credentials: PublicCredential[];
+  credentials: CredentialOutput[];
 };
 
 export type ListCredentialsDeps = {

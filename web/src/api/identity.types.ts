@@ -52,13 +52,10 @@ export type Account = {
   id: string;
   name: string;
   email: string;
-  createdBy: string;
-  createdAt: string;
-  updatedAt: string;
-  version: number;
-  deletedAt: string | null;
-  lastSeenAt: string | null;
   emailVerifiedAt: string | null;
+  lastSeenAt: string | null;
+  createdAt: string;
+  deactivatedAt: string | null;
 };
 
 export type Membership = {
@@ -66,25 +63,15 @@ export type Membership = {
   accountId: string;
   role: Role;
   permissions: Permission[];
-  createdBy: string;
-  createdAt: string;
   updatedAt: string;
-  version: number;
-  deletedAt: string | null;
 };
 
 export type Session = {
   id: string;
-  accountId: string;
-  credentialId: string;
-  membershipId: string;
-  expiresAt: string;
   userAgent: string;
   ipAddress: string;
   createdAt: string;
-  version: number;
-  revokedAt: string | null;
-  revokedReason: string | null;
+  expiresAt: string;
   current: boolean;
 };
 
@@ -93,26 +80,16 @@ export type Invitation = {
   email: string;
   role: Role;
   permissions: Permission[];
-  expiresAt: string;
-  createdBy: string;
   createdAt: string;
-  updatedAt: string;
-  version: number;
-  acceptedAt: string | null;
-  acceptedByAccountId: string | null;
-  revokedAt: string | null;
+  expiresAt: string;
 };
 
 export type Credential = {
   id: string;
-  accountId: string;
   provider: string;
-  subject: string;
   providerEmail: string | null;
   createdAt: string;
   updatedAt: string;
-  version: number;
-  deletedAt: string | null;
 };
 
 export type SessionTokens = {

@@ -103,17 +103,19 @@ describe("invitations", () => {
       const { out, body } = await invite(http, inviter.token);
 
       expect(out.status).toBe(201);
-      expect(out.body).toMatchObject({
+      expect(out.body).toStrictEqual({
         invitation: {
+          id: expect.any(String) as unknown,
           email: body.email,
           role: body.role,
           permissions: body.permissions,
-          createdBy: inviter.accountId,
-          acceptedAt: null,
-          revokedAt: null,
+          createdAt: expect.any(String) as unknown,
+          expiresAt: expect.any(String) as unknown,
         },
       });
-      expect(out.body).not.toHaveProperty("invitation.tokenHash");
+      const { invitation } = out.body as { invitation: { id: string } };
+      const stored = await http.ctx.invitations.findById(invitation.id);
+      expect(stored?.createdBy.value).toBe(inviter.accountId);
       expect(http.ctx.mailer.invitations).toMatchObject([
         { to: body.email, inviterName: inviter.account.name },
       ]);
