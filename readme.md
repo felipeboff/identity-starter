@@ -104,36 +104,16 @@ clients may store or compare.
 ### The first administrator
 
 Every new account gets the `user` role and no permissions, and there is no bootstrap route.
-Sign up, then grant the permissions to your account in MongoDB:
+Sign up, then, with the environment of the API you are targeting:
 
-```js
-// mongosh "mongodb://localhost:27017/identity-starter?replicaSet=rs0"
-const account = db.accounts.findOne({ email: "you@example.com" });
-db.memberships.updateOne(
-  { accountId: account._id },
-  {
-    $set: {
-      role: "admin",
-      permissions: [
-        "invitation.create",
-        "invitation.read",
-        "invitation.revoke",
-        "account.deactivate",
-        "account.reactivate",
-        "session.read",
-        "session.revoke",
-        "session.revoke_all",
-        "member.read",
-        "member.role.update",
-        "member.permissions.update",
-      ],
-    },
-  },
-);
+```bash
+pnpm identity:grant-admin you@example.com
 ```
 
-Memberships are cached for 30 seconds, so the change takes effect within that time. From then
-on, invite the next people with the permissions they need.
+It gives that account the `admin` role and every permission, and clears its cached membership, so
+the next request already sees them. It exits with `1` and logs `identity.admin_grant_failed` when
+the e-mail has no active account. From then on, invite the next people with the permissions they
+need.
 
 ## Configuration
 
@@ -263,16 +243,17 @@ it and a line in [src/app/http-routes.ts](src/app/http-routes.ts) for its routes
 
 ## Scripts
 
-| Script                                     | What it does                                    |
-| ------------------------------------------ | ----------------------------------------------- |
-| `pnpm dev` / `pnpm start`                  | runs the API from source, with or without watch |
-| `pnpm build`                               | bundles the API to `dist/main.js` with esbuild  |
-| `pnpm docker:up`                           | starts MongoDB, Redis and Bugsink               |
-| `pnpm lint` / `pnpm typecheck`             | ESLint and `tsc --noEmit`                       |
-| `pnpm format` / `pnpm format:check`        | Prettier                                        |
-| `pnpm test`                                | Vitest in watch mode                            |
-| `pnpm test:unit` / `:integration` / `:e2e` | one test level                                  |
-| `pnpm test:coverage`                       | every test, with coverage                       |
+| Script                                     | What it does                                           |
+| ------------------------------------------ | ------------------------------------------------------ |
+| `pnpm dev` / `pnpm start`                  | runs the API from source, with or without watch        |
+| `pnpm build`                               | bundles the API to `dist/main.js` with esbuild         |
+| `pnpm docker:up`                           | starts MongoDB, Redis and Bugsink                      |
+| `pnpm identity:grant-admin <email>`        | gives an account the `admin` role and every permission |
+| `pnpm lint` / `pnpm typecheck`             | ESLint and `tsc --noEmit`                              |
+| `pnpm format` / `pnpm format:check`        | Prettier                                               |
+| `pnpm test`                                | Vitest in watch mode                                   |
+| `pnpm test:unit` / `:integration` / `:e2e` | one test level                                         |
+| `pnpm test:coverage`                       | every test, with coverage                              |
 
 To run the API in a container next to MongoDB and Redis:
 `docker compose --profile app up -d --wait`

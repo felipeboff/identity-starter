@@ -39,4 +39,10 @@ export const IdentityUseCaseLogEvent = {
     accountId: string;
     error: unknown;
   }>("identity.email_changed_notice_not_sent"),
+  AdminGranted: defineLogEvent<{ accountId: string; membershipId: string }>(
+    "identity.admin_granted",
+  ),
+  AdminGrantFailed: defineLogEvent<{ email: string; reason: string }>(
+    "identity.admin_grant_failed",
+  ),
 };

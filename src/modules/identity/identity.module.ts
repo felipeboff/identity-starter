@@ -44,6 +44,7 @@ import { ChangePasswordUseCase } from "./application/use-cases/change-password.u
 import { ConfirmEmailChangeUseCase } from "./application/use-cases/confirm-email-change.use-case";
 import { DeactivateAccountUseCase } from "./application/use-cases/deactivate-account.use-case";
 import { GetMeUseCase } from "./application/use-cases/get-me.use-case";
+import { GrantAdminUseCase } from "./application/use-cases/grant-admin.use-case";
 import { InviteMemberUseCase } from "./application/use-cases/invite-member.use-case";
 import { LinkOAuthUseCase } from "./application/use-cases/link-oauth.use-case";
 import { ListAccountSessionsUseCase } from "./application/use-cases/list-account-sessions.use-case";
@@ -161,6 +162,7 @@ export type IdentityModule = {
   publicRoutes: readonly HttpRoute[];
   routes: readonly HttpRoute<Actor>[];
   outboxConsumers: readonly OutboxConsumer[];
+  grantAdmin: GrantAdminUseCase;
 };
 
 export const assembleIdentityModule = (
@@ -227,6 +229,7 @@ export const assembleIdentityModule = (
     publicRoutes: createIdentityPublicRoutes({ ...useCases, rateLimiter }),
     routes: createIdentityRoutes({ ...useCases, rateLimiter }),
     outboxConsumers: createIdentityOutboxConsumers(useCases),
+    grantAdmin: new GrantAdminUseCase(deps),
   };
 };
 
