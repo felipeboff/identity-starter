@@ -5,6 +5,10 @@ import {
   type BasicAuthCredentials,
 } from "@shared/infrastructure/http/basic-auth";
 import { ExpressAdapter } from "@shared/infrastructure/http/express-adapter";
+import {
+  HealthAdapter,
+  type Readiness,
+} from "@shared/infrastructure/http/health-adapter";
 import type { AsyncLocalLogContext } from "@shared/infrastructure/logging/async-local-log-context";
 import type { Dispatcher } from "@shared/presentation/dispatcher";
 import { HttpErrorMapper } from "@shared/presentation/http/http-error-mapper";
@@ -30,7 +34,7 @@ export type CreateServerOptions = Readonly<{
   logger: Logger;
   errors: ErrorReporter;
   logContext: AsyncLocalLogContext;
-  readiness: Readonly<{ isReady(): Promise<boolean> }>;
+  readiness: Readiness;
   trustProxy: number;
   corsOrigins: readonly string[];
   docs: BasicAuthCredentials | null;
@@ -61,12 +65,7 @@ export const createServer = ({
     .use(helmet())
     .use(cors({ origin: [...corsOrigins], exposedHeaders: ["x-request-id"] }))
     .use(express.json())
-    .get("/health", async (_req, res) => {
-      const ready = await readiness.isReady();
-      res
-        .status(ready ? 200 : 503)
-        .json({ status: ready ? "ok" : "unavailable" });
-    });
+    .get("/health", new HealthAdapter({ readiness }).handler());
 
   if (docs !== null) {
     const guard = new BasicAuth({
