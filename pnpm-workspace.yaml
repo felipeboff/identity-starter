@@ -11,3 +11,8 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - mongoose@9.11.4
   - mquery@6.0.1
+  - "@boundaries/config@1.0.0"
+  - "@boundaries/elements@3.3.1"
+  - "@boundaries/policies@1.0.0"
+  - bullmq@6.5.4
+  - eslint-plugin-boundaries@7.4.1
