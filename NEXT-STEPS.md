@@ -144,7 +144,7 @@ outbox no próprio Mongo, e o transporte muda depois sem mexer nos use cases.
 
 - [ ] **OpenAPI/Swagger** gerado a partir das rotas (`HttpRoute` já tem método, path, status e
       `failures`)
-- [ ] **README de uso:** subir o projeto, criar os apps OAuth (GitHub e Google), configurar a
+- [x] **README de uso:** subir o projeto, criar os apps OAuth (GitHub e Google), configurar a
       MailerSend e a lista de rotas
 - [ ] **Exemplo de front** (ou só as páginas): callback do OAuth, reset de senha e verificação de
       e-mail

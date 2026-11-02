@@ -1,840 +1,295 @@
-# ResolveHub
+# Identity Starter
 
-ResolveHub is a multi-tenant help desk platform built to manage customer support tickets, internal workflows, service-level agreements, notifications, attachments, and support teams.
+A backend API boilerplate focused on authentication. Clone it, set a few environment variables
+and you start with sign-up, sign-in, OAuth, sessions, password reset, e-mail verification,
+invitations and permissions already working, tested and documented, so the next commit can be
+about your product.
 
-The project is designed as a backend study project focused on real-world software engineering concepts. Features should be introduced when the domain creates a real need for them instead of adding technologies without a clear purpose.
+Node.js, TypeScript, Express, MongoDB and Redis, with a Preact front end in `web/` that covers
+every route.
 
-## What is a Help Desk
+## What is included
 
-A help desk is a system used by companies to organize customer support requests.
+**Authentication**
 
-Customers can create tickets when they need help, report a problem, request information, or ask for technical support.
+- Sign-up and sign-in with e-mail and password (argon2id, 12 to 128 characters)
+- OAuth sign-in with Google and GitHub, with PKCE; link and unlink providers on an existing account
+- Short-lived JWT access tokens (15 min) and refresh tokens (30 days) rotated on every use
+- Refresh token reuse detection: reusing a rotated token revokes every session of the account
 
-Support agents receive these tickets and manage them through a structured workflow until the issue is resolved.
+**Account**
 
-A ticket can contain
+- E-mail verification, sent on sign-up and on request
+- Password reset and password change
+- E-mail change, confirmed from the new address, with a notice to the old one
+- Profile name update; account deactivation and reactivation
 
-- Title
-- Description
-- Customer
-- Assigned agent
-- Priority
-- Category
-- Status
-- Comments
-- Attachments
-- SLA deadlines
-- Activity history
+**Sessions**
 
-A typical ticket workflow could be
+- Many sessions per account, each with IP and user agent
+- List your sessions (the current one is marked), sign out of one, or of all the others
+- Revocation ends the session for good, with a reason (`logout`, `security`, `email_changed`, ...)
 
-```text
-OPEN
-↓
-IN_PROGRESS
-↓
-WAITING_CUSTOMER
-↓
-RESOLVED
-↓
-CLOSED
+**Access control**
+
+- Each account has a membership with a role label (`user`, `admin`) and a list of permissions
+- Use cases declare the permissions they need; the API answers `403` when one is missing
+- Invitations by e-mail: whoever invites can only grant permissions they already hold
+
+**Security and operation**
+
+- Rate limiting per IP on every sensitive route (Redis), plus a lock after 5 wrong passwords
+- Transactional outbox in MongoDB: reset and verification e-mails leave after the commit, with
+  retry and backoff
+- Errors as RFC 9457 problem details with a stable `code`
+- Structured logs with Pino, one event per request, with its request id
+- Unexpected errors reported to Sentry (or a local Bugsink), without personal data
+- Health check on `GET /health`, graceful shutdown, Docker image built from an esbuild bundle
+- 100% test coverage at the unit, integration and e2e levels, plus every route × status pair
+
+## Stack
+
+| Concern         | Choice                                                       |
+| --------------- | ------------------------------------------------------------ |
+| Runtime         | Node.js 24, TypeScript, ESM, pnpm                            |
+| HTTP            | Express 5, Helmet, CORS                                      |
+| Validation      | TypeBox                                                      |
+| Database        | MongoDB 8 (replica set, for transactions) through Mongoose   |
+| Cache and limit | Redis through ioredis                                        |
+| Tokens          | `jose` (HS256) and opaque refresh tokens                     |
+| E-mail          | MailerSend, or a logging mailer for development              |
+| Errors          | Sentry (`@sentry/node`); Bugsink locally                     |
+| Tests           | Vitest, Supertest, in-memory MongoDB and Redis               |
+| Front end       | Preact and Vite (`web/`)                                     |
+| Quality         | ESLint (with module boundaries), Prettier, husky, commitlint |
+
+## Getting started
+
+Requirements: Node.js 24, pnpm (the version in `package.json` is downloaded on demand) and
+Docker.
+
+```bash
+pnpm install
+cp .env.example .env            # then set JWT_SECRET: openssl rand -base64 48
+cp web/.env.example web/.env
+pnpm docker:up                  # MongoDB (replica set), Redis and Bugsink
+pnpm dev                        # API on http://localhost:3000
+pnpm --filter web dev           # front end on http://localhost:5173
 ```
 
-## Main Features
+With `MAILER="log"` (the default) no e-mail is sent: the link is printed in the API log. OAuth
+sign-in needs the provider apps described below; everything else works with the example values.
 
-### Authentication
+The front end proxies `/api` to the API. Besides the account pages, it has an API explorer at
+`/explorer` that lists every route and lets you call it with the signed-in session.
 
-- User registration
-- User login
-- JWT authentication
-- Refresh tokens
-- Logout
-- Password recovery
-- Session management
-- Token revocation
+### Making it yours
 
-### Users
+The name lives in the environment, so most of a rename is three variables:
 
-- Create users
-- Update users
-- Disable users
-- User profile
-- User roles
-- User permissions
+| Where      | Variable         | Used for                                                                             |
+| ---------- | ---------------- | ------------------------------------------------------------------------------------ |
+| `.env`     | `APP_NAME`       | lowercase slug: Mongo `appName`, log `service`, OAuth `user-agent`, error `type`     |
+| `.env`     | `MAIL_FROM_NAME` | display name in the e-mail sender and in the invitation text                         |
+| `web/.env` | `VITE_APP_NAME`  | page title, sidebar brand, prefix of what the front end keeps in the browser storage |
 
-### Roles and Permissions
+What cannot read the environment: `name` in `package.json`, the two `--filter` flags in the
+`Dockerfile`, and the database name in `MONGO_URL` (`.env.example` and the `api` service in
+`docker-compose.yml`).
 
-Role-based access control using RBAC.
+Pick `APP_NAME` once: it is part of every error `type` (`tag:<APP_NAME>,2026:<code>`), which
+clients may store or compare.
 
-Initial roles
+### The first administrator
 
-- Customer
-- Agent
-- Supervisor
-- Administrator
+Every new account gets the `user` role and no permissions, and there is no bootstrap route.
+Sign up, then grant the permissions to your account in MongoDB:
 
-Example permissions
-
-- Customers can access their own tickets
-- Agents can access assigned tickets
-- Supervisors can manage team tickets
-- Administrators can manage the entire organization
-
-### Organizations
-
-The application should support multiple organizations.
-
-Each organization has isolated
-
-- Users
-- Customers
-- Agents
-- Tickets
-- Settings
-- SLA policies
-- Categories
-
-This introduces multi-tenancy concepts.
-
-### Tickets
-
-Users can create support tickets.
-
-Each ticket contains
-
-- Title
-- Description
-- Status
-- Priority
-- Customer
-- Assigned agent
-- Category
-- Creation date
-- Last update date
-- SLA information
-
-Possible statuses
-
-```text
-OPEN
-IN_PROGRESS
-WAITING_CUSTOMER
-WAITING_INTERNAL
-RESOLVED
-CLOSED
+```js
+// mongosh "mongodb://localhost:27017/identity-starter?replicaSet=rs0"
+const account = db.accounts.findOne({ email: "you@example.com" });
+db.memberships.updateOne(
+  { accountId: account._id },
+  {
+    $set: {
+      role: "admin",
+      permissions: [
+        "invitation.create",
+        "invitation.read",
+        "invitation.revoke",
+        "account.deactivate",
+        "account.reactivate",
+        "session.read",
+        "session.revoke",
+        "session.revoke_all",
+        "member.read",
+        "member.role.update",
+        "member.permissions.update",
+      ],
+    },
+  },
+);
 ```
 
-Possible priorities
+Memberships are cached for 30 seconds, so the change takes effect within that time. From then
+on, invite the next people with the permissions they need.
 
-```text
-LOW
-NORMAL
-HIGH
-URGENT
+## Configuration
+
+Every variable is validated on boot; the API refuses to start and names each invalid one.
+`.env.example` documents them all. The main groups:
+
+| Variables                                                           | Notes                                                                       |
+| ------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `APP_NAME`, `NODE_ENV`, `PORT`, `TRUST_PROXY`, `LOG_LEVEL`          | `TRUST_PROXY` is the number of proxies in front of the API, used for the IP |
+| `MONGO_URL`                                                         | must point to a replica set (`?replicaSet=rs0` locally)                     |
+| `REDIS_URL`                                                         | rate limit counters and the repository cache                                |
+| `JWT_SECRET`                                                        | at least 32 characters                                                      |
+| `APP_URL`, `CORS_ORIGINS`                                           | e-mail links point to `APP_URL`; `CORS_ORIGINS` is comma-separated          |
+| `MAILER`, `MAIL_FROM_EMAIL`, `MAIL_FROM_NAME`, `MAILERSEND_API_KEY` | `MAILER` is `log` or `mailersend`                                           |
+| `GITHUB_*`, `GOOGLE_*`                                              | client id, secret and redirect URI of each OAuth app                        |
+| `SENTRY_DSN`                                                        | optional; unset turns error reporting off                                   |
+
+### OAuth apps
+
+The front end owns the redirect, the `state` and the PKCE pair; the API only exchanges the code.
+Register the front end callback as the redirect URI, and use the same value in `.env`:
+
+- **GitHub**: [Developer settings → OAuth Apps](https://github.com/settings/developers). Callback
+  `http://localhost:5173/auth/github/callback`.
+- **Google**: [Google Auth Platform → Clients](https://console.cloud.google.com/auth/clients),
+  type "Web application". Authorized redirect URI `http://localhost:5173/auth/google/callback`.
+  While the app is in testing, only the test users you add can sign in.
+
+Put the client ids in `web/.env` too (`VITE_GITHUB_CLIENT_ID`, `VITE_GOOGLE_CLIENT_ID`).
+
+### E-mail
+
+`MAILER="log"` prints each e-mail and its link. For real delivery, set `MAILER="mailersend"`,
+create an [API token](https://app.mailersend.com/api-tokens) and use a `MAIL_FROM_EMAIL` on a
+domain verified in MailerSend. Reset and verification e-mails go through the outbox, so a
+MailerSend outage delays them instead of failing the request. The e-mail copy is in Portuguese, in
+[identity-email-composer.ts](src/modules/identity/infrastructure/identity-email-composer.ts).
+
+### Error tracking
+
+`pnpm docker:up` also starts Bugsink, a Sentry-compatible server, on http://localhost:8000
+(`admin` / `admin`). Create a project there and set its DSN as `SENTRY_DSN`.
+
+## API
+
+Every route is under `/api`. Authenticated routes take `Authorization: Bearer <accessToken>`.
+"Own or `x`" means the route works on your own account without a permission, and on someone
+else's with `x`.
+
+| Method   | Path                              | Access                      | What it does                                         |
+| -------- | --------------------------------- | --------------------------- | ---------------------------------------------------- |
+| `POST`   | `/auth/sign-up`                   | public                      | creates an account and signs in                      |
+| `POST`   | `/auth/sign-in`                   | public                      | signs in with e-mail and password                    |
+| `POST`   | `/auth/oauth/:provider`           | public                      | signs in (or up) with a Google or GitHub code        |
+| `POST`   | `/auth/refresh`                   | public                      | rotates the refresh token, issues a new access token |
+| `POST`   | `/auth/password-reset/request`    | public                      | e-mails a reset link                                 |
+| `POST`   | `/auth/password-reset`            | public                      | sets a new password from the reset token             |
+| `POST`   | `/auth/email-verification`        | public                      | verifies the e-mail from the token                   |
+| `POST`   | `/auth/invitations/accept`        | public                      | creates the invited account                          |
+| `POST`   | `/auth/email-change`              | public                      | confirms an e-mail change from the token             |
+| `POST`   | `/auth/sign-out`                  | signed in                   | ends the current session                             |
+| `GET`    | `/me`                             | signed in                   | account and membership                               |
+| `PATCH`  | `/me`                             | signed in                   | updates the name                                     |
+| `PUT`    | `/me/password`                    | signed in                   | changes the password                                 |
+| `POST`   | `/me/email`                       | signed in                   | starts an e-mail change                              |
+| `POST`   | `/me/email-verification`          | signed in                   | sends a new verification link                        |
+| `GET`    | `/me/sessions`                    | signed in                   | lists your sessions                                  |
+| `DELETE` | `/me/sessions`                    | signed in                   | ends every session but the current one               |
+| `GET`    | `/me/credentials`                 | signed in                   | lists the password and linked providers              |
+| `POST`   | `/me/oauth/:provider`             | signed in                   | links a provider                                     |
+| `DELETE` | `/me/oauth/:provider`             | signed in                   | unlinks a provider                                   |
+| `DELETE` | `/sessions/:sessionId`            | own or `session.revoke`     | ends one session                                     |
+| `GET`    | `/accounts/:accountId/sessions`   | own or `session.read`       | lists an account's sessions                          |
+| `DELETE` | `/accounts/:accountId/sessions`   | own or `session.revoke_all` | ends every session of an account                     |
+| `POST`   | `/accounts/:accountId/deactivate` | own or `account.deactivate` | deactivates an account                               |
+| `POST`   | `/accounts/:accountId/reactivate` | `account.reactivate`        | reactivates an account                               |
+| `GET`    | `/members`                        | `member.read`               | lists members                                        |
+| `PUT`    | `/members/:accountId/role`        | `member.role.update`        | changes a member's role label                        |
+| `PUT`    | `/members/:accountId/permissions` | `member.permissions.update` | changes a member's permissions                       |
+| `POST`   | `/invitations`                    | `invitation.create`         | invites someone by e-mail                            |
+| `GET`    | `/invitations`                    | `invitation.read`           | lists invitations                                    |
+| `DELETE` | `/invitations/:invitationId`      | `invitation.revoke`         | revokes a pending invitation                         |
+
+Errors are problem details (`application/problem+json`):
+
+```json
+{
+  "type": "tag:identity-starter,2026:shared.input_invalid",
+  "title": "Input invalid",
+  "status": 400,
+  "code": "shared.input_invalid",
+  "data": { "violations": [{ "field": "password", "reason": "minLength" }] }
+}
 ```
 
-### Ticket Assignment
+Match on `code`. What a client has to do (OAuth `state` and PKCE, password limits, rate limits
+per route, `retryAfterSeconds`) is in the [front end contract](docs/auth-front-end-contract.md).
 
-Tickets can be assigned to support agents.
-
-Possible features
-
-- Manual assignment
-- Automatic assignment
-- Team assignment
-- Agent availability
-- Workload balancing
-
-### Comments
-
-Tickets support conversations between customers and support agents.
-
-Comments can be
-
-- Public
-- Internal
-
-Internal comments are visible only to the support team.
-
-### Attachments
-
-Users can upload files to tickets and comments.
-
-Files should be stored using Amazon S3.
-
-Possible supported files
-
-- Images
-- PDFs
-- Documents
-- Log files
-
-### Categories
-
-Tickets can be organized into categories.
-
-Examples
-
-```text
-TECHNICAL_SUPPORT
-BILLING
-ACCOUNT
-FEATURE_REQUEST
-BUG_REPORT
-GENERAL
-```
-
-### SLA
-
-Service-level agreements define how quickly tickets should receive attention.
-
-Example policy
-
-```text
-URGENT
-
-First response within 30 minutes
-Resolution within 4 hours
-```
-
-The system should monitor SLA deadlines automatically.
-
-Possible actions
-
-- Detect approaching deadlines
-- Detect violated deadlines
-- Notify agents
-- Notify supervisors
-- Escalate tickets
-
-### Notifications
-
-Users can receive notifications when important events happen.
-
-Examples
-
-- Ticket created
-- Ticket assigned
-- New comment
-- Status changed
-- SLA approaching
-- SLA violated
-- Ticket resolved
-
-Notification channels can include
-
-- In-app notifications
-- Email
-- Webhooks
-
-### Background Jobs
-
-Some operations should run asynchronously.
-
-Examples
-
-- Sending emails
-- Processing notifications
-- Checking SLA deadlines
-- Cleaning expired sessions
-- Processing attachments
-- Generating reports
-
-### Message Queues
-
-Use a message queue for asynchronous operations.
-
-Possible technologies
-
-- Amazon SQS
-- RabbitMQ
-
-Example flow
-
-```text
-Ticket Created
-↓
-Event Published
-↓
-Queue
-↓
-Notification Worker
-↓
-Email Sent
-```
-
-### Retry
-
-Failed asynchronous operations should support retry strategies.
-
-Examples
-
-- Email provider unavailable
-- Webhook destination unavailable
-- Temporary network error
-- External service timeout
-
-### Dead Letter Queue
-
-Messages that fail repeatedly should be moved to a dead letter queue.
-
-This allows failed operations to be inspected and processed later.
-
-### Webhooks
-
-Organizations can register webhook endpoints.
-
-Example events
-
-```text
-ticket.created
-ticket.updated
-ticket.assigned
-ticket.resolved
-ticket.closed
-comment.created
-sla.violated
-```
-
-Webhook deliveries should support
-
-- Signatures
-- Retry
-- Delivery history
-- Idempotency
-- Failure tracking
-
-### Audit Log
-
-Important actions should generate audit records.
-
-Examples
-
-- User created
-- Role changed
-- Ticket assigned
-- Ticket deleted
-- Permission changed
-- Organization settings changed
-
-Audit records should contain
-
-- User
-- Action
-- Resource
-- Timestamp
-- Previous value
-- New value
-
-### Search
-
-Users should be able to search tickets.
-
-Search fields can include
-
-- Ticket ID
-- Title
-- Description
-- Customer
-- Agent
-- Category
-
-### Filters
-
-Ticket lists should support filters.
-
-Examples
-
-- Status
-- Priority
-- Agent
-- Customer
-- Category
-- Creation date
-- SLA status
-
-### Pagination
-
-Large lists should use pagination.
-
-Possible approaches
-
-- Offset pagination
-- Cursor pagination
-
-Cursor pagination should be preferred for large datasets.
-
-### Sorting
-
-Ticket lists can support sorting by
-
-- Creation date
-- Last update
-- Priority
-- SLA deadline
-
-### Reports
-
-Organizations can access support metrics.
-
-Examples
-
-- Tickets created
-- Tickets resolved
-- Average response time
-- Average resolution time
-- SLA violations
-- Tickets per agent
-- Tickets per category
-
-### Rate Limiting
-
-Rate limiting should protect public endpoints.
-
-Examples
-
-- Login
-- Password recovery
-- Ticket creation
-- Webhook endpoints
-
-Redis can be used to store rate-limit counters.
-
-### Cache
-
-Redis can be used for frequently accessed data.
-
-Possible cached resources
-
-- Organization settings
-- User permissions
-- Categories
-- SLA policies
-
-The project should also explore cache invalidation strategies.
-
-### Distributed Locking
-
-Distributed locks can be introduced for operations where multiple workers could process the same resource simultaneously.
-
-Possible examples
-
-- SLA processing
-- Report generation
-- Scheduled jobs
-
-### Transactions
-
-Database transactions should protect operations that modify multiple related resources.
-
-Example
-
-```text
-Create Ticket
-↓
-Create Initial Activity
-↓
-Create SLA Record
-↓
-Publish Domain Event
-```
-
-The operation should either complete entirely or fail entirely when required.
-
-### Concurrency
-
-The project should explore concurrent operations.
-
-Possible scenarios
-
-- Two agents assigning the same ticket
-- Two users updating the same ticket
-- Multiple workers processing the same job
-- Ticket status changing while another operation is running
-
-Possible techniques
-
-- Optimistic locking
-- Transactions
-- Atomic updates
-- Distributed locks
-
-### Idempotency
-
-Some endpoints should support idempotency.
-
-Possible examples
-
-- Ticket creation
-- Webhook processing
-- External API callbacks
-- Background jobs
-
-The same request should not accidentally create duplicated operations.
-
-## Backend Architecture
-
-The backend should separate responsibilities between different layers.
-
-Example structure
+## Project structure
 
 ```text
 src/
-
-domain/
-application/
-infrastructure/
-interfaces/
-shared/
+  main.ts                 reads the environment and starts the app
+  app/                    composition root: config, server, routes, start and shutdown
+  modules/
+    identity/
+      domain/             entities, value objects and errors, no libraries
+      application/        use cases, ports, policies and services, no libraries
+      infrastructure/     Mongo repositories, argon2, jose, OAuth, MailerSend
+      presentation/       handlers, routes and the authenticate middleware
+      identity.module.ts  wires the module
+      public.ts           the only file other modules may import
+  shared/                 building blocks every module uses (errors, HTTP edge, Mongo,
+                          Redis, outbox, logging, rate limit, test helpers)
+web/                      Preact front end
+docs/adr/                 architecture decision records
 ```
 
-Possible responsibilities
+Each entry point is a transport-neutral handler bound to HTTP by a small route declaration, so
+the same use case can later be exposed to a queue consumer or an MCP tool
+([ADR-001](docs/adr/001-transport-neutral-handler-layer.md)). ESLint enforces the boundaries:
+`domain` and `application` import no package, other modules import only
+`@/<module>/public`, and `shared` never imports a module.
 
-### Domain
+A new module goes in `src/modules/<name>/` with the same layers, a `<name>.module.ts` that wires
+it and a line in [src/app/http-routes.ts](src/app/http-routes.ts) for its routes.
 
-- Entities
-- Value objects
-- Domain rules
-- Domain errors
-- Domain events
+## Scripts
 
-### Application
+| Script                                     | What it does                                    |
+| ------------------------------------------ | ----------------------------------------------- |
+| `pnpm dev` / `pnpm start`                  | runs the API from source, with or without watch |
+| `pnpm build`                               | bundles the API to `dist/main.js` with esbuild  |
+| `pnpm docker:up`                           | starts MongoDB, Redis and Bugsink               |
+| `pnpm lint` / `pnpm typecheck`             | ESLint and `tsc --noEmit`                       |
+| `pnpm format` / `pnpm format:check`        | Prettier                                        |
+| `pnpm test`                                | Vitest in watch mode                            |
+| `pnpm test:unit` / `:integration` / `:e2e` | one test level                                  |
+| `pnpm test:coverage`                       | every test, with coverage                       |
 
-- Use cases
-- Application services
-- Ports
-- DTOs
-- Validation
-
-### Infrastructure
-
-- Database
-- Repositories
-- Redis
-- Queues
-- Email providers
-- AWS services
-- External integrations
-
-### Interfaces
-
-- HTTP controllers
-- Routes
-- Middlewares
-- Request validation
-- Response mapping
-
-## Technologies
-
-### Runtime
-
-- Node.js
-- TypeScript
-
-### API
-
-- REST API
-
-Possible framework options
-
-- Express
-- Fastify
-- NestJS
-
-### Database
-
-Possible options
-
-- PostgreSQL
-- MongoDB
-
-PostgreSQL is recommended for exploring relational modeling, transactions, constraints, and concurrency.
-
-### Cache
-
-- Redis
-
-Redis can be used for
-
-- Cache
-- Rate limiting
-- Sessions
-- Distributed locks
-- Temporary data
-
-### Message Queue
-
-Possible options
-
-- Amazon SQS
-- RabbitMQ
-
-### Object Storage
-
-- Amazon S3
-
-Used for
-
-- Ticket attachments
-- Images
-- Documents
-
-### Authentication
-
-- JWT
-- Refresh tokens
-
-### Authorization
-
-- RBAC
-
-### Validation
-
-- Zod
-
-Or a custom validation library for studying validation architecture.
-
-### Containers
-
-- Docker
-- Docker Compose
-
-### Cloud
-
-- AWS
-
-Possible services
-
-- EC2
-- ECS
-- API Gateway
-- S3
-- SQS
-- CloudWatch
-- ElastiCache
-
-### CI and CD
-
-- GitHub Actions
-
-Possible pipeline
-
-```text
-Push
-↓
-Lint
-↓
-Type Check
-↓
-Tests
-↓
-Build
-↓
-Docker Image
-↓
-Deploy
-```
+To run the API in a container next to MongoDB and Redis:
+`docker compose --profile app up -d --wait`
+([ADR-009](docs/adr/009-run-the-api-from-an-esbuild-bundle-in-a-slim-image.md)).
 
 ## Testing
 
-### Unit Tests
+Tests sit next to the code: `*.spec.ts` (unit), `*.integration.spec.ts` and `*.e2e.spec.ts`.
+Integration and e2e tests start MongoDB and Redis in memory, so they need no Docker. Each level
+has its own 100% coverage threshold, and the e2e run also fails when a declared route × status
+pair is never exercised.
 
-Test isolated business rules.
+The `pre-commit` hook runs lint-staged, the typecheck and every coverage level; `commit-msg`
+checks Conventional Commits.
 
-Examples
+## Decisions
 
-- Ticket assignment rules
-- SLA calculation
-- Permission validation
-- Status transitions
-
-### Integration Tests
-
-Test integrations between components.
-
-Examples
-
-- API and database
-- Repository implementations
-- Redis
-- Queue producers
-- Queue consumers
-
-### End-to-End Tests
-
-Test complete user flows.
-
-Example
-
-```text
-Customer creates ticket
-↓
-Agent receives ticket
-↓
-Agent responds
-↓
-Customer replies
-↓
-Agent resolves ticket
-```
-
-## Observability
-
-The application should include proper observability.
-
-### Structured Logs
-
-Logs should contain structured information.
-
-Examples
-
-- Request ID
-- User ID
-- Organization ID
-- Ticket ID
-- Service
-- Operation
-
-### Metrics
-
-Possible metrics
-
-- Request duration
-- Error rate
-- Queue size
-- Processing time
-- Tickets created
-- Tickets resolved
-- SLA violations
-
-### Distributed Tracing
-
-Tracing can be used to follow operations across multiple components.
-
-Example
-
-```text
-HTTP Request
-↓
-API
-↓
-Database
-↓
-Queue
-↓
-Worker
-↓
-Email Provider
-```
-
-### Monitoring
-
-Possible tools
-
-- AWS CloudWatch
-- OpenTelemetry
-
-## Database Concepts
-
-The project should explore
-
-- Indexes
-- Unique constraints
-- Transactions
-- Foreign keys
-- Query optimization
-- Pagination
-- Database migrations
-- Optimistic locking
-
-## Security
-
-The project should implement
-
-- Password hashing
-- JWT validation
-- Refresh token rotation
-- RBAC
-- Rate limiting
-- Request validation
-- Secure headers
-- CORS configuration
-- File validation
-- Audit logs
-- Webhook signatures
-
-## Concepts to Study
-
-ResolveHub should be used to practice
-
-- REST APIs
-- Authentication
-- Authorization
-- RBAC
-- Multi-tenancy
-- Domain modeling
-- Clean Architecture
-- Dependency inversion
-- Repository pattern
-- Transactions
-- Concurrency
-- Race conditions
-- Optimistic locking
-- Idempotency
-- Message queues
-- Background jobs
-- Retry strategies
-- Dead letter queues
-- Webhooks
-- Event-driven architecture
-- Cache
-- Cache invalidation
-- Distributed locking
-- Pagination
-- Filtering
-- Sorting
-- Database indexing
-- Logging
-- Metrics
-- Distributed tracing
-- Error handling
-- Validation
-- Testing
-- Docker
-- CI and CD
-- Cloud infrastructure
-- Observability
-
-## Development Philosophy
-
-Do not add technology only because it is popular or available.
-
-Start with the simplest implementation.
-
-Introduce new infrastructure when the application creates a problem that requires it.
-
-Examples
-
-```text
-Need asynchronous email delivery
-→ Introduce a queue
-
-Repeated expensive queries
-→ Introduce cache
-
-Multiple workers processing the same resource
-→ Study distributed locking
-
-Duplicate external requests
-→ Introduce idempotency
-
-Slow database queries
-→ Study indexes and query optimization
-
-Need to understand failures across services
-→ Introduce distributed tracing
-```
-
-The objective of ResolveHub is not only to build a working help desk.
-
-The objective is to understand why backend systems evolve and which problems each architectural concept or technology solves.
+The [ADRs](docs/adr/) record why the code looks the way it does: the transport-neutral handler
+layer, optimistic concurrency on every write, TypeBox schemas on handlers, permissions declared
+by use cases, retrying idempotent outbound calls, Sentry reporting, the Docker image and the
+Mongo outbox.
