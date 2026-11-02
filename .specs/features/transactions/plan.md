@@ -8,7 +8,7 @@ The use cases that write more than one entity call one `save` after another, wit
 - a refresh leaves the old session revoked without the new one, and the user is signed out;
 - a password reset changes the password without consuming the token, and the same link works again.
 
-The user pays for it, stuck in a state no route fixes. Today the problem is accepted on purpose (NEXT-STEPS, section 0, "Consistência na escrita"). There is no recorded incident, because there are no users yet.
+The user pays for it, stuck in a state no route fixes. Today the problem is accepted on purpose (NEXT-STEPS at `eccf67d`, section 0, "Consistência na escrita"). There is no recorded incident, because there are no users yet.
 
 When this ships, a use case writes everything or nothing, and two simultaneous sign-ups with the same e-mail still answer `400`, not `500` nor `409`.
 
@@ -127,5 +127,5 @@ None - no user-facing surface changes; the routes keep their signature, statuses
 
 ## Sources
 
-- `NEXT-STEPS.md`, section 0, "Consistência na escrita" - the problem accepted until now.
+- `NEXT-STEPS.md` at commit `eccf67d` (removed in `f248595`), section 0, "Consistência na escrita" - the problem accepted until now.
 - `/home/felipeboff/workspace/linkio/backend/src/shared/infrastructure/adapters/mongo-transaction-runner.adapter.ts` - the port's shape and the nested `run` refusal.

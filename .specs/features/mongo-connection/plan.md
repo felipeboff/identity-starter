@@ -122,7 +122,7 @@ Whoever orchestrates knows whether the app can serve.
 | Excluded                                          | Why                                                                                  |
 | ------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | Mongoose repositories and indexes                 | step 4; this delivers the connection they register on                                |
-| Transactions and replica set                      | they come with the outbox, as NEXT-STEPS says                                        |
+| Transactions and replica set                      | they come with the outbox, as NEXT-STEPS at `eccf67d` says                           |
 | Own retry loop at startup                         | the driver already keeps selecting a server for the whole `serverSelectionTimeoutMS` |
 | Pool metrics and tracing                          | OpenTelemetry is planned separately                                                  |
 | Liveness separate from readiness (`/health/live`) | one endpoint is enough until an orchestrator tells the two apart                     |
@@ -154,4 +154,4 @@ Whoever orchestrates knows whether the app can serve.
 ## Sources
 
 - User request (2026-10-24): "crie o mongo connect, mas quero algo robusto"; plan approved in pt-BR with the recommended defaults
-- `NEXT-STEPS.md` step 4 and `.claude/skills/STACK.md` "Data" - Mongoose, schemas only in adapters
+- `NEXT-STEPS.md` at commit `eccf67d` (removed in `f248595`), step 4, and `.claude/skills/STACK.md` "Data" - Mongoose, schemas only in adapters

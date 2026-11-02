@@ -67,5 +67,5 @@ foreign-secret token.
 
 ## Links
 
-- `NEXT-STEPS.md`, section 0 ("`AccessToken` assíncrono") and section 5
+- `NEXT-STEPS.md` at commit `eccf67d` (removed in `f248595`), section 0 ("`AccessToken` assíncrono") and section 5
 - Commit `d2ab235` (refactor), `dfa37ec` (`JoseAccessToken`)

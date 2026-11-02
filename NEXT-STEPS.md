@@ -149,6 +149,6 @@ outbox no próprio Mongo, e o transporte muda depois sem mexer nos use cases.
       MailerSend e a lista de rotas
 - [ ] **Exemplo de front** (ou só as páginas): callback do OAuth, reset de senha e verificação de
       e-mail
-- [ ] **Links quebrados:** os ADRs 002–004 e `.specs/features/{mongo-connection,transactions}`
-      apontam para seções do `NEXT-STEPS.md` antigo (removido em `f248595`). Trocar por links para
-      o commit
+- [x] **Links quebrados:** os ADRs 002–004 e `.specs/features/{mongo-connection,transactions}`
+      apontam para o `NEXT-STEPS.md` antigo no commit `eccf67d`, o último antes da remoção em
+      `f248595`

@@ -12,7 +12,7 @@ One scope finding does not fail any check. The fix was not only in the one file 
 
 ## Binding sources
 
-`carried from round 1`. None. The plan's `Sources` are `NEXT-STEPS.md` (a project doc) and a reference file from another repo (linkio's `mongo-transaction-runner.adapter.ts`). Neither is a binding design, and the profile is `light`, so step 1 does not run.
+`carried from round 1`. None. The plan's `Sources` are `NEXT-STEPS.md` at `eccf67d` (a project doc) and a reference file from another repo (linkio's `mongo-transaction-runner.adapter.ts`). Neither is a binding design, and the profile is `light`, so step 1 does not run.
 
 ## Scope
 
@@ -23,7 +23,7 @@ One scope finding does not fail any check. The fix was not only in the one file 
   - `src/shared/testing/in-memory-transaction-runner.ts`: **not stated in the brief**. It is the shared test runner behind `createIdentityContext`, so its blast radius covers C7 and every use-case proof (C11, C12 and C13).
 - No production file under the use cases changed. `sign-in-with-oauth.use-case.ts` keeps the lines cited in round 1: `run` at `:40`, the saves at `:134`-`:136` and the issuer at `:138`.
 - The runner's current code matches C7's claim. It refuses a nested `run` before opening a store (`in-memory-transaction-runner.ts:13`-`:15`). On a throw it runs the rollbacks in reverse and rethrows (`:21`-`:23`). It runs the committed callbacks only after the work resolves (`:25`). Outside a run, `afterCommit` fires at once (`:32`) and `onRollback` is dropped (`:36`). `isRunning` reads the store (`:39`-`:41`), and a spec pins it both ways (`in-memory-transaction-runner.spec.ts:84`-`:85`). C12 and C13 depend on that.
-- The tree still holds uncommitted work from NEXT-STEPS steps 6 and 7 (mailer, OAuth gateway, config, ADRs, validator `url`, the eslint rule). As in round 1, it is read only where a check's proof lives.
+- The tree still holds uncommitted work from NEXT-STEPS steps 6 and 7 at `eccf67d` (mailer, OAuth gateway, config, ADRs, validator `url`, the eslint rule). As in round 1, it is read only where a check's proof lives.
 
 ## Proof runs
 

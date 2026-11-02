@@ -3,4 +3,3 @@ node_modules
 dist
 coverage
 .husky/_
-.data

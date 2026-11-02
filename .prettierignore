@@ -2,7 +2,6 @@ node_modules
 dist
 pnpm-lock.yaml
 coverage
-.data
 
 # Selftest mutations in this skill match the fixture text exactly
 .claude/skills/spec-lean/scripts/fixtures/

@@ -71,5 +71,5 @@ port (`application/testing/contracts/`) runs against both implementations.
 
 ## Links
 
-- `NEXT-STEPS.md`, section 0 ("Concorrência") and section 4
+- `NEXT-STEPS.md` at commit `eccf67d` (removed in `f248595`), section 0 ("Concorrência") and section 4
 - Commits `5fc4c41` (`OptimisticWriter`), `be6659c`, `c09b442` (contracts)

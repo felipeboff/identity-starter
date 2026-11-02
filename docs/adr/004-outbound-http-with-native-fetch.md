@@ -66,5 +66,5 @@ Adapters built on it: `MailerSendIdentityMailer` (`POST /v1/email`) and `FetchOA
 ## Links
 
 - `.claude/skills/STACK.md`, "Integrations"
-- `NEXT-STEPS.md`, section 6
+- `NEXT-STEPS.md` at commit `eccf67d` (removed in `f248595`), section 6
 - `.claude/skills/integration-patterns/SKILL.md` (timeouts on every outbound call)
