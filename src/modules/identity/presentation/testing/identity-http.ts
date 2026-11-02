@@ -46,10 +46,12 @@ export const createIdentityHttp = () => {
   const routeStatusFile = inject("routeStatusFile");
   appendFileSync(routeStatusFile, RouteStatusMatrix.declarationLines(routes));
 
+  const appName = faker.internet.domainWord();
   const logger = new FakeLogger();
   const adapter = new ExpressAdapter({
     dispatcher: new Dispatcher({ parser: new SchemaParser() }),
     errorMapper: new HttpErrorMapper({
+      appName,
       logger,
       errors: new FakeErrorReporter(),
     }),
@@ -114,5 +116,5 @@ export const createIdentityHttp = () => {
     return { ...seeded, actor, session, refreshToken, token };
   };
 
-  return { ctx, routes, call, signIn, logger };
+  return { ctx, routes, call, signIn, logger, appName };
 };

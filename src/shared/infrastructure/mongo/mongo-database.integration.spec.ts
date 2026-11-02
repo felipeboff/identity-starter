@@ -75,6 +75,7 @@ describe("MongoDatabase", () => {
     const logger = new FakeLogger();
     const database = new MongoDatabase({
       url: uriFor(server.getUri(), databaseName()),
+      appName: faker.internet.domainWord(),
       logger,
       autoIndex: true,
       ...overrides,
@@ -107,14 +108,15 @@ describe("MongoDatabase", () => {
     ]);
   });
 
-  it("opens the connection with the identity-starter options", async () => {
+  it("opens the connection with the app name and the default options", async () => {
+    const appName = faker.internet.domainWord();
     const autoIndex = faker.datatype.boolean();
-    const { database } = open({ autoIndex });
+    const { database } = open({ appName, autoIndex });
 
     await database.connect();
 
     expect(database.connection.getClient().options).toMatchObject({
-      appName: "identity-starter",
+      appName,
       serverSelectionTimeoutMS: 10_000,
     });
     expect(database.connection.config).toMatchObject({
@@ -126,6 +128,7 @@ describe("MongoDatabase", () => {
   it("creates the indexes automatically when not told otherwise", async () => {
     const database = new MongoDatabase({
       url: uriFor(server.getUri(), databaseName()),
+      appName: faker.internet.domainWord(),
       logger: new FakeLogger(),
     });
     opened.push(database);
@@ -218,6 +221,7 @@ describe("MongoDatabase", () => {
       });
       const database = new MongoDatabase({
         url,
+        appName: faker.internet.domainWord(),
         logger,
         autoIndex: true,
         serverSelectionTimeoutMS: 300,

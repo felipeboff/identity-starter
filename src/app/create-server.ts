@@ -11,6 +11,7 @@ import helmet from "helmet";
 import { ApplicationModules, createHttpRoutes } from "./http-routes";
 
 export type CreateServerOptions = Readonly<{
+  appName: string;
   modules: ApplicationModules;
   dispatcher: Dispatcher;
   logger: Logger;
@@ -22,6 +23,7 @@ export type CreateServerOptions = Readonly<{
 }>;
 
 export const createServer = ({
+  appName,
   modules,
   dispatcher,
   logger,
@@ -33,7 +35,7 @@ export const createServer = ({
 }: CreateServerOptions): Express => {
   const adapter = new ExpressAdapter({
     dispatcher,
-    errorMapper: new HttpErrorMapper({ logger, errors }),
+    errorMapper: new HttpErrorMapper({ appName, logger, errors }),
     logger,
     logContext,
   });

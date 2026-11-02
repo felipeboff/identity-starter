@@ -27,6 +27,7 @@ export type IdentityEmail = Readonly<{
 
 export type IdentityEmailComposerDeps = Readonly<{
   appUrl: URL;
+  productName: string;
 }>;
 
 const DATE_FORMAT = new Intl.DateTimeFormat("pt-BR", {
@@ -37,10 +38,12 @@ const DATE_FORMAT = new Intl.DateTimeFormat("pt-BR", {
 
 export class IdentityEmailComposer {
   private readonly baseUrl: URL;
+  private readonly productName: string;
 
   constructor(deps: IdentityEmailComposerDeps) {
     const path = deps.appUrl.pathname;
     this.baseUrl = new URL(path.endsWith("/") ? path : `${path}/`, deps.appUrl);
+    this.productName = deps.productName;
   }
 
   passwordReset(email: TokenEmail): IdentityEmail {
@@ -85,10 +88,10 @@ export class IdentityEmailComposer {
       template: IdentityEmailTemplate.INVITATION,
       to: email.to,
       name: email.to,
-      subject: "Você foi convidado para o Identity Starter",
+      subject: `Você foi convidado para o ${this.productName}`,
       text: [
         "Olá.",
-        `${email.inviterName} convidou você para o Identity Starter. Para criar sua conta, acesse: ${link}`,
+        `${email.inviterName} convidou você para o ${this.productName}. Para criar sua conta, acesse: ${link}`,
         `O convite vale até ${DATE_FORMAT.format(email.expiresAt)} (horário de Brasília).`,
         "Se você não esperava este convite, ignore este e-mail.",
       ].join("\n\n"),

@@ -34,9 +34,15 @@ const ERROR_KINDS: readonly ErrorKind[] = [
 ];
 
 const createMapper = () => {
+  const appName = faker.internet.domainWord();
   const logger = new FakeLogger();
   const errors = new FakeErrorReporter();
-  return { mapper: new HttpErrorMapper({ logger, errors }), logger, errors };
+  return {
+    mapper: new HttpErrorMapper({ appName, logger, errors }),
+    appName,
+    logger,
+    errors,
+  };
 };
 
 describe("HttpErrorMapper", () => {
@@ -58,7 +64,7 @@ describe("HttpErrorMapper", () => {
   });
 
   it("answers an AppError with its problem details and data", () => {
-    const { mapper, logger } = createMapper();
+    const { mapper, appName, logger } = createMapper();
     const sessionId = faker.database.mongodbObjectId();
     const SessionExpired = defineError<{ sessionId: string }>(
       "identity.session_expired",
@@ -71,7 +77,7 @@ describe("HttpErrorMapper", () => {
       status: 422,
       headers: PROBLEM_HEADERS,
       body: {
-        type: "tag:identity-starter,2026:identity.session_expired",
+        type: `tag:${appName},2026:identity.session_expired`,
         title: "Session expired",
         status: 422,
         code: "identity.session_expired",
@@ -82,7 +88,7 @@ describe("HttpErrorMapper", () => {
   });
 
   it("leaves data out when the AppError has none", () => {
-    const { mapper } = createMapper();
+    const { mapper, appName } = createMapper();
     const InvalidRefreshToken = defineError(
       "identity.invalid_refresh_token",
       "unauthenticated",
@@ -91,7 +97,7 @@ describe("HttpErrorMapper", () => {
     const out = mapper.map(new AppError(InvalidRefreshToken));
 
     expect(out.body).toStrictEqual({
-      type: "tag:identity-starter,2026:identity.invalid_refresh_token",
+      type: `tag:${appName},2026:identity.invalid_refresh_token`,
       title: "Invalid refresh token",
       status: 401,
       code: "identity.invalid_refresh_token",

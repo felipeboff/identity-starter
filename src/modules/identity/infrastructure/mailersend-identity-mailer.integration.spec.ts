@@ -30,6 +30,7 @@ const create = (fetch: typeof globalThis.fetch) => {
   const logger = new FakeLogger();
   const composer = new IdentityEmailComposer({
     appUrl: new URL(`https://${faker.internet.domainName()}`),
+    productName: faker.company.name(),
   });
   const apiKey = `mlsn.${faker.string.alphanumeric(64)}`;
   const from = { email: faker.internet.email(), name: faker.company.name() };

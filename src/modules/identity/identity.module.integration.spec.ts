@@ -61,6 +61,7 @@ const buildOAuthClient = () => ({
 const buildSettings = (
   kind: IdentityMailerSettings["kind"] = "log",
 ): IdentitySettings => ({
+  appName: faker.internet.domainWord(),
   jwtSecret: faker.string.alphanumeric(64),
   appUrl: new URL(faker.internet.url()),
   externalCallTimeoutMs: 1_000,

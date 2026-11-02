@@ -17,7 +17,7 @@ const STATUS_BY_KIND: Record<ErrorKind, number> = {
 };
 
 /** `tag:` URI: a stable identifier, not a page. The year is fixed for good. */
-const PROBLEM_TYPE_PREFIX = "tag:identity-starter,2026:";
+const PROBLEM_TYPE_YEAR = 2026;
 
 const PROBLEM_HEADERS = { "content-type": "application/problem+json" };
 
@@ -29,6 +29,7 @@ const INTERNAL_ERROR: ProblemDetails = {
 };
 
 export type HttpErrorMapperDeps = {
+  appName: string;
   logger: Logger;
   errors: ErrorReporter;
 };
@@ -44,7 +45,7 @@ export class HttpErrorMapper {
 
   private toProblem(error: AppError<unknown>): ProblemDetails {
     const problem: ProblemDetails = {
-      type: `${PROBLEM_TYPE_PREFIX}${error.code}`,
+      type: `tag:${this.deps.appName},${PROBLEM_TYPE_YEAR}:${error.code}`,
       title: this.titleOf(error.code),
       status: STATUS_BY_KIND[error.kind],
       code: error.code,

@@ -12,6 +12,7 @@ const NODE_ENVS: NodeEnvType[] = ["develop", "prod", "test"];
 const MAILER_KINDS: MailerKindType[] = ["log", "mailersend"];
 
 const buildSource = (overrides: Record<string, string | undefined> = {}) => ({
+  APP_NAME: faker.internet.domainWord(),
   NODE_ENV: faker.helpers.arrayElement(NODE_ENVS),
   PORT: String(faker.number.int({ min: 1, max: 65_535 })),
   TRUST_PROXY: String(faker.number.int({ min: 0, max: 3 })),
@@ -68,6 +69,7 @@ describe("toIdentitySettings", () => {
     const source = loadEnv(buildSource());
 
     expect(toIdentitySettings(source)).toStrictEqual({
+      appName: source.APP_NAME,
       jwtSecret: source.JWT_SECRET,
       appUrl: source.APP_URL,
       externalCallTimeoutMs: EXTERNAL_CALL_TIMEOUT_MS,
@@ -130,7 +132,6 @@ describe("loadEnv", () => {
       CORS_ORIGINS: undefined,
       APP_URL: undefined,
       MAILER: undefined,
-      MAIL_FROM_NAME: undefined,
     });
 
     const env = loadEnv(source);
@@ -141,7 +142,6 @@ describe("loadEnv", () => {
       TRUST_PROXY: 0,
       LOG_LEVEL: LogLevel.INFO,
       MAILER: MailerKind.LOG,
-      MAIL_FROM_NAME: "Identity Starter",
     });
     expect(env.REDIS_URL.href).toBe("redis://localhost:6379");
     expect(env.CORS_ORIGINS.map((url) => url.origin)).toStrictEqual([
@@ -170,6 +170,11 @@ describe("loadEnv", () => {
   });
 
   it.each([
+    [
+      "APP_NAME not a lowercase slug",
+      { APP_NAME: faker.company.name() },
+      "APP_NAME",
+    ],
     ["NODE_ENV unknown", { NODE_ENV: faker.string.alpha(12) }, "NODE_ENV"],
     ["LOG_LEVEL unknown", { LOG_LEVEL: faker.string.alpha(12) }, "LOG_LEVEL"],
     ["PORT not a number", { PORT: faker.lorem.word() }, "PORT"],
@@ -288,9 +293,11 @@ describe("loadEnv", () => {
         code: SharedError.InputInvalid.code,
         data: {
           violations: [
+            expect.objectContaining({ field: "APP_NAME" }),
             expect.objectContaining({ field: "MONGO_URL" }),
             expect.objectContaining({ field: "JWT_SECRET" }),
             expect.objectContaining({ field: "MAIL_FROM_EMAIL" }),
+            expect.objectContaining({ field: "MAIL_FROM_NAME" }),
             expect.objectContaining({ field: "MAILERSEND_API_KEY" }),
             expect.objectContaining({ field: "GITHUB_CLIENT_ID" }),
             expect.objectContaining({ field: "GITHUB_CLIENT_SECRET" }),

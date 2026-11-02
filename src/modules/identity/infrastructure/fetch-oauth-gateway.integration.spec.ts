@@ -48,6 +48,7 @@ const create = (replies: Readonly<Record<string, Reply>>) => {
     return new Response(JSON.stringify(reply.body), { status: reply.status });
   });
   const logger = new FakeLogger();
+  const userAgent = faker.internet.domainWord();
   const google = buildClient();
   const github = buildClient();
   const gateway = new FetchOAuthGateway({
@@ -57,10 +58,11 @@ const create = (replies: Readonly<Record<string, Reply>>) => {
       fetch,
     }),
     logger,
+    userAgent,
     google,
     github,
   });
-  return { gateway, fetch, sent, logger, google, github };
+  return { gateway, fetch, sent, logger, userAgent, google, github };
 };
 
 const requestTo = (sent: readonly SentRequest[], url: string) =>
@@ -257,7 +259,9 @@ describe("FetchOAuthGateway", () => {
     it("trades the code for a token and reads the user by its numeric id", async () => {
       const user = buildUser();
       const accessToken = buildAccessToken();
-      const { gateway, sent, github } = create(replies(user, accessToken));
+      const { gateway, sent, github, userAgent } = create(
+        replies(user, accessToken),
+      );
       const code = buildCode();
 
       const profile = await gateway.exchangeCode({ provider, code });
@@ -279,7 +283,7 @@ describe("FetchOAuthGateway", () => {
       expect(requestTo(sent, GITHUB_USER_URL)?.headers).toStrictEqual({
         accept: "application/vnd.github+json",
         authorization: `Bearer ${accessToken}`,
-        "user-agent": "identity-starter",
+        "user-agent": userAgent,
         "x-github-api-version": "2022-11-28",
       });
       expect(requestTo(sent, GITHUB_EMAILS_URL)).toBeUndefined();

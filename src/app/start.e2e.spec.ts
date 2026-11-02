@@ -27,6 +27,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Env } from "./config";
 
 const buildEnv = (overrides: Partial<Env> = {}): Env => ({
+  APP_NAME: faker.internet.domainWord(),
   NODE_ENV: "test",
   PORT: 0,
   TRUST_PROXY: 0,

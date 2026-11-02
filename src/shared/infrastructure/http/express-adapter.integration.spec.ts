@@ -78,6 +78,7 @@ const createApp = (
   const adapter = new ExpressAdapter({
     dispatcher: new Dispatcher({ parser: new SchemaParser() }),
     errorMapper: new HttpErrorMapper({
+      appName: faker.internet.domainWord(),
       logger,
       errors: new FakeErrorReporter(),
     }),

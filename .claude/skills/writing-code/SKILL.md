@@ -27,7 +27,7 @@ Cases that pass the bar (the whole list in this repo today):
   turns it into a normal middleware;
 - why `HttpServerShutdown` closes idle connections on every response - without it, keep-alive
   connections hold the shutdown open;
-- that the year in the `tag:identity-starter,2026:` problem type is fixed for good;
+- that the year in the `tag:<APP_NAME>,2026:` problem type is fixed for good;
 - why a `catch` is intentionally empty;
 - the external source of a magic literal in a test (a FIPS test vector).
 

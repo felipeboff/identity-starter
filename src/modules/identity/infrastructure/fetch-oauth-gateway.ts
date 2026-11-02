@@ -40,6 +40,7 @@ export type OAuthClientConfig = Readonly<{
 export type FetchOAuthGatewayDeps = Readonly<{
   http: FetchHttpClient;
   logger: Logger;
+  userAgent: string;
   google: OAuthClientConfig;
   github: OAuthClientConfig;
 }>;
@@ -179,7 +180,7 @@ export class FetchOAuthGateway implements OAuthGateway {
     const headers = {
       accept: "application/vnd.github+json",
       authorization: `Bearer ${access_token}`,
-      "user-agent": "identity-starter",
+      "user-agent": this.deps.userAgent,
       "x-github-api-version": "2022-11-28",
     };
     const user = this.read(

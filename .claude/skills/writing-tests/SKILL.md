@@ -58,7 +58,7 @@ A literal is allowed **only when the exact value is the behavior under test**:
 - validator input → output tables (`" TRUE "` → `true`, `"1e3"` → `1000`), regex tables, known
   valid/invalid CPF/CNPJ numbers and their formatted forms
 - `""` and `"   "` when the rule is about empty or blank input
-- public contract values: HTTP method and path, `tag:identity-starter,2026:` prefix, a problem
+- public contract values: HTTP method and path, the `tag:<appName>,2026:` shape, a problem
   `title` derived from its code, `content-type` headers, status codes
 - enum values, `ErrorKind` values, violation `reason` codes, field names in violations,
   environment variable names

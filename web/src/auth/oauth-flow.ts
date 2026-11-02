@@ -31,7 +31,7 @@ type ProviderSettings = {
   extraParams: Record<string, string>;
 };
 
-const STORAGE_KEY = "identity-starter.oauth";
+const STORAGE_KEY = `${import.meta.env.VITE_APP_NAME}.oauth`;
 
 const PROVIDERS: Record<OAuthProvider, ProviderSettings> = {
   github: {

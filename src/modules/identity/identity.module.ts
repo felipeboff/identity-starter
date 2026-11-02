@@ -138,6 +138,7 @@ export type IdentityMailerSettings = Readonly<{
 }>;
 
 export type IdentitySettings = Readonly<{
+  appName: string;
   jwtSecret: string;
   appUrl: URL;
   externalCallTimeoutMs: number;
@@ -240,7 +241,10 @@ export const createIdentityModule = async (
     timeoutMs: settings.externalCallTimeoutMs,
     logger: runtime.logger,
   });
-  const composer = new IdentityEmailComposer({ appUrl: settings.appUrl });
+  const composer = new IdentityEmailComposer({
+    appUrl: settings.appUrl,
+    productName: settings.mailer.from.name,
+  });
   const cache = new RedisCache({ client: runtime.redis });
   const repositoryCache = new FailOpenCache({ cache, logger: runtime.logger });
 
@@ -288,6 +292,7 @@ export const createIdentityModule = async (
     oauth: new FetchOAuthGateway({
       http,
       logger: runtime.logger,
+      userAgent: settings.appName,
       google: settings.google,
       github: settings.github,
     }),

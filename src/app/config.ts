@@ -29,6 +29,7 @@ const httpUrlSchema = Type.Codec(Type.String({ pattern: HTTP_URL }))
   .Encode(String);
 
 const envSchema = Type.Object({
+  APP_NAME: Type.String({ pattern: "^[a-z0-9]+(-[a-z0-9]+)*$" }),
   NODE_ENV: Type.Enum(Object.values(NodeEnv), { default: NodeEnv.DEVELOP }),
   PORT: Type.Number({
     multipleOf: 1,
@@ -59,10 +60,7 @@ const envSchema = Type.Object({
     .Encode(String),
   MAILER: Type.Enum(Object.values(MailerKind), { default: MailerKind.LOG }),
   MAIL_FROM_EMAIL: Type.String({ format: "email" }),
-  MAIL_FROM_NAME: Type.String({
-    pattern: NOT_BLANK,
-    default: "Identity Starter",
-  }),
+  MAIL_FROM_NAME: Type.String({ pattern: NOT_BLANK }),
   MAILERSEND_API_KEY: Type.String({ pattern: NOT_BLANK }),
   GITHUB_CLIENT_ID: Type.String({ minLength: 20 }),
   GITHUB_CLIENT_SECRET: Type.String({ minLength: 40 }),
@@ -90,6 +88,7 @@ export const loadEnv = (source: EnvSource): Env =>
 export const EXTERNAL_CALL_TIMEOUT_MS = 10_000;
 
 export const toIdentitySettings = (env: Env): IdentitySettings => ({
+  appName: env.APP_NAME,
   jwtSecret: env.JWT_SECRET,
   appUrl: env.APP_URL,
   externalCallTimeoutMs: EXTERNAL_CALL_TIMEOUT_MS,

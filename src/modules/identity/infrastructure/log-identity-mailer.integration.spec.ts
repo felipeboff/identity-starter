@@ -23,6 +23,7 @@ const create = () => {
   const logger = new FakeLogger();
   const composer = new IdentityEmailComposer({
     appUrl: new URL(`https://${faker.internet.domainName()}`),
+    productName: faker.company.name(),
   });
   return {
     mailer: new LogIdentityMailer({ composer, logger }),

@@ -49,6 +49,7 @@ const buildOAuthClient = () => ({
 });
 
 const identitySettings: IdentitySettings = {
+  appName: faker.internet.domainWord(),
   jwtSecret: faker.string.alphanumeric(64),
   appUrl: new URL(faker.internet.url()),
   externalCallTimeoutMs: 1_000,
@@ -70,6 +71,7 @@ const createApp = async (
   errors = new FakeErrorReporter(),
 ) =>
   createServer({
+    appName: identitySettings.appName,
     dispatcher,
     modules: {
       identity: await createIdentityModule(identitySettings, {
@@ -112,6 +114,7 @@ describe("createServer", () => {
     const failure = new TypeError(faker.lorem.sentence());
     const logContext = new AsyncLocalLogContext();
     const app = createServer({
+      appName: identitySettings.appName,
       dispatcher,
       modules: {
         identity: await createIdentityModule(identitySettings, {

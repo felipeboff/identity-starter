@@ -6,6 +6,7 @@ import mongoose, { type Connection } from "mongoose";
 
 export type MongoDatabaseOptions = Readonly<{
   url: string;
+  appName: string;
   logger: Logger;
   autoIndex?: boolean;
   serverSelectionTimeoutMS?: number;
@@ -20,11 +21,12 @@ export class MongoDatabase {
   constructor(private readonly options: MongoDatabaseOptions) {}
 
   async connect(): Promise<void> {
-    const { url, logger, autoIndex, heartbeatFrequencyMS } = this.options;
+    const { url, appName, logger, autoIndex, heartbeatFrequencyMS } =
+      this.options;
     const host = this.hostOf(url);
     try {
       await this.connection.openUri(url, {
-        appName: "identity-starter",
+        appName,
         serverSelectionTimeoutMS:
           this.options.serverSelectionTimeoutMS ?? 10_000,
         ...(heartbeatFrequencyMS === undefined ? {} : { heartbeatFrequencyMS }),

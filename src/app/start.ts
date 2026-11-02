@@ -46,7 +46,7 @@ export const start = async (options: StartOptions): Promise<RunningApp> => {
   const logContext = new AsyncLocalLogContext();
 
   const logger = PinoLogger.create({
-    service: "identity-starter",
+    service: env.APP_NAME,
     environment: env.NODE_ENV,
     level: env.LOG_LEVEL,
     format: env.NODE_ENV === NodeEnv.DEVELOP ? "pretty" : "json",
@@ -65,6 +65,7 @@ export const start = async (options: StartOptions): Promise<RunningApp> => {
 
   const database = new MongoDatabase({
     url: env.MONGO_URL,
+    appName: env.APP_NAME,
     logger,
     serverSelectionTimeoutMS: timeouts.databaseSelectionMs,
     heartbeatFrequencyMS: timeouts.databaseHeartbeatMs,
@@ -96,6 +97,7 @@ export const start = async (options: StartOptions): Promise<RunningApp> => {
 
   const dispatcher = new Dispatcher({ parser: new SchemaParser() });
   const app = createServer({
+    appName: env.APP_NAME,
     modules: {
       identity,
     },
