@@ -1,6 +1,6 @@
 # Stack
 
-Decided technologies for resolve-hub. Skills in this folder reference this file instead of
+Decided technologies for identity-starter. Skills in this folder reference this file instead of
 repeating it. Items marked _planned_ are decided but not yet in the codebase. Changes to this
 file deserve an ADR (`create-adr`).
 

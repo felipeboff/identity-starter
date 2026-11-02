@@ -279,7 +279,7 @@ describe("FetchOAuthGateway", () => {
       expect(requestTo(sent, GITHUB_USER_URL)?.headers).toStrictEqual({
         accept: "application/vnd.github+json",
         authorization: `Bearer ${accessToken}`,
-        "user-agent": "resolve-hub",
+        "user-agent": "identity-starter",
         "x-github-api-version": "2022-11-28",
       });
       expect(requestTo(sent, GITHUB_EMAILS_URL)).toBeUndefined();

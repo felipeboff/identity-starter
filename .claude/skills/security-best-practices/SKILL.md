@@ -8,7 +8,7 @@ metadata:
 
 # Security Best Practices
 
-## Project notes (resolve-hub)
+## Project notes (identity-starter)
 
 - Stack decisions live in [`../STACK.md`](../STACK.md); read it before assuming a technology. Backend only: Node + Express behind a thin HTTP adapter, MongoDB via Mongoose,
   Redis, RabbitMQ, S3, MailerSend, JWT + refresh tokens, OAuth (Google, GitHub).

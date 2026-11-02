@@ -6,13 +6,13 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY web/package.json web/
 
 FROM base AS build
-RUN pnpm install --frozen-lockfile --ignore-scripts --filter resolve-hub
+RUN pnpm install --frozen-lockfile --ignore-scripts --filter identity-starter
 COPY tsconfig.json ./
 COPY src src
 RUN pnpm build
 
 FROM base AS production-dependencies
-RUN pnpm install --frozen-lockfile --ignore-scripts --prod --filter resolve-hub
+RUN pnpm install --frozen-lockfile --ignore-scripts --prod --filter identity-starter
 
 FROM node:24-slim
 WORKDIR /app

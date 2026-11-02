@@ -107,14 +107,14 @@ describe("MongoDatabase", () => {
     ]);
   });
 
-  it("opens the connection with the resolve-hub options", async () => {
+  it("opens the connection with the identity-starter options", async () => {
     const autoIndex = faker.datatype.boolean();
     const { database } = open({ autoIndex });
 
     await database.connect();
 
     expect(database.connection.getClient().options).toMatchObject({
-      appName: "resolve-hub",
+      appName: "identity-starter",
       serverSelectionTimeoutMS: 10_000,
     });
     expect(database.connection.config).toMatchObject({

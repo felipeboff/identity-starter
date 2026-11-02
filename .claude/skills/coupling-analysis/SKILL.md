@@ -422,7 +422,7 @@ Recommendation:
 - **Dynamic connascence** (timing, value, identity) is hard to detect without runtime observation
 - Analysis is a starting point — business context always refines the conclusions
 
-## Project notes (resolve-hub)
+## Project notes (identity-starter)
 
 - Stack decisions live in [`../STACK.md`](../STACK.md); read it before assuming a technology. Asynchronous integration between modules is RabbitMQ events (contract coupling
   when the event payload is a published schema, model coupling when it leaks an entity

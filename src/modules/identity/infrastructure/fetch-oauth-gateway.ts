@@ -179,7 +179,7 @@ export class FetchOAuthGateway implements OAuthGateway {
     const headers = {
       accept: "application/vnd.github+json",
       authorization: `Bearer ${access_token}`,
-      "user-agent": "resolve-hub",
+      "user-agent": "identity-starter",
       "x-github-api-version": "2022-11-28",
     };
     const user = this.read(

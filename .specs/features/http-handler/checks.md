@@ -25,7 +25,7 @@ Proof: `pnpm exec vitest run src/shared/interfaces/http/http-boundary.spec.ts -t
 **C4** - A thrown `AppError` gets 400 / 401 / 403 / 404 / 409 / 422 for `invalid_input` / `unauthenticated` / `forbidden` / `not_found` / `conflict` / `precondition_failed` (AC 4)
 Proof: `pnpm exec vitest run src/shared/interfaces/http/http-dispatcher.spec.ts -t "maps the kind .* to status"`
 
-**C5** - A `shared.input_invalid` thrown by `Schema.probe` answers `{ type: "tag:resolve-hub,2026:shared.input_invalid", title: "Input invalid", status: 400, code: "shared.input_invalid", data: { violations } }` (AC 5)
+**C5** - A `shared.input_invalid` thrown by `Schema.probe` answers `{ type: "tag:identity-starter,2026:shared.input_invalid", title: "Input invalid", status: 400, code: "shared.input_invalid", data: { violations } }` (AC 5)
 Proof: `pnpm exec vitest run src/shared/interfaces/http/http-dispatcher.spec.ts -t "answers an AppError with data as problem details"`
 
 **C6** - an `AppError` coded `identity.invalid_refresh_token` / `unauthenticated` (no data) answers `{ type, title: "Invalid refresh token", status: 401, code }` with no `data` key (AC 6)

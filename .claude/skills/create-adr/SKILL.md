@@ -449,7 +449,7 @@ The rationale is _why this option and not the others_ — not just what was chos
 - "Documenta la decisión de adoptar microservicios"
 - "Crea un ADR explicando por qué elegimos Next.js"
 
-## Project notes (resolve-hub)
+## Project notes (identity-starter)
 
 - Stack decisions live in [`../STACK.md`](../STACK.md); read it before assuming a technology. The first ADRs to write are the decisions already recorded there: Express behind
   a thin HTTP adapter, manual dependency injection, Mongoose, RabbitMQ + outbox for events,

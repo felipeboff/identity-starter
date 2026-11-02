@@ -8,7 +8,7 @@
 ## Context and Problem Statement
 
 Each handler validated its input inside `handle`, with a schema from the in-house validator
-(`src/shared/application/validator`, kept in three copies: resolve-hub, `vale`, linkio). Nothing
+(`src/shared/application/validator`, kept in three copies: identity-starter, `vale`, linkio). Nothing
 outside the handler could learn which input an operation accepts or what it is called without
 running it. The planned MCP binding (ADR-001) and OpenAPI both need that input as JSON Schema and a
 stable operation name, and the in-house validator could not describe itself as JSON Schema.

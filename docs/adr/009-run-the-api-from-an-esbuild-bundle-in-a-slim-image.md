@@ -33,12 +33,12 @@ the aliases are resolved, our code becomes one file, and `node_modules` stays ou
 (so `argon2`'s native binary and `pino`'s transports keep loading by path).
 
 The `Dockerfile` is multi-stage on `node:24-slim`: pnpm 12.9.1 through corepack,
-`pnpm install --frozen-lockfile --ignore-scripts --filter resolve-hub` to build, a separate
+`pnpm install --frozen-lockfile --ignore-scripts --filter identity-starter` to build, a separate
 `--prod` install for the final stage, which holds only `package.json`, `node_modules` and `dist/`,
 runs as `node` and starts `node --enable-source-maps dist/main.js`.
 
 `docker-compose.yml` gains an `api` service under the `app` profile, reading `.env` and overriding
-`MONGO_URL` (`mongodb://mongo:27017/resolve-hub?directConnection=true`), `REDIS_URL` and `PORT`.
+`MONGO_URL` (`mongodb://mongo:27017/identity-starter?directConnection=true`), `REDIS_URL` and `PORT`.
 `directConnection=true` is needed because the replica set member is registered as
 `localhost:27017`, which inside the container is the API itself.
 

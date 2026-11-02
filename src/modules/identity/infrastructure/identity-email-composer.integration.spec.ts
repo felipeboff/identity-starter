@@ -118,7 +118,7 @@ describe("IdentityEmailComposer", () => {
         template: IdentityEmailTemplate.INVITATION,
         to: invitation.to,
         name: invitation.to,
-        subject: "Você foi convidado para o Resolve Hub",
+        subject: "Você foi convidado para o Identity Starter",
         link: `${appUrl}/accept-invitation?token=${invitation.token}`,
         expiresAt: invitation.expiresAt,
       });

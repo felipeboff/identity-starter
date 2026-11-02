@@ -62,7 +62,7 @@ Bindings:
 
 `params` are spread last so a body field can never override a path id; `v.object` drops keys not
 in its shape, so one schema per handler reads the merged input. The HTTP error body keeps
-`type: "tag:resolve-hub,2026:<code>"`, a `title` derived from the code, and `code` / `data`
+`type: "tag:identity-starter,2026:<code>"`, a `title` derived from the code, and `code` / `data`
 extension members (`HttpResponse` and `ProblemDetails` in `src/shared/presentation/http`).
 
 This replaces the earlier HTTP-only ADR-001 and overrides the matching decisions in

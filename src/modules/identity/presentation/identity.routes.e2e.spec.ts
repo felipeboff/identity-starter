@@ -341,7 +341,7 @@ describe("identity routes", () => {
       status: 401,
       headers: PROBLEM_HEADERS,
       body: {
-        type: `tag:resolve-hub,2026:${IdentityError.InvalidAccessToken.code}`,
+        type: `tag:identity-starter,2026:${IdentityError.InvalidAccessToken.code}`,
         title: "Invalid access token",
         status: 401,
         code: IdentityError.InvalidAccessToken.code,
@@ -437,7 +437,7 @@ describe("identity routes", () => {
         status: 400,
         headers: PROBLEM_HEADERS,
         body: {
-          type: `tag:resolve-hub,2026:${SharedError.InputInvalid.code}`,
+          type: `tag:identity-starter,2026:${SharedError.InputInvalid.code}`,
           title: "Input invalid",
           status: 400,
           code: SharedError.InputInvalid.code,

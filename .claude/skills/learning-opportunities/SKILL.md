@@ -139,7 +139,7 @@ After they locate code, prompt self-explanation:
 - Making exercises feel like tests rather than exploration
 - Continuing to generate after posing a question
 
-## Project notes (resolve-hub)
+## Project notes (identity-starter)
 
 - Stack decisions live in [`../STACK.md`](../STACK.md); read it before assuming a technology. The project is a study project: exercises about _why_ a stack piece exists
   (outbox, circuit breaker, refresh-token rotation) are in scope, not only about the code

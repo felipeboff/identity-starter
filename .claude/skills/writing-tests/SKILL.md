@@ -3,7 +3,7 @@ name: writing-tests
 description: How tests are written in this repository - faker-first test data with the fewest loose string literals, deterministic branches under random data, spec layout, the shared test helpers (identity context, seeders, expectAppError, the HTTP test client) and 100% coverage. Use when writing, editing or reviewing any `*.spec.ts`, adding test helpers or fakes, or when the user asks to "write the test", "add tests", "check the tests", "use faker". Do NOT use for choosing what to test in a feature plan (use spec-lean) or for production code style.
 license: MIT
 metadata:
-  author: resolve-hub
+  author: identity-starter
   version: "1.0.0"
 ---
 
@@ -58,7 +58,7 @@ A literal is allowed **only when the exact value is the behavior under test**:
 - validator input → output tables (`" TRUE "` → `true`, `"1e3"` → `1000`), regex tables, known
   valid/invalid CPF/CNPJ numbers and their formatted forms
 - `""` and `"   "` when the rule is about empty or blank input
-- public contract values: HTTP method and path, `tag:resolve-hub,2026:` prefix, a problem
+- public contract values: HTTP method and path, `tag:identity-starter,2026:` prefix, a problem
   `title` derived from its code, `content-type` headers, status codes
 - enum values, `ErrorKind` values, violation `reason` codes, field names in violations,
   environment variable names

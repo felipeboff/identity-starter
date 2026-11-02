@@ -80,9 +80,9 @@ Proof: `pnpm exec vitest run src/app/start.e2e.spec.ts -t "does not listen when 
 **C18** - `useMemoryMongo()` hands out a connection to a replica set member: `hello` on it answers a `setName` (door 4)
 Proof: `pnpm exec vitest run src/shared/testing/memory-mongo.integration.spec.ts -t "connects to a replica set member"`
 
-**C19** - `docker compose config` resolves the `mongo` service with a command carrying `--replSet rs0`, and a healthcheck that runs `rs.initiate` with the member `localhost:27017` and only exits 0 once the node is the writable primary; `.env.example` sets `MONGO_URL="mongodb://localhost:27017/resolve-hub?replicaSet=rs0"` (AC 14, door 4)
+**C19** - `docker compose config` resolves the `mongo` service with a command carrying `--replSet rs0`, and a healthcheck that runs `rs.initiate` with the member `localhost:27017` and only exits 0 once the node is the writable primary; `.env.example` sets `MONGO_URL="mongodb://localhost:27017/identity-starter?replicaSet=rs0"` (AC 14, door 4)
 Proof: `docker compose config --format json | python3 -c "import json,sys; s=json.load(sys.stdin)['services']['mongo']; c=' '.join(s['command']); t=' '.join(s['healthcheck']['test']); assert '--replSet rs0' in c; assert 'rs.initiate' in t and 'localhost:27017' in t and 'isWritablePrimary' in t"`
-Proof: `grep -qx 'MONGO_URL="mongodb://localhost:27017/resolve-hub?replicaSet=rs0"' .env.example`
+Proof: `grep -qx 'MONGO_URL="mongodb://localhost:27017/identity-starter?replicaSet=rs0"' .env.example`
 
 **C20** - `pnpm lint`, `pnpm typecheck` and `pnpm test:coverage` exit 0, with coverage at 100% (project gate)
 Proof: `pnpm lint && pnpm typecheck && pnpm test:coverage`

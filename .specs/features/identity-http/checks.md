@@ -37,7 +37,7 @@ Proof: `pnpm exec vitest run src/modules/identity/application/use-cases/authenti
 **C6** - The token of an account that is missing or deleted, or whose membership is missing or deleted, is refused with `identity.invalid_access_token` (AC 5)
 Proof: `pnpm exec vitest run src/modules/identity/application/use-cases/authenticate.use-case.spec.ts -t "rejects the token when the"`
 
-**C7** - At the edge, a refused token answers exactly `401` with body `{ type: "tag:resolve-hub,2026:identity.invalid_access_token", title: "Invalid access token", status: 401, code: "identity.invalid_access_token" }` (AC 2-5)
+**C7** - At the edge, a refused token answers exactly `401` with body `{ type: "tag:identity-starter,2026:identity.invalid_access_token", title: "Invalid access token", status: 401, code: "identity.invalid_access_token" }` (AC 2-5)
 Proof: `pnpm exec vitest run src/modules/identity/interfaces/http/identity.routes.spec.ts -t "answers 401 invalid_access_token with no data"`
 
 **C8** - Each of the 14 protected routes, called without a token, answers `401` and its use case is not called (AC 6)

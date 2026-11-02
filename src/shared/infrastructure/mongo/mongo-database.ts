@@ -24,7 +24,7 @@ export class MongoDatabase {
     const host = this.hostOf(url);
     try {
       await this.connection.openUri(url, {
-        appName: "resolve-hub",
+        appName: "identity-starter",
         serverSelectionTimeoutMS:
           this.options.serverSelectionTimeoutMS ?? 10_000,
         ...(heartbeatFrequencyMS === undefined ? {} : { heartbeatFrequencyMS }),

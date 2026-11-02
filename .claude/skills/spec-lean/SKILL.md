@@ -11,7 +11,7 @@ metadata:
 
 Freeze the obligations. Free the plan. Prove it with someone who did not build it. Adapted from Tech Leads Club `tlc-spec-lean` 1.2.0, itself derived from tlc-spec-driven 3.3.0 (Felipe Rodrigues), tlc-plan, and tlc-implement.
 
-## Project conventions (resolve-hub) — these override the generic text below
+## Project conventions (identity-starter) — these override the generic text below
 
 - **Profile**: `light`, budget `150k`, unless the user raises it for a feature.
 - Stack decisions live in [`../STACK.md`](../STACK.md); read it before assuming a technology.

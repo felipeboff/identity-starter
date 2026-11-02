@@ -1,4 +1,4 @@
-# Próximos passos — resolve-hub como boilerplate de autenticação
+# Próximos passos — identity-starter como boilerplate de autenticação
 
 O núcleo está pronto e testado de ponta a ponta:
 

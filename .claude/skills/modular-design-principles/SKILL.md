@@ -181,7 +181,7 @@ Use for **reviews** or **audits** without assuming tooling. Treat items as **sig
 
 ---
 
-## How this maps to resolve-hub
+## How this maps to identity-starter
 
 - Stack decisions live in [`../STACK.md`](../STACK.md); read it before assuming a technology.
 - Explicit communication (P5): RabbitMQ events with a published schema, or `public.ts`.

@@ -46,7 +46,7 @@ export const start = async (options: StartOptions): Promise<RunningApp> => {
   const logContext = new AsyncLocalLogContext();
 
   const logger = PinoLogger.create({
-    service: "resolve-hub",
+    service: "identity-starter",
     environment: env.NODE_ENV,
     level: env.LOG_LEVEL,
     format: env.NODE_ENV === NodeEnv.DEVELOP ? "pretty" : "json",

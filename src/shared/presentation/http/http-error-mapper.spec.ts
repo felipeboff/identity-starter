@@ -71,7 +71,7 @@ describe("HttpErrorMapper", () => {
       status: 422,
       headers: PROBLEM_HEADERS,
       body: {
-        type: "tag:resolve-hub,2026:identity.session_expired",
+        type: "tag:identity-starter,2026:identity.session_expired",
         title: "Session expired",
         status: 422,
         code: "identity.session_expired",
@@ -91,7 +91,7 @@ describe("HttpErrorMapper", () => {
     const out = mapper.map(new AppError(InvalidRefreshToken));
 
     expect(out.body).toStrictEqual({
-      type: "tag:resolve-hub,2026:identity.invalid_refresh_token",
+      type: "tag:identity-starter,2026:identity.invalid_refresh_token",
       title: "Invalid refresh token",
       status: 401,
       code: "identity.invalid_refresh_token",

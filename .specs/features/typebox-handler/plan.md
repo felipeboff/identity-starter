@@ -10,7 +10,7 @@ for it. Today whoever writes the first binding will have to describe each input 
 next to the schema.
 
 The validator that describes that input is in-house (about 1000 lines in
-`src/shared/application/validator`, plus specs), kept in three copies (resolve-hub, `vale`,
+`src/shared/application/validator`, plus specs), kept in three copies (identity-starter, `vale`,
 linkio). It does not produce JSON Schema, and the survey of 2026-10-30 found five wrong answers that
 linkio already fixed in its copy. Every new format, fix or description generator is our own code to
 write, test to 100% and port.

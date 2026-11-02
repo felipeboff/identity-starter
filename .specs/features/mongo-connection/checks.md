@@ -31,8 +31,8 @@ Proof: `pnpm exec vitest run src/app/start.e2e.spec.ts -t "does not listen when 
 **C6** - With a `MONGO_URL` carrying `user:password`, no log line contains the password - on a successful connect and on a failed one (AC 4)
 Proof: `pnpm exec vitest run src/shared/infrastructure/mongo/mongo-database.integration.spec.ts -t "never logs the password"`
 
-**C7** - The connection is opened with `appName: "resolve-hub"`, `serverSelectionTimeoutMS: 10000` when none is given, `bufferCommands: false` and the `autoIndex` it was given (door 2)
-Proof: `pnpm exec vitest run src/shared/infrastructure/mongo/mongo-database.integration.spec.ts -t "opens the connection with the resolve-hub options"`
+**C7** - The connection is opened with `appName: "identity-starter"`, `serverSelectionTimeoutMS: 10000` when none is given, `bufferCommands: false` and the `autoIndex` it was given (door 2)
+Proof: `pnpm exec vitest run src/shared/infrastructure/mongo/mongo-database.integration.spec.ts -t "opens the connection with the identity-starter options"`
 
 **C8** - `start` opens a connection of its own through `createConnection`: after `start`, the global `mongoose.connection` is still `readyState` `0` (door 1)
 Proof: `pnpm exec vitest run src/app/start.e2e.spec.ts -t "keeps the global mongoose connection unused"`
@@ -82,9 +82,9 @@ Proof: `pnpm exec vitest run src/shared/infrastructure/mongo/mongo-database.inte
 
 ### S5 - Local Mongo in one command · 2 files · 1 KB · ~1k
 
-**C19** - `docker compose config` resolves a `mongo` service with image `mongo:8`, port `27017` published, `./.data/mongo` bind-mounted at `/data/db` with the SELinux `z` label and a healthcheck running `mongosh --eval "db.adminCommand('ping')"`; `.env.example` sets `MONGO_URL="mongodb://localhost:27017/resolve-hub"`; git ignores `.data/mongo` (AC 12)
+**C19** - `docker compose config` resolves a `mongo` service with image `mongo:8`, port `27017` published, `./.data/mongo` bind-mounted at `/data/db` with the SELinux `z` label and a healthcheck running `mongosh --eval "db.adminCommand('ping')"`; `.env.example` sets `MONGO_URL="mongodb://localhost:27017/identity-starter"`; git ignores `.data/mongo` (AC 12)
 Proof: `docker compose config --format json | python3 -c "import json,sys; s=json.load(sys.stdin)['services']['mongo']; assert s['image']=='mongo:8'; assert any(p['target']==27017 and str(p['published'])=='27017' for p in s['ports']); assert any(v['type']=='bind' and v['target']=='/data/db' and v['source'].endswith('/.data/mongo') and v.get('bind',{}).get('selinux')=='z' for v in s['volumes']); assert \"db.adminCommand('ping')\" in ' '.join(s['healthcheck']['test'])"`
-Proof: `grep -qx 'MONGO_URL="mongodb://localhost:27017/resolve-hub"' .env.example`
+Proof: `grep -qx 'MONGO_URL="mongodb://localhost:27017/identity-starter"' .env.example`
 Proof: `git check-ignore -q .data/mongo`
 
 ## Coverage

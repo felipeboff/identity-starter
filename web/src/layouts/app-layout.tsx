@@ -99,7 +99,7 @@ export const AppLayout = (props: AppLayoutProps) => {
           <span class="brand-mark">
             <AsteriskLogo size={18} />
           </span>
-          <span class="brand-name">Resolve Hub</span>
+          <span class="brand-name">Identity Starter</span>
         </Link>
 
         <nav class="nav" aria-label="Principal" ref={nav}>

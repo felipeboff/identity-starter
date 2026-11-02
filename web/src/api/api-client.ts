@@ -24,7 +24,7 @@ export type ApiClientDeps = {
   tokens: TokenStore;
 };
 
-const REFRESH_LOCK = "resolve-hub.refresh";
+const REFRESH_LOCK = "identity-starter.refresh";
 const NETWORK_FAILURE_STATUS = 0;
 
 export class ApiClient {

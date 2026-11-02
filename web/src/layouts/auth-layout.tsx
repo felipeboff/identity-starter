@@ -19,7 +19,7 @@ export const AuthLayout = (props: AuthLayoutProps) => (
         <div class="mesh-grain" />
         <AsteriskLogo size={44} class="auth-visual-logo" />
         <div class="auth-visual-copy">
-          <p>{props.eyebrow ?? "Com o Resolve Hub"}</p>
+          <p>{props.eyebrow ?? "Com o Identity Starter"}</p>
           <h2>
             {props.tagline ??
               "Sua conta, suas sessões e seu time em um só lugar"}
@@ -30,7 +30,7 @@ export const AuthLayout = (props: AuthLayoutProps) => (
         <div class="auth-content">
           <Link href="/" class="auth-mark" ariaCurrent={false}>
             <AsteriskLogo size={26} />
-            <span class="sr-only">Resolve Hub</span>
+            <span class="sr-only">Identity Starter</span>
           </Link>
           <h1 class="auth-title">{props.title}</h1>
           {props.subtitle && <p class="auth-subtitle">{props.subtitle}</p>}

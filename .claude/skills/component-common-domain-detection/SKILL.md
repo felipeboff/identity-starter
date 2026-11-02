@@ -605,7 +605,7 @@ After identifying common domain components:
 - Some duplication is acceptable if it reduces coupling
 - Not all common patterns should be consolidated
 
-## Project notes (resolve-hub)
+## Project notes (identity-starter)
 
 - Stack decisions live in [`../STACK.md`](../STACK.md); read it before assuming a technology. Components are the modules in `src/modules/*` plus `src/shared`.
 - Duplicated logic across modules is consolidated into an injected class with a role (service,

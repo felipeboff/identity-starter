@@ -30,7 +30,7 @@ Notes:
 
 - If gh hits auth/rate issues mid-run, prompt the user to re-authenticate with `gh auth login`, then retry.
 
-## Project notes (resolve-hub)
+## Project notes (identity-starter)
 
 - Commits that address comments follow `git-workflow` (Conventional Commits, no trailers,
   never `--no-verify`); run the script with `python3 -I .claude/skills/gh-address-comments/scripts/fetch_comments.py`.

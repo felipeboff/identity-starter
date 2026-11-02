@@ -434,7 +434,7 @@ Good domain identification has:
 - ✅ Business alignment with capabilities
 - ✅ Actionable recommendations for issues
 
-## Project notes (resolve-hub)
+## Project notes (identity-starter)
 
 - Stack decisions live in [`../STACK.md`](../STACK.md); read it before assuming a technology. Modules are `src/modules/*`; today only `identity` exists. The readme lists the
   planned contexts (tickets, SLA, notifications, attachments, teams, audit).

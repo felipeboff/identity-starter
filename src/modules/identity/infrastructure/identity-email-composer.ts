@@ -85,10 +85,10 @@ export class IdentityEmailComposer {
       template: IdentityEmailTemplate.INVITATION,
       to: email.to,
       name: email.to,
-      subject: "Você foi convidado para o Resolve Hub",
+      subject: "Você foi convidado para o Identity Starter",
       text: [
         "Olá.",
-        `${email.inviterName} convidou você para o Resolve Hub. Para criar sua conta, acesse: ${link}`,
+        `${email.inviterName} convidou você para o Identity Starter. Para criar sua conta, acesse: ${link}`,
         `O convite vale até ${DATE_FORMAT.format(email.expiresAt)} (horário de Brasília).`,
         "Se você não esperava este convite, ignore este e-mail.",
       ].join("\n\n"),

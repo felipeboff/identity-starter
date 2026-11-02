@@ -32,7 +32,7 @@ services:
     build: .
     env_file: .env
     environment:
-      MONGO_URL: mongodb://mongo:27017/resolve-hub?directConnection=true
+      MONGO_URL: mongodb://mongo:27017/identity-starter?directConnection=true
       REDIS_URL: redis://redis:6379
       PORT: "3000"
     ports:

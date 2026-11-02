@@ -142,7 +142,7 @@ Whoever integrates the front end knows which permission each action requires and
 
 | Excluded                                                 | Why                                                                                                           |
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Reach by organization (`OrgAccess`, linkio's layer 2)    | resolve-hub has a single organization                                                                         |
+| Reach by organization (`OrgAccess`, linkio's layer 2)    | identity-starter has a single organization                                                                    |
 | Creating the first admin (bootstrap)                     | does not exist today; sign-up creates the `user` role with no permissions, and that stays                     |
 | Role as a preset of permissions                          | the user decided that a role is only a label                                                                  |
 | Codes for the self-service use cases (`/me/*`, sign-out) | sign-up creates a membership with no permissions; the user chose only the nine use cases that already checked |

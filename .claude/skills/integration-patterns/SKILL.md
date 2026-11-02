@@ -22,7 +22,7 @@ applies.
 
 Load only the reference the current question needs.
 
-## Project conventions (resolve-hub)
+## Project conventions (identity-starter)
 
 - Stack decisions live in [`../STACK.md`](../STACK.md); read it before assuming a technology. Concrete mapping:
   - External vendors behind ports: MailerSend (`MailSenderPort`), S3 (`AttachmentStoragePort`),

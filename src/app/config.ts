@@ -59,7 +59,10 @@ const envSchema = Type.Object({
     .Encode(String),
   MAILER: Type.Enum(Object.values(MailerKind), { default: MailerKind.LOG }),
   MAIL_FROM_EMAIL: Type.String({ format: "email" }),
-  MAIL_FROM_NAME: Type.String({ pattern: NOT_BLANK, default: "Resolve Hub" }),
+  MAIL_FROM_NAME: Type.String({
+    pattern: NOT_BLANK,
+    default: "Identity Starter",
+  }),
   MAILERSEND_API_KEY: Type.String({ pattern: NOT_BLANK }),
   GITHUB_CLIENT_ID: Type.String({ minLength: 20 }),
   GITHUB_CLIENT_SECRET: Type.String({ minLength: 40 }),

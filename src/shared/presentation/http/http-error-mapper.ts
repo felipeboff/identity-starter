@@ -17,7 +17,7 @@ const STATUS_BY_KIND: Record<ErrorKind, number> = {
 };
 
 /** `tag:` URI: a stable identifier, not a page. The year is fixed for good. */
-const PROBLEM_TYPE_PREFIX = "tag:resolve-hub,2026:";
+const PROBLEM_TYPE_PREFIX = "tag:identity-starter,2026:";
 
 const PROBLEM_HEADERS = { "content-type": "application/problem+json" };
 

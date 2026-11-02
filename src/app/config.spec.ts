@@ -141,7 +141,7 @@ describe("loadEnv", () => {
       TRUST_PROXY: 0,
       LOG_LEVEL: LogLevel.INFO,
       MAILER: MailerKind.LOG,
-      MAIL_FROM_NAME: "Resolve Hub",
+      MAIL_FROM_NAME: "Identity Starter",
     });
     expect(env.REDIS_URL.href).toBe("redis://localhost:6379");
     expect(env.CORS_ORIGINS.map((url) => url.origin)).toStrictEqual([

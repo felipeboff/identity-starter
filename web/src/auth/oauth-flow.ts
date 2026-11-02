@@ -31,7 +31,7 @@ type ProviderSettings = {
   extraParams: Record<string, string>;
 };
 
-const STORAGE_KEY = "resolve-hub.oauth";
+const STORAGE_KEY = "identity-starter.oauth";
 
 const PROVIDERS: Record<OAuthProvider, ProviderSettings> = {
   github: {

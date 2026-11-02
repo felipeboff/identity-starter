@@ -1,6 +1,6 @@
 import type { SessionTokens } from "../api/identity.types";
 
-const STORAGE_KEY = "resolve-hub.session";
+const STORAGE_KEY = "identity-starter.session";
 
 export type TokenChangeOrigin = "this-tab" | "other-tab";
 

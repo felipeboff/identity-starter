@@ -111,13 +111,13 @@ The 11 use cases with more than one write now write inside `run`.
 
 ## Assumptions
 
-| Assumption                | Chosen default                                                                                          | Rationale                                                                                            | Confirmed? |
-| ------------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ---------- |
-| Which use cases use `run` | the 11 with more than one write, not only the sign-ups                                                  | refresh, password reset and the others have the same partial-write bug, and each costs one more line | y          |
-| What goes inside `run`    | reads and writes; password hash, OAuth `code` exchange and e-mail stay outside                          | the retry re-reads the current state; external calls cannot be repeated, and the hash is slow        | y          |
-| Nested `run`              | refused with `shared.nested_transaction`                                                                | same choice as linkio; a loud error in tests instead of a hidden transaction                         | y          |
-| Local `MONGO_URL`         | `mongodb://localhost:27017/resolve-hub?replicaSet=rs0`, with the member registered as `localhost:27017` | the app runs on the host (`pnpm dev`), not inside compose                                            | y          |
-| In-memory runner          | undoes the snapshots when `work` fails (does not only run `work`)                                       | each use case's spec proves "all or nothing" without starting Mongo                                  | y          |
+| Assumption                | Chosen default                                                                                               | Rationale                                                                                            | Confirmed? |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- | ---------- |
+| Which use cases use `run` | the 11 with more than one write, not only the sign-ups                                                       | refresh, password reset and the others have the same partial-write bug, and each costs one more line | y          |
+| What goes inside `run`    | reads and writes; password hash, OAuth `code` exchange and e-mail stay outside                               | the retry re-reads the current state; external calls cannot be repeated, and the hash is slow        | y          |
+| Nested `run`              | refused with `shared.nested_transaction`                                                                     | same choice as linkio; a loud error in tests instead of a hidden transaction                         | y          |
+| Local `MONGO_URL`         | `mongodb://localhost:27017/identity-starter?replicaSet=rs0`, with the member registered as `localhost:27017` | the app runs on the host (`pnpm dev`), not inside compose                                            | y          |
+| In-memory runner          | undoes the snapshots when `work` fails (does not only run `work`)                                            | each use case's spec proves "all or nothing" without starting Mongo                                  | y          |
 
 **Open questions:** none - all resolved or logged above.
 

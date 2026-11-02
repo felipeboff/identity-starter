@@ -3,7 +3,7 @@ name: writing-code
 description: How production and config code is written in this repository, starting with comments - none by default, one short line only when it is truly necessary. Use when writing or editing any source, script or config file (`*.ts`, `*.yml`, `*.json`, `*.config.ts`), reviewing a diff, or when the user mentions comments, JSDoc or "explain in the code". Do NOT use for test data and spec structure (use writing-tests) or for commit messages (use git-workflow).
 license: MIT
 metadata:
-  author: resolve-hub
+  author: identity-starter
   version: "1.0.0"
 ---
 
@@ -27,7 +27,7 @@ Cases that pass the bar (the whole list in this repo today):
   turns it into a normal middleware;
 - why `HttpServerShutdown` closes idle connections on every response - without it, keep-alive
   connections hold the shutdown open;
-- that the year in the `tag:resolve-hub,2026:` problem type is fixed for good;
+- that the year in the `tag:identity-starter,2026:` problem type is fixed for good;
 - why a `catch` is intentionally empty;
 - the external source of a magic literal in a test (a FIPS test vector).
 

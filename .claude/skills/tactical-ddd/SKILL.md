@@ -5,7 +5,7 @@ description: Detects anemic domain models, validates and refactors them into ric
 
 # Tactical DDD — Rich Domain Modeling
 
-## Project conventions (resolve-hub) — these override the generic examples below
+## Project conventions (identity-starter) — these override the generic examples below
 
 - **Entities**: private constructor over a `state` object, static `register(input, at)` for creation and `restore(snapshot)` for rehydration, and a `*Snapshot` type for output. See `src/modules/identity/domain/session.entity.ts`.
 - **Identity**: ids use the shared `Id` value object (`@shared/domain/value-objects/id.value-object`). Do not propose one id class per entity.

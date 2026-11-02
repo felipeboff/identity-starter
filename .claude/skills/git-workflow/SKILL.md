@@ -3,7 +3,7 @@ name: git-workflow
 description: Branch, commit and pull-request conventions for this repository. Use when the user asks to commit, create a branch, open or update a PR, split work into commits, write a commit message or PR description, or says "commit", "branch", "PR", "pull request", "push". Do NOT use for fixing CI failures (use gh-fix-ci) or addressing review comments (use gh-address-comments).
 license: MIT
 metadata:
-  author: resolve-hub
+  author: identity-starter
   version: "1.0.0"
 ---
 

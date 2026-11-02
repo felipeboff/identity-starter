@@ -10,7 +10,7 @@ metadata:
 
 Deliver an actionable AppSec-grade threat model that is specific to the repository or a project path, not a generic checklist. Anchor every architectural claim to evidence in the repo and keep assumptions explicit. Prioritizing realistic attacker goals and concrete impacts over generic checklists.
 
-## Project notes (resolve-hub)
+## Project notes (identity-starter)
 
 - Stack decisions live in [`../STACK.md`](../STACK.md); read it before assuming a technology. Known or planned trust boundaries to seed the model with (confirm each against
   the code; mark the ones not yet implemented as planned): Internet → Express edge; edge →

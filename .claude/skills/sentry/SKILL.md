@@ -126,7 +126,7 @@ Always use these endpoints (GET only):
 Example prompt: “List the top 10 open issues for prod in the last 24h.”
 Expected: ordered list with titles, short IDs, counts, last seen.
 
-## Project notes (resolve-hub)
+## Project notes (identity-starter)
 
 - Stack decisions live in [`../STACK.md`](../STACK.md); read it before assuming a technology. Sentry is the chosen error tracker; the backend is Node/Express.
 - `SENTRY_ORG` / `SENTRY_PROJECT` are set per environment; never write the token into the repo.
