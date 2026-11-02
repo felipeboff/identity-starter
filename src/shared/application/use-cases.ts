@@ -36,25 +36,34 @@ type ResolvePermissions<S> = S extends {
   ? readonly P[]
   : never;
 
-type PermissionHolder = Readonly<{ permissions?: readonly string[] }>;
+type ResolveRoles<S> = S extends { actor: { role: infer R } }
+  ? readonly R[]
+  : never;
+
+type ActorAccess = Readonly<{
+  permissions?: readonly string[];
+  role?: string;
+}>;
 
 export abstract class UseCase<S extends UseCaseShape = Record<string, never>> {
   /** Every code the actor must hold; checked before `execute` runs. */
   readonly permissions?: ResolvePermissions<S>;
   /** At least one code the actor must hold; checked after `permissions`. */
   readonly anyPermissions?: ResolvePermissions<S>;
+  /** One of these roles the actor must have; checked after the permissions. */
+  readonly roles?: ResolveRoles<S>;
 
   constructor(protected readonly deps: ResolveDeps<S>) {
     const prototype = Object.getPrototypeOf(this) as UseCase<S>;
     this.execute = async (...args: ExecuteArgs<S>) => {
-      this.ensurePermissions(args.at(-1) as PermissionHolder | undefined);
+      this.ensureAccess(args.at(-1) as ActorAccess | undefined);
       return await prototype.execute.apply(this, args);
     };
   }
 
   abstract execute(...args: ExecuteArgs<S>): Promise<ResolveOutput<S>>;
 
-  private ensurePermissions(actor: PermissionHolder | undefined): void {
+  private ensureAccess(actor: ActorAccess | undefined): void {
     const holds = (permission: string) =>
       actor?.permissions?.includes(permission) === true;
 
@@ -67,6 +76,14 @@ export abstract class UseCase<S extends UseCaseShape = Record<string, never>> {
     const anyOf = (this.anyPermissions ?? []) as readonly string[];
     if (anyOf.length > 0 && !anyOf.some(holds)) {
       throw new AppError(SharedError.PermissionMissing, { anyOf });
+    }
+
+    const roles = (this.roles ?? []) as readonly string[];
+    if (
+      roles.length > 0 &&
+      (actor?.role === undefined || !roles.includes(actor.role))
+    ) {
+      throw new AppError(SharedError.RoleMissing, { roles });
     }
   }
 }

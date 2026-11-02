@@ -103,7 +103,9 @@ created through OAuth or an invitation start verified.
 
 ## Permissions
 
-Access depends on the member's `permissions` only; `role` is a label to show and grants nothing.
+Access depends on the member's `permissions`. A use case may also require a `role`, and then
+answers `403 shared.role_missing` with `data.roles` (the accepted roles); no identity route does
+today.
 Each operation that goes beyond the caller's own account requires its own permission:
 
 | Permission                  | Allows                                                           |

@@ -32,8 +32,9 @@ every route.
 
 **Access control**
 
-- Each account has a membership with a role label (`user`, `admin`) and a list of permissions
-- Use cases declare the permissions they need; the API answers `403` when one is missing
+- Each account has a membership with a role (`user`, `admin`) and a list of permissions
+- Use cases declare the permissions they need, and may also require a role; the API answers
+  `403` when one is missing
 - Invitations by e-mail: whoever invites can only grant permissions they already hold
 
 **Security and operation**
