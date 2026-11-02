@@ -115,7 +115,9 @@ provedor OAuth.
       esbuild em `dist/main.js`; a imagem `node:24-slim` roda `node --enable-source-maps` como
       `node`, só com as dependências de produção; `docker compose --profile app up -d --wait` sobe a
       API junto com Mongo e Redis
-- [-] **CI no GitHub Actions:** lint, typecheck e as quatro coberturas
+- [x] **CI no GitHub Actions** (`.github/workflows/ci.yml`): `format:check`, lint, typecheck e a
+      cobertura unitária. Só roda manualmente (`workflow_dispatch`), para não gastar minutos;
+      basta acrescentar `push`/`pull_request` para ligar
 
 ## 5. Efeitos colaterais, eventos e jobs
 

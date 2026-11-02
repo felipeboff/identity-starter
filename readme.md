@@ -271,7 +271,9 @@ has its own 100% coverage threshold, and the e2e run also fails when a declared 
 pair is never exercised.
 
 The `pre-commit` hook runs lint-staged, the typecheck and every coverage level; `commit-msg`
-checks Conventional Commits.
+checks Conventional Commits. The GitHub Actions workflow (`.github/workflows/ci.yml`) runs the
+format check, lint, typecheck and unit coverage; it only starts by hand (`workflow_dispatch`), so
+add `push` or `pull_request` to its `on` to run it on every change.
 
 ## Decisions
 
