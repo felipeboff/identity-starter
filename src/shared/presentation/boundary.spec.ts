@@ -30,12 +30,15 @@ const staysInShared = (file: string, specifier: string): boolean =>
 describe("src/shared/presentation", () => {
   it("imports nothing outside src/shared and typebox, so it stays transport and framework neutral", () => {
     expect(sourceFiles).toStrictEqual([
+      "date.schema.ts",
       "dispatcher.ts",
       "handler.ts",
       path.join("http", "http-error-mapper.ts"),
       path.join("http", "http-response.ts"),
       path.join("http", "http-route.ts"),
       path.join("http", "http-router.ts"),
+      path.join("outbox", "outbox-consumer-adapter.ts"),
+      path.join("outbox", "outbox-consumer.ts"),
       "page-request.schema.ts",
       "rate-limit.middleware.ts",
       "schema-parser.ts",

@@ -39,4 +39,18 @@ export const SharedLogEvent = {
   RequestCompleted: defineLogEvent<{ status: number; durationMs: number }>(
     "shared.request_completed",
   ),
+  OutboxEffectFailed: defineLogEvent<{
+    id: string;
+    type: string;
+    attempts: number;
+    error: unknown;
+  }>("shared.outbox_effect_failed"),
+  OutboxEffectAbandoned: defineLogEvent<{
+    id: string;
+    type: string;
+    attempts: number;
+  }>("shared.outbox_effect_abandoned"),
+  OutboxRelayFailed: defineLogEvent<{ error: unknown }>(
+    "shared.outbox_relay_failed",
+  ),
 };
