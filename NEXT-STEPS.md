@@ -160,8 +160,8 @@ outbox no próprio Mongo, e o transporte muda depois sem mexer nos use cases.
         resposta de sucesso, inclusive campo a mais
 - [x] **README de uso:** subir o projeto, criar os apps OAuth (GitHub e Google), configurar a
       MailerSend e a lista de rotas
-- [ ] **Exemplo de front** (ou só as páginas): callback do OAuth, reset de senha e verificação de
-      e-mail
+- [x] **Exemplo de front** em `web/`: callback do OAuth, reset de senha, verificação de e-mail,
+      convites e perfil
 - [x] **Links quebrados:** os ADRs 002–004 e `.specs/features/{mongo-connection,transactions}`
       apontam para o `NEXT-STEPS.md` antigo no commit `eccf67d`, o último antes da remoção em
       `f248595`

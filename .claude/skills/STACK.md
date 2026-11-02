@@ -103,7 +103,8 @@ file deserve an ADR (`create-adr`).
   run by `node --enable-source-maps` on `node:24-slim`, as `node`, with production dependencies only;
   `docker compose --profile app up` starts it next to Mongo and Redis
   ([ADR-009](../../docs/adr/009-run-the-api-from-an-esbuild-bundle-in-a-slim-image.md)).
-- CI: **GitHub Actions** (lint, typecheck, tests with coverage). _planned_
+- CI: **GitHub Actions** (`.github/workflows/ci.yml`: format check, lint, typecheck and unit
+  coverage), started by hand (`workflow_dispatch`).
 - Infra: EC2 or VPS, provisioned with **Terraform**. _planned_
 
 ## Testing
