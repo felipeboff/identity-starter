@@ -1,16 +1,16 @@
 import { faker } from "@faker-js/faker";
-import { LogLevel } from "@shared/application/ports/logger";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { toOutputAccount } from "../mappers/toOutputAccount";
+import { IdentityOutboxEffect } from "../outbox/identity-outbox-effect";
 import {
   IdentityContext,
   createIdentityContext,
+  recordedEmails,
   seedAccount,
 } from "../testing/identity-context";
 import { EMAIL_VERIFICATION_TTL_MS } from "../token.policy";
-import { IdentityUseCaseLogEvent } from "../use-case.log-event";
 
 import { SignUpWithEmailUseCase } from "./sign-up-with-email.use-case";
 
@@ -128,39 +128,56 @@ describe("SignUpWithEmailUseCase", () => {
     expect(stored && toOutputAccount(stored)).toStrictEqual(output.account);
   });
 
-  it("e-mails a link to verify the address", async () => {
+  it("records the verification e-mail in the outbox instead of sending it", async () => {
     const input = makeInput();
+    const expiresAt = new Date(
+      ctx.clock.now().getTime() + EMAIL_VERIFICATION_TTL_MS,
+    );
 
     const output = await useCase.execute(input);
 
-    const [sent] = ctx.mailer.emailVerifications;
-    expect(ctx.mailer.emailVerifications).toHaveLength(1);
-    expect(sent).toMatchObject({ to: input.email, name: input.name });
+    expect(ctx.outbox.effects()).toStrictEqual([
+      expect.objectContaining({
+        type: IdentityOutboxEffect.EMAIL_VERIFICATION_EMAIL,
+        payload: {
+          to: input.email,
+          name: input.name,
+          token: expect.any(String) as string,
+          expiresAt,
+        },
+      }),
+    ]);
+    expect(ctx.mailer.emailVerifications).toStrictEqual([]);
+    expect(ctx.logger.entries).toStrictEqual([]);
+
+    const [sent] = recordedEmails(
+      ctx,
+      IdentityOutboxEffect.EMAIL_VERIFICATION_EMAIL,
+    );
     const verification = await ctx.emailVerifications.findByTokenHash(
-      ctx.tokens.hash(sent?.token ?? ""),
+      ctx.tokens.hash(sent.token),
     );
     expect(verification?.toSnapshot()).toMatchObject({
       accountId: output.account.id,
-      expiresAt: new Date(
-        ctx.clock.now().getTime() + EMAIL_VERIFICATION_TTL_MS,
-      ),
+      expiresAt,
       consumedAt: null,
     });
   });
 
-  it("still signs up, and logs it, when the verification e-mail cannot be sent", async () => {
-    const error = new Error(faker.lorem.sentence());
-    vi.spyOn(ctx.mailer, "sendEmailVerification").mockRejectedValueOnce(error);
+  it("records the e-mail inside the sign-up transaction", async () => {
+    const input = makeInput();
+    const record = ctx.outbox.record.bind(ctx.outbox);
+    const seen: { running: boolean; accountStored: boolean }[] = [];
+    vi.spyOn(ctx.outbox, "record").mockImplementation(async (effect) => {
+      seen.push({
+        running: ctx.transactions.isRunning(),
+        accountStored: (await ctx.accounts.findByEmail(input.email)) !== null,
+      });
+      return record(effect);
+    });
 
-    const output = await useCase.execute(makeInput());
+    await useCase.execute(input);
 
-    expect(await ctx.accounts.findById(output.account.id)).not.toBeNull();
-    expect(ctx.logger.entries).toStrictEqual([
-      {
-        level: LogLevel.WARN,
-        event: IdentityUseCaseLogEvent.VerificationEmailNotSent.name,
-        fields: { accountId: output.account.id, error },
-      },
-    ]);
+    expect(seen).toStrictEqual([{ running: true, accountStored: true }]);
   });
 });

@@ -6,7 +6,11 @@ import { LogLevel, type Logger } from "@shared/application/ports/logger";
 import { SharedError } from "@shared/domain/errors/shared.error";
 import { AsyncLocalLogContext } from "@shared/infrastructure/logging/async-local-log-context";
 import { PinoLogger } from "@shared/infrastructure/logging/pino-logger";
+import { MongoOutbox } from "@shared/infrastructure/mongo/mongo-outbox";
 import { RedisConnection } from "@shared/infrastructure/redis/redis-connection";
+import { SystemClock } from "@shared/infrastructure/time/system-clock";
+import { Dispatcher } from "@shared/presentation/dispatcher";
+import { SchemaParser } from "@shared/presentation/schema-parser";
 import { FakeErrorReporter } from "@shared/testing/fake-error-reporter";
 import { FakeLogger } from "@shared/testing/fake-logger";
 import { useMemoryMongo } from "@shared/testing/memory-mongo";
@@ -23,6 +27,8 @@ import {
 
 const mongo = useMemoryMongo();
 const redis = useMemoryRedis();
+const clock = new SystemClock();
+const dispatcher = new Dispatcher({ parser: new SchemaParser() });
 let cache: RedisConnection;
 
 beforeAll(async () => {
@@ -64,12 +70,15 @@ const createApp = async (
   errors = new FakeErrorReporter(),
 ) =>
   createServer({
+    dispatcher,
     modules: {
       identity: await createIdentityModule(identitySettings, {
         connection: mongo.connection(),
         redis: cache.client,
         logger: new FakeLogger(),
         logContext,
+        outbox: new MongoOutbox({ connection: mongo.connection(), clock }),
+        clock,
       }),
     },
     logger,
@@ -103,12 +112,15 @@ describe("createServer", () => {
     const failure = new TypeError(faker.lorem.sentence());
     const logContext = new AsyncLocalLogContext();
     const app = createServer({
+      dispatcher,
       modules: {
         identity: await createIdentityModule(identitySettings, {
           connection: mongo.connection(),
           redis: cache.client,
           logger: new FakeLogger(),
           logContext,
+          outbox: new MongoOutbox({ connection: mongo.connection(), clock }),
+          clock,
         }),
       },
       logger: new FakeLogger(),

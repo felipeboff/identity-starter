@@ -1,9 +1,9 @@
 import { faker } from "@faker-js/faker";
+import { FakeClock } from "@shared/testing/fake-clock";
 import { SignJWT, decodeJwt, decodeProtectedHeader } from "jose";
 import { describe, expect, it } from "vitest";
 
 import { ACCESS_TOKEN_TTL_MS } from "../application/session.policy";
-import { FakeClock } from "../application/testing/fakes";
 
 import { JoseAccessToken } from "./jose-access-token";
 

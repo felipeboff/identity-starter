@@ -1,5 +1,4 @@
 import { faker } from "@faker-js/faker";
-import { Clock } from "@shared/application/ports/clock";
 import { IdGenerator } from "@shared/application/ports/id-generator";
 
 import { AccessToken, AccessTokenClaims } from "../ports/access-token";
@@ -18,18 +17,6 @@ import { PasswordHasher } from "../ports/password-hasher";
 import { TokenIssuer } from "../ports/token-issuer";
 
 import { OAuthProviderName } from "@/identity/domain/value-objects/oauth-provider.value-object";
-
-export class FakeClock implements Clock {
-  constructor(private current = new Date("2026-01-01T12:00:00.000Z")) {}
-
-  now(): Date {
-    return new Date(this.current);
-  }
-
-  advance(ms: number): void {
-    this.current = new Date(this.current.getTime() + ms);
-  }
-}
 
 export class FakeIdGenerator implements IdGenerator {
   next(): string {

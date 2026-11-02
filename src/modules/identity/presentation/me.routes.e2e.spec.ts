@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 
 import { IdentityHttp, createIdentityHttp } from "./testing/identity-http";
 
+import { IdentityOutboxEffect } from "@/identity/application/outbox/identity-outbox-effect";
 import {
+  recordedEmails,
   seedAccount,
   seedSession,
 } from "@/identity/application/testing/identity-context";
@@ -100,9 +102,9 @@ describe("identity protected routes", () => {
     });
 
     expect(out).toStrictEqual({ status: 204 });
-    expect(http.ctx.mailer.emailVerifications).toEqual([
-      expect.objectContaining({ to: ana.email }),
-    ]);
+    expect(
+      recordedEmails(http.ctx, IdentityOutboxEffect.EMAIL_VERIFICATION_EMAIL),
+    ).toEqual([expect.objectContaining({ to: ana.email })]);
   });
 
   it("lists my sessions with 200", async () => {

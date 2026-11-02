@@ -1,8 +1,11 @@
 import { faker } from "@faker-js/faker";
 import { describe, expect, it } from "vitest";
 
+import { IdentityOutboxEffect } from "../outbox/identity-outbox-effect";
+
 import {
   createIdentityContext,
+  recordedEmails,
   seedAccount,
   seedSession,
 } from "./identity-context";
@@ -95,6 +98,40 @@ describe("identity context", () => {
 
       expect(session.credentialId.value).toBe(credentialId);
       expect(session.expiresAt).toEqual(new Date(now.getTime() + 1_000));
+    });
+  });
+
+  describe("recordedEmails", () => {
+    it("lists the payloads recorded in the outbox for one type, oldest first", async () => {
+      const ctx = createIdentityContext();
+      const buildEmail = () => ({
+        to: faker.internet.email(),
+        name: faker.person.fullName(),
+        token: faker.string.alphanumeric(32),
+        expiresAt: faker.date.soon(),
+      });
+      const first = buildEmail();
+      const second = buildEmail();
+      const other = buildEmail();
+      await ctx.outbox.record({
+        type: IdentityOutboxEffect.PASSWORD_RESET_EMAIL,
+        payload: first,
+      });
+      await ctx.outbox.record({
+        type: IdentityOutboxEffect.EMAIL_VERIFICATION_EMAIL,
+        payload: other,
+      });
+      await ctx.outbox.record({
+        type: IdentityOutboxEffect.PASSWORD_RESET_EMAIL,
+        payload: second,
+      });
+
+      const emails = recordedEmails(
+        ctx,
+        IdentityOutboxEffect.PASSWORD_RESET_EMAIL,
+      );
+
+      expect(emails).toStrictEqual([first, second]);
     });
   });
 });

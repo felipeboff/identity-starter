@@ -1,13 +1,17 @@
 import { faker } from "@faker-js/faker";
 import { CursorPager } from "@shared/application/services/cursor-pager";
 import { RateLimiter } from "@shared/application/services/rate-limiter";
+import { FakeClock } from "@shared/testing/fake-clock";
 import { FakeLogContext } from "@shared/testing/fake-log-context";
 import { FakeLogger } from "@shared/testing/fake-logger";
 import { InMemoryCache } from "@shared/testing/in-memory-cache";
+import { InMemoryOutbox } from "@shared/testing/in-memory-outbox";
 import { InMemoryTransactionRunner } from "@shared/testing/in-memory-transaction-runner";
 
 import { Actor } from "../actor";
+import { IdentityOutboxEffect } from "../outbox/identity-outbox-effect";
 import { AccessPolicy } from "../policies/access.policy";
+import { TokenEmail } from "../ports/identity-mailer";
 import { AccountResolver } from "../services/account-resolver";
 import { EmailVerificationIssuer } from "../services/email-verification-issuer";
 import { MembershipResolver } from "../services/membership-resolver";
@@ -18,7 +22,6 @@ import { REFRESH_TOKEN_TTL_MS } from "../session.policy";
 
 import {
   FakeAccessToken,
-  FakeClock,
   FakeIdGenerator,
   FakeIdentityMailer,
   FakeOAuthGateway,
@@ -71,6 +74,7 @@ export const createIdentityContext = () => {
   const logContext = new FakeLogContext();
   const logger = new FakeLogger();
   const cache = new InMemoryCache(clock);
+  const outbox = new InMemoryOutbox({ transactions, clock });
   const rateLimiter = new RateLimiter({ cache, logger });
 
   const sessionIssuer = new SessionIssuer({
@@ -88,6 +92,7 @@ export const createIdentityContext = () => {
   const emailVerificationIssuer = new EmailVerificationIssuer({
     emailVerifications,
     tokens,
+    outbox,
     clock,
     ids,
   });
@@ -115,6 +120,7 @@ export const createIdentityContext = () => {
     logContext,
     logger,
     cache,
+    outbox,
     rateLimiter,
     sessionIssuer,
     sessionRevoker,
@@ -244,3 +250,13 @@ export const seedSession = async (
     actor: { ...seeded.actor, sessionId: session.id.value },
   };
 };
+
+/** The token e-mails recorded in the outbox for `type`, oldest first. */
+export const recordedEmails = (
+  ctx: IdentityContext,
+  type: IdentityOutboxEffect,
+): TokenEmail[] =>
+  ctx.outbox
+    .effects()
+    .filter((effect) => effect.type === type)
+    .map((effect) => effect.payload as TokenEmail);

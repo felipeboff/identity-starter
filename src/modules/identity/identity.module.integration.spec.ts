@@ -1,9 +1,14 @@
 import { faker } from "@faker-js/faker";
+import { OutboxRelay } from "@shared/application/services/outbox-relay";
 import { SharedError } from "@shared/domain/errors/shared.error";
+import { MongoOutbox } from "@shared/infrastructure/mongo/mongo-outbox";
+import type { OutboxDocument } from "@shared/infrastructure/mongo/outbox.schema";
 import { RedisConnection } from "@shared/infrastructure/redis/redis-connection";
 import { Dispatcher } from "@shared/presentation/dispatcher";
+import { OutboxConsumerAdapter } from "@shared/presentation/outbox/outbox-consumer-adapter";
 import { SchemaParser } from "@shared/presentation/schema-parser";
 import { expectAppError } from "@shared/testing/expect-app-error";
+import { FakeClock } from "@shared/testing/fake-clock";
 import { FakeLogContext } from "@shared/testing/fake-log-context";
 import { FakeLogger } from "@shared/testing/fake-logger";
 import { useMemoryMongo } from "@shared/testing/memory-mongo";
@@ -70,11 +75,16 @@ const buildSettings = (
 
 const create = async (settings = buildSettings()) => {
   const logger = new FakeLogger();
+  const clock = new FakeClock(new Date());
+  const outbox = new MongoOutbox({ connection: mongo.connection(), clock });
+  await outbox.ready();
   const identity = await createIdentityModule(settings, {
     connection: mongo.connection(),
     redis: cache.client,
     logger,
     logContext: new FakeLogContext(),
+    outbox,
+    clock,
   });
   const dispatcher = new Dispatcher({ parser: new SchemaParser() });
 
@@ -105,8 +115,22 @@ const create = async (settings = buildSettings()) => {
     return { email, output };
   };
 
-  return { logger, call, signUp, settings };
+  const relay = new OutboxRelay({
+    store: outbox,
+    handlers: new OutboxConsumerAdapter({ dispatcher }).toHandlers(
+      identity.outboxConsumers,
+    ),
+    clock,
+    logger,
+  });
+
+  return { logger, call, signUp, settings, relay, clock };
 };
+
+const outboxEntries = () =>
+  mongo.connection().collection<OutboxDocument>("outbox");
+
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1_000;
 
 const respondWith = (status: number, body?: unknown) => {
   const bodies: string[] = [];
@@ -184,30 +208,76 @@ describe("createIdentityModule", () => {
     expect(payload.sub).toBe(output.account.id);
   });
 
-  it("logs the password reset link when the mailer is log", async () => {
-    const { signUp, call, logger } = await create(buildSettings("log"));
+  it("logs the password reset link when the relay delivers the effect", async () => {
+    const { signUp, call, logger, relay, clock } = await create(
+      buildSettings("log"),
+    );
     const { email } = await signUp();
+    await outboxEntries().deleteMany({});
+    const loggedBefore = logger.entries.length;
 
     await call("/auth/password-reset/request", { email });
+
+    const [pending] = await outboxEntries().find().toArray();
+    expect(pending).toMatchObject({
+      type: "identity.password_reset_email",
+      attempts: 0,
+      processedAt: null,
+      payload: { to: email },
+    });
+    expect(logger.entries.slice(loggedBefore)).toStrictEqual([]);
+    const { token } = pending.payload as { token: string };
+
+    await relay.relayNext();
 
     expect(logger.entries).toContainEqual(
       expect.objectContaining({
         event: IdentityLogEvent.EmailLogged.name,
-        fields: expect.objectContaining({ to: email }) as unknown,
+        fields: expect.objectContaining({
+          to: email,
+          link: expect.stringContaining(token) as unknown,
+        }) as unknown,
       }),
     );
+    expect(await outboxEntries().findOne({ _id: pending._id })).toMatchObject({
+      processedAt: clock.now(),
+      payload: null,
+      expiresAt: new Date(clock.now().getTime() + SEVEN_DAYS_MS),
+    });
   });
 
-  it("sends the password reset through MailerSend when asked", async () => {
-    const { fetch } = respondWith(202);
+  it("retries the MailerSend delivery after a failure", async () => {
+    const answers = [503, 202];
+    const fetch = vi.fn<typeof globalThis.fetch>(() =>
+      Promise.resolve(new Response("", { status: answers.shift() })),
+    );
     vi.stubGlobal("fetch", fetch);
     const settings = buildSettings("mailersend");
-    const { signUp, call } = await create(settings);
+    const { signUp, call, relay, clock } = await create(settings);
     const { email } = await signUp();
-
+    await outboxEntries().deleteMany({});
     await call("/auth/password-reset/request", { email });
+    const callsDuringRequest = fetch.mock.calls.length;
+    const [pending] = await outboxEntries().find().toArray();
 
-    const request = fetch.mock.calls[0]?.[0] as Request;
+    await relay.relayNext();
+    const afterFailure = await outboxEntries().findOne({ _id: pending._id });
+    clock.advance(30 * 1_000);
+    await relay.relayNext();
+
+    expect(callsDuringRequest).toBe(0);
+    expect(afterFailure).toMatchObject({
+      attempts: 1,
+      lastError: IdentityError.EmailDeliveryFailed.code,
+      payload: pending.payload,
+      processedAt: null,
+    });
+    expect(await outboxEntries().findOne({ _id: pending._id })).toMatchObject({
+      processedAt: clock.now(),
+      payload: null,
+    });
+    const request = fetch.mock.calls[1]?.[0] as Request;
+    expect(fetch).toHaveBeenCalledTimes(2);
     expect(request.url).toBe(MAILERSEND_EMAIL_URL);
     expect(request.headers.get("authorization")).toBe(
       `Bearer ${settings.mailer.apiKey}`,

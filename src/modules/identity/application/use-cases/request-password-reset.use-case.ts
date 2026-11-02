@@ -1,5 +1,6 @@
 import { UseCase } from "@shared/application/use-cases";
 
+import { IdentityOutboxEffect } from "../outbox/identity-outbox-effect";
 import { RateLimitPolicy } from "../rate-limit.policy";
 import { PASSWORD_RESET_TTL_MS } from "../token.policy";
 
@@ -28,18 +29,13 @@ export class RequestPasswordResetUseCase extends UseCase<{
       return;
     }
 
-    const issued = await this.deps.transactions.run(() => this.issue(input));
-    if (!issued) {
-      return;
-    }
-
-    await this.deps.mailer.sendPasswordReset(issued);
+    await this.deps.transactions.run(() => this.issue(input));
   }
 
-  private async issue(input: RequestPasswordResetInput) {
+  private async issue(input: RequestPasswordResetInput): Promise<void> {
     const account = await this.deps.accounts.findByEmail(input.email);
     if (!account || account.isDeleted()) {
-      return null;
+      return;
     }
 
     const at = this.deps.clock.now();
@@ -66,11 +62,14 @@ export class RequestPasswordResetUseCase extends UseCase<{
     );
     await this.deps.passwordResets.save(passwordReset);
 
-    return {
-      to: account.email.value,
-      name: account.name,
-      token,
-      expiresAt,
-    };
+    await this.deps.outbox.record({
+      type: IdentityOutboxEffect.PASSWORD_RESET_EMAIL,
+      payload: {
+        to: account.email.value,
+        name: account.name,
+        token,
+        expiresAt,
+      },
+    });
   }
 }

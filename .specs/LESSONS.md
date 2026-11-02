@@ -56,6 +56,27 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: verification.md round 1 G3 (C14, schema-parser.spec.ts:182-184) (shared)
 - last seen: 2026-10-31T00:09:33Z
 
+### L-007 - When a check claims exactly one stored entry, assert the count, not just the first element of the list
+
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `tests` · harmful: 0
+- features: mongo-outbox
+- evidence: verification.md F1 - identity.module.integration.spec.ts:221 (C8) (tests)
+- last seen: 2026-11-02T13:55:45Z
+
+### L-008 - Prove that no timer runs by asserting the pending timer count, not by advancing fake timers by zero
+
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `tests` · harmful: 0
+- features: mongo-outbox
+- evidence: verification.md F2 - outbox-relay.spec.ts:300 (C17) (tests)
+- last seen: 2026-11-02T13:55:45Z
+
+### L-009 - Pin a value settled during the build in the assertion instead of matching any string
+
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `tests` · harmful: 0
+- features: mongo-outbox
+- evidence: verification.md F3 - outbox-relay.spec.ts:260 (C13) (tests)
+- last seen: 2026-11-02T13:55:45Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

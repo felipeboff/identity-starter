@@ -1,10 +1,12 @@
 import { faker } from "@faker-js/faker";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { IdentityOutboxEffect } from "../outbox/identity-outbox-effect";
 import { RateLimitPolicy } from "../rate-limit.policy";
 import {
   IdentityContext,
   createIdentityContext,
+  recordedEmails,
   seedAccount,
 } from "../testing/identity-context";
 import { PASSWORD_RESET_TTL_MS } from "../token.policy";
@@ -23,7 +25,10 @@ describe("RequestPasswordResetUseCase", () => {
     useCase = new RequestPasswordResetUseCase(ctx);
   });
 
-  it("stores a reset token and e-mails it to the account", async () => {
+  const resetEmails = () =>
+    recordedEmails(ctx, IdentityOutboxEffect.PASSWORD_RESET_EMAIL);
+
+  it("records the reset e-mail in the outbox instead of sending it", async () => {
     const ana = await seedAccount(ctx);
     const expiresAt = new Date(
       ctx.clock.now().getTime() + PASSWORD_RESET_TTL_MS,
@@ -31,16 +36,20 @@ describe("RequestPasswordResetUseCase", () => {
 
     await useCase.execute({ email: ana.email });
 
-    expect(ctx.mailer.passwordResets).toEqual([
-      {
-        to: ana.email,
-        name: ana.account.name,
-        token: expect.any(String) as string,
-        expiresAt,
-      },
+    expect(ctx.outbox.effects()).toStrictEqual([
+      expect.objectContaining({
+        type: IdentityOutboxEffect.PASSWORD_RESET_EMAIL,
+        payload: {
+          to: ana.email,
+          name: ana.account.name,
+          token: expect.any(String) as string,
+          expiresAt,
+        },
+      }),
     ]);
+    expect(ctx.mailer.passwordResets).toStrictEqual([]);
 
-    const [{ token }] = ctx.mailer.passwordResets;
+    const [{ token }] = resetEmails();
     const reset = await ctx.passwordResets.findByTokenHash(
       ctx.tokens.hash(token),
     );
@@ -58,7 +67,7 @@ describe("RequestPasswordResetUseCase", () => {
     await useCase.execute({ email: ana.email });
     await useCase.execute({ email: ana.email });
 
-    const [first, second] = ctx.mailer.passwordResets;
+    const [first, second] = resetEmails();
     const firstReset = await ctx.passwordResets.findByTokenHash(
       ctx.tokens.hash(first.token),
     );
@@ -75,7 +84,7 @@ describe("RequestPasswordResetUseCase", () => {
   it("leaves an already consumed token untouched", async () => {
     const ana = await seedAccount(ctx);
     await useCase.execute({ email: ana.email });
-    const [{ token }] = ctx.mailer.passwordResets;
+    const [{ token }] = resetEmails();
     const consumed = await ctx.passwordResets.findByTokenHash(
       ctx.tokens.hash(token),
     );
@@ -91,7 +100,7 @@ describe("RequestPasswordResetUseCase", () => {
     expect(stored?.isDeleted()).toBe(false);
   });
 
-  it("e-mails a reset link to an account that signs in only with OAuth", async () => {
+  it("records a reset e-mail for an account that signs in only with OAuth", async () => {
     const accountId = faker.database.mongodbObjectId();
     const email = faker.internet.email().toLowerCase();
     const at = ctx.clock.now();
@@ -119,17 +128,17 @@ describe("RequestPasswordResetUseCase", () => {
 
     await useCase.execute({ email });
 
-    expect(ctx.mailer.passwordResets).toEqual([
+    expect(resetEmails()).toEqual([
       expect.objectContaining({ to: email, name: account.name }),
     ]);
     expect(await ctx.passwordResets.listByAccountId(accountId)).toHaveLength(1);
   });
 
-  describe("finishes silently without sending an e-mail", () => {
+  describe("finishes silently without recording an e-mail", () => {
     it("when the e-mail is unknown", async () => {
       await useCase.execute({ email: faker.internet.email().toLowerCase() });
 
-      expect(ctx.mailer.passwordResets).toEqual([]);
+      expect(ctx.outbox.effects()).toStrictEqual([]);
     });
 
     it("when the account is deleted", async () => {
@@ -139,14 +148,14 @@ describe("RequestPasswordResetUseCase", () => {
 
       await useCase.execute({ email: ana.email });
 
-      expect(ctx.mailer.passwordResets).toEqual([]);
+      expect(ctx.outbox.effects()).toStrictEqual([]);
     });
   });
 
   it("writes nothing when the last write fails", async () => {
     const ana = await seedAccount(ctx);
     await useCase.execute({ email: ana.email });
-    const [first] = ctx.mailer.passwordResets;
+    const [first] = resetEmails();
     const failure = new Error(faker.lorem.sentence());
     const save = ctx.passwordResets.save.bind(ctx.passwordResets);
     vi.spyOn(ctx.passwordResets, "save")
@@ -159,32 +168,30 @@ describe("RequestPasswordResetUseCase", () => {
       ctx.tokens.hash(first.token),
     );
     expect(previous?.isPending(ctx.clock.now())).toBe(true);
-    expect(ctx.mailer.passwordResets).toStrictEqual([first]);
+    expect(resetEmails()).toStrictEqual([first]);
   });
 
-  it("sends the e-mail after the transaction commits", async () => {
+  it("records the e-mail inside the transaction that stores the reset", async () => {
     const ana = await seedAccount(ctx);
-    const send = ctx.mailer.sendPasswordReset.bind(ctx.mailer);
+    const record = ctx.outbox.record.bind(ctx.outbox);
     const seen: { running: boolean; stored: boolean }[] = [];
-    vi.spyOn(ctx.mailer, "sendPasswordReset").mockImplementation(
-      async (email) => {
-        seen.push({
-          running: ctx.transactions.isRunning(),
-          stored:
-            (await ctx.passwordResets.findByTokenHash(
-              ctx.tokens.hash(email.token),
-            )) !== null,
-        });
-        return send(email);
-      },
-    );
+    vi.spyOn(ctx.outbox, "record").mockImplementation(async (effect) => {
+      const { token } = effect.payload as { token: string };
+      seen.push({
+        running: ctx.transactions.isRunning(),
+        stored:
+          (await ctx.passwordResets.findByTokenHash(ctx.tokens.hash(token))) !==
+          null,
+      });
+      return record(effect);
+    });
 
     await useCase.execute({ email: ana.email });
 
-    expect(seen).toStrictEqual([{ running: false, stored: true }]);
+    expect(seen).toStrictEqual([{ running: true, stored: true }]);
   });
 
-  it("stops sending reset e-mails to one address past the limit, silently", async () => {
+  it("stops recording reset e-mails to one address past the limit, silently", async () => {
     const ana = await seedAccount(ctx);
     const limit = RateLimitPolicy.PASSWORD_RESET_REQUEST_PER_EMAIL.limit;
     for (let i = 0; i < limit; i++) {
@@ -193,6 +200,6 @@ describe("RequestPasswordResetUseCase", () => {
 
     await useCase.execute({ email: ana.email });
 
-    expect(ctx.mailer.passwordResets).toHaveLength(limit);
+    expect(resetEmails()).toHaveLength(limit);
   });
 });

@@ -5,7 +5,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import { IdentityHttp, createIdentityHttp } from "./testing/identity-http";
 
+import { IdentityOutboxEffect } from "@/identity/application/outbox/identity-outbox-effect";
 import {
+  recordedEmails,
   seedAccount,
   seedSession,
 } from "@/identity/application/testing/identity-context";
@@ -302,7 +304,7 @@ describe("identity route failures", () => {
   });
 
   describe("POST /auth/password-reset/request", () => {
-    it("answers 422 when the e-mail cannot be delivered", async () => {
+    it("answers 204 while the e-mail provider is down", async () => {
       const http = createIdentityHttp();
       const ana = await seedAccount(http.ctx);
       failMail(http, "sendPasswordReset");
@@ -311,10 +313,15 @@ describe("identity route failures", () => {
         body: { email: ana.email },
       });
 
-      expect(failure(out)).toStrictEqual({
-        status: 422,
-        code: IdentityError.EmailDeliveryFailed.code,
-      });
+      expect(out).toStrictEqual({ status: 204 });
+      expect(http.ctx.outbox.effects()).toStrictEqual([
+        expect.objectContaining({
+          type: IdentityOutboxEffect.PASSWORD_RESET_EMAIL,
+          payload: expect.objectContaining({ to: ana.email }) as unknown,
+          processedAt: null,
+          failedAt: null,
+        }),
+      ]);
     });
   });
 
@@ -351,7 +358,10 @@ describe("identity route failures", () => {
       await http.call("POST", "/auth/password-reset/request", {
         body: { email: ana.email },
       });
-      const [mail] = http.ctx.mailer.passwordResets;
+      const [mail] = recordedEmails(
+        http.ctx,
+        IdentityOutboxEffect.PASSWORD_RESET_EMAIL,
+      );
       const reset = () =>
         http.call("POST", "/auth/password-reset", {
           body: { token: mail?.token, newPassword: faker.internet.password() },
@@ -398,7 +408,10 @@ describe("identity route failures", () => {
       const http = createIdentityHttp();
       const ana = await http.signIn();
       await http.call("POST", "/me/email-verification", { token: ana.token });
-      const [mail] = http.ctx.mailer.emailVerifications;
+      const [mail] = recordedEmails(
+        http.ctx,
+        IdentityOutboxEffect.EMAIL_VERIFICATION_EMAIL,
+      );
       const verify = () =>
         http.call("POST", "/auth/email-verification", {
           body: { token: mail?.token },
@@ -471,7 +484,7 @@ describe("identity route failures", () => {
       });
     });
 
-    it("answers 422 when the e-mail cannot be delivered", async () => {
+    it("answers 204 while the e-mail provider is down", async () => {
       const http = createIdentityHttp();
       const ana = await http.signIn();
       failMail(http, "sendEmailVerification");
@@ -480,10 +493,15 @@ describe("identity route failures", () => {
         token: ana.token,
       });
 
-      expect(failure(out)).toStrictEqual({
-        status: 422,
-        code: IdentityError.EmailDeliveryFailed.code,
-      });
+      expect(out).toStrictEqual({ status: 204 });
+      expect(http.ctx.outbox.effects()).toStrictEqual([
+        expect.objectContaining({
+          type: IdentityOutboxEffect.EMAIL_VERIFICATION_EMAIL,
+          payload: expect.objectContaining({ to: ana.email }) as unknown,
+          processedAt: null,
+          failedAt: null,
+        }),
+      ]);
     });
   });
 

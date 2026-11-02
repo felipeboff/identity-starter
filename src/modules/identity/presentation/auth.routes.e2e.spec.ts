@@ -3,7 +3,11 @@ import { describe, expect, it } from "vitest";
 
 import { IdentityHttp, createIdentityHttp } from "./testing/identity-http";
 
-import { seedAccount } from "@/identity/application/testing/identity-context";
+import { IdentityOutboxEffect } from "@/identity/application/outbox/identity-outbox-effect";
+import {
+  recordedEmails,
+  seedAccount,
+} from "@/identity/application/testing/identity-context";
 import { AuthProvider } from "@/identity/domain/credential.entity";
 
 const TOKENS = {
@@ -189,7 +193,10 @@ describe("identity public routes", () => {
     await http.call("POST", "/auth/password-reset/request", {
       body: { email: ana.email },
     });
-    const [mail] = http.ctx.mailer.passwordResets;
+    const [mail] = recordedEmails(
+      http.ctx,
+      IdentityOutboxEffect.PASSWORD_RESET_EMAIL,
+    );
     const newPassword = faker.internet.password();
 
     const out = await http.call("POST", "/auth/password-reset", {
@@ -213,7 +220,10 @@ describe("identity public routes", () => {
     await http.call("POST", "/auth/password-reset/request", {
       body: { email: profile.email },
     });
-    const [mail] = http.ctx.mailer.passwordResets;
+    const [mail] = recordedEmails(
+      http.ctx,
+      IdentityOutboxEffect.PASSWORD_RESET_EMAIL,
+    );
     const newPassword = faker.internet.password();
 
     const out = await http.call("POST", "/auth/password-reset", {
@@ -231,7 +241,10 @@ describe("identity public routes", () => {
     const http = createIdentityHttp();
     const ana = await http.signIn();
     await http.call("POST", "/me/email-verification", { token: ana.token });
-    const [mail] = http.ctx.mailer.emailVerifications;
+    const [mail] = recordedEmails(
+      http.ctx,
+      IdentityOutboxEffect.EMAIL_VERIFICATION_EMAIL,
+    );
 
     const out = await http.call("POST", "/auth/email-verification", {
       body: { token: mail?.token },

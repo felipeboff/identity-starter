@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   FakeAccessToken,
-  FakeClock,
   FakeIdGenerator,
   FakeIdentityMailer,
   FakeOAuthGateway,
@@ -14,25 +13,6 @@ import {
 import { AuthProvider } from "@/identity/domain/credential.entity";
 
 describe("fakes", () => {
-  describe("FakeClock", () => {
-    it("starts at 2026-01-01 12:00 UTC and returns copies", () => {
-      const clock = new FakeClock();
-
-      clock.now().setFullYear(2000);
-
-      expect(clock.now()).toEqual(new Date("2026-01-01T12:00:00.000Z"));
-    });
-
-    it("starts at the given instant and advances", () => {
-      const start = faker.date.recent();
-      const clock = new FakeClock(start);
-
-      clock.advance(1_000);
-
-      expect(clock.now()).toEqual(new Date(start.getTime() + 1_000));
-    });
-  });
-
   describe("FakeIdGenerator", () => {
     it("returns a different id each time", () => {
       const ids = new FakeIdGenerator();
@@ -50,7 +30,7 @@ describe("fakes", () => {
 
       expect(hash).toBe(`$fake$${password}`);
       expect(await hasher.verify(password, hash)).toBe(true);
-      expect(await hasher.verify(`${password}-wrong`, hash)).toBe(false);
+      expect(await hasher.verify(faker.internet.password(), hash)).toBe(false);
     });
   });
 

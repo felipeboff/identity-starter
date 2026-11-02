@@ -164,7 +164,7 @@ export const createIdentityPublicRoutes = (
     method: "POST",
     path: "/auth/password-reset/request",
     status: 204,
-    failures: [400, 422, 429],
+    failures: [400, 429],
     middlewares: [
       new RateLimitMiddleware({
         limiter: deps.rateLimiter,
@@ -281,7 +281,7 @@ export const createIdentityRoutes = (
     method: "POST",
     path: "/me/email-verification",
     status: 204,
-    failures: [401, 409, 422, 429],
+    failures: [401, 409, 429],
     middlewares: [
       new RateLimitMiddleware({
         limiter: deps.rateLimiter,

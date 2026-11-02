@@ -1,8 +1,9 @@
 import { Clock } from "@shared/application/ports/clock";
 import { IdGenerator } from "@shared/application/ports/id-generator";
+import type { Outbox } from "@shared/application/ports/outbox";
 
+import { IdentityOutboxEffect } from "../outbox/identity-outbox-effect";
 import { EmailVerificationRepository } from "../ports/email-verification.repository";
-import { TokenEmail } from "../ports/identity-mailer";
 import { TokenIssuer } from "../ports/token-issuer";
 import { EMAIL_VERIFICATION_TTL_MS } from "../token.policy";
 
@@ -12,6 +13,7 @@ import { EmailVerification } from "@/identity/domain/email-verification.entity";
 export type EmailVerificationIssuerDeps = Readonly<{
   emailVerifications: EmailVerificationRepository;
   tokens: TokenIssuer;
+  outbox: Outbox;
   clock: Clock;
   ids: IdGenerator;
 }>;
@@ -19,7 +21,7 @@ export type EmailVerificationIssuerDeps = Readonly<{
 export class EmailVerificationIssuer {
   constructor(private readonly deps: EmailVerificationIssuerDeps) {}
 
-  async issue(account: Account): Promise<TokenEmail> {
+  async issue(account: Account): Promise<void> {
     const at = this.deps.clock.now();
 
     const previous = await this.deps.emailVerifications.listByAccountId(
@@ -45,6 +47,14 @@ export class EmailVerificationIssuer {
       ),
     );
 
-    return { to: account.email.value, name: account.name, token, expiresAt };
+    await this.deps.outbox.record({
+      type: IdentityOutboxEffect.EMAIL_VERIFICATION_EMAIL,
+      payload: {
+        to: account.email.value,
+        name: account.name,
+        token,
+        expiresAt,
+      },
+    });
   }
 }

@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 7,
+  "next_id": 10,
   "lessons": [
     {
       "id": "L-001",
@@ -96,6 +96,54 @@
       ],
       "created": "2026-10-31T00:09:33Z",
       "last_seen": "2026-10-31T00:09:33Z"
+    },
+    {
+      "id": "L-007",
+      "key": "spec_precision_gap::when a check claims exactly one stored entry assert the count not just the first element of the list",
+      "text": "When a check claims exactly one stored entry, assert the count, not just the first element of the list",
+      "signal": "spec_precision_gap",
+      "scope": "tests",
+      "status": "candidate",
+      "features": ["mongo-outbox"],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "verification.md F1 - identity.module.integration.spec.ts:221 (C8) (tests)"
+      ],
+      "created": "2026-11-02T13:55:45Z",
+      "last_seen": "2026-11-02T13:55:45Z"
+    },
+    {
+      "id": "L-008",
+      "key": "spec_precision_gap::prove that no timer runs by asserting the pending timer count not by advancing fake timers by zero",
+      "text": "Prove that no timer runs by asserting the pending timer count, not by advancing fake timers by zero",
+      "signal": "spec_precision_gap",
+      "scope": "tests",
+      "status": "candidate",
+      "features": ["mongo-outbox"],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "verification.md F2 - outbox-relay.spec.ts:300 (C17) (tests)"
+      ],
+      "created": "2026-11-02T13:55:45Z",
+      "last_seen": "2026-11-02T13:55:45Z"
+    },
+    {
+      "id": "L-009",
+      "key": "spec_precision_gap::pin a value settled during the build in the assertion instead of matching any string",
+      "text": "Pin a value settled during the build in the assertion instead of matching any string",
+      "signal": "spec_precision_gap",
+      "scope": "tests",
+      "status": "candidate",
+      "features": ["mongo-outbox"],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "verification.md F3 - outbox-relay.spec.ts:260 (C13) (tests)"
+      ],
+      "created": "2026-11-02T13:55:45Z",
+      "last_seen": "2026-11-02T13:55:45Z"
     }
   ]
 }

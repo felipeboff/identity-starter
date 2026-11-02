@@ -3,6 +3,7 @@ import { Clock } from "@shared/application/ports/clock";
 import { IdGenerator } from "@shared/application/ports/id-generator";
 import type { LogContext } from "@shared/application/ports/log-context";
 import type { Logger } from "@shared/application/ports/logger";
+import type { Outbox } from "@shared/application/ports/outbox";
 import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
 import { CursorPager } from "@shared/application/services/cursor-pager";
 import { RateLimiter } from "@shared/application/services/rate-limiter";
@@ -11,8 +12,8 @@ import { FetchHttpClient } from "@shared/infrastructure/http/fetch-http-client";
 import { MongoTransactionRunner } from "@shared/infrastructure/mongo/mongo-transaction-runner";
 import { ObjectIdGenerator } from "@shared/infrastructure/mongo/object-id-generator";
 import { RedisCache } from "@shared/infrastructure/redis/redis-cache";
-import { SystemClock } from "@shared/infrastructure/time/system-clock";
 import { HttpRoute } from "@shared/presentation/http/http-route";
+import { OutboxConsumer } from "@shared/presentation/outbox/outbox-consumer";
 import type { Redis } from "ioredis";
 import type { Connection } from "mongoose";
 
@@ -60,6 +61,8 @@ import { RevokeAllSessionsUseCase } from "./application/use-cases/revoke-all-ses
 import { RevokeInvitationUseCase } from "./application/use-cases/revoke-invitation.use-case";
 import { RevokeOtherSessionsUseCase } from "./application/use-cases/revoke-other-sessions.use-case";
 import { RevokeSessionUseCase } from "./application/use-cases/revoke-session.use-case";
+import { SendEmailVerificationEmailUseCase } from "./application/use-cases/send-email-verification-email.use-case";
+import { SendPasswordResetEmailUseCase } from "./application/use-cases/send-password-reset-email.use-case";
 import { SignInWithEmailUseCase } from "./application/use-cases/sign-in-with-email.use-case";
 import { SignInWithOAuthUseCase } from "./application/use-cases/sign-in-with-oauth.use-case";
 import { SignOutUseCase } from "./application/use-cases/sign-out.use-case";
@@ -94,6 +97,7 @@ import { MongoMembershipRepository } from "./infrastructure/persistence/mongo-me
 import { MongoPasswordResetRepository } from "./infrastructure/persistence/mongo-password-reset.repository";
 import { MongoSessionRepository } from "./infrastructure/persistence/mongo-session.repository";
 import { AuthenticateMiddleware } from "./presentation/authenticate.middleware";
+import { createIdentityOutboxConsumers } from "./presentation/identity.outbox";
 import {
   createIdentityPublicRoutes,
   createIdentityRoutes,
@@ -111,6 +115,7 @@ export type IdentityModuleDeps = {
   invitations: InvitationRepository;
   emailChanges: EmailChangeRepository;
   transactions: TransactionRunner;
+  outbox: Outbox;
 
   passwordHasher: PasswordHasher;
   tokens: TokenIssuer;
@@ -146,12 +151,15 @@ export type IdentityRuntime = Readonly<{
   redis: Redis;
   logger: Logger;
   logContext: LogContext;
+  outbox: Outbox;
+  clock: Clock;
 }>;
 
 export type IdentityModule = {
   authenticate: AuthenticateMiddleware;
   publicRoutes: readonly HttpRoute[];
   routes: readonly HttpRoute<Actor>[];
+  outboxConsumers: readonly OutboxConsumer[];
 };
 
 export const assembleIdentityModule = (
@@ -209,12 +217,15 @@ export const assembleIdentityModule = (
     listMembers: new ListMembersUseCase(deps),
     updateMemberRole: new UpdateMemberRoleUseCase(deps),
     updateMemberPermissions: new UpdateMemberPermissionsUseCase(deps),
+    sendPasswordResetEmail: new SendPasswordResetEmailUseCase(deps),
+    sendEmailVerificationEmail: new SendEmailVerificationEmailUseCase(deps),
   };
 
   return {
     authenticate,
     publicRoutes: createIdentityPublicRoutes({ ...useCases, rateLimiter }),
     routes: createIdentityRoutes({ ...useCases, rateLimiter }),
+    outboxConsumers: createIdentityOutboxConsumers(useCases),
   };
 };
 
@@ -225,7 +236,6 @@ export const createIdentityModule = async (
   const models = new IdentityModels(runtime.connection);
   await models.ready();
   const transactions = new MongoTransactionRunner(runtime.connection);
-  const clock = new SystemClock();
   const http = new FetchHttpClient({
     timeoutMs: settings.externalCallTimeoutMs,
     logger: runtime.logger,
@@ -257,10 +267,14 @@ export const createIdentityModule = async (
     invitations: new MongoInvitationRepository(models, transactions),
     emailChanges: new MongoEmailChangeRepository(models, transactions),
     transactions,
+    outbox: runtime.outbox,
 
     passwordHasher: new Argon2PasswordHasher(),
     tokens: new CryptoTokenIssuer(),
-    accessToken: new JoseAccessToken({ secret: settings.jwtSecret, clock }),
+    accessToken: new JoseAccessToken({
+      secret: settings.jwtSecret,
+      clock: runtime.clock,
+    }),
     mailer:
       settings.mailer.kind === "mailersend"
         ? new MailerSendIdentityMailer({
@@ -278,7 +292,7 @@ export const createIdentityModule = async (
       github: settings.github,
     }),
 
-    clock,
+    clock: runtime.clock,
     ids: new ObjectIdGenerator(),
 
     cache,

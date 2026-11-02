@@ -32,10 +32,9 @@ export const IdentityUseCaseLogEvent = {
     sessionId: string;
     revokedSessions: number;
   }>("identity.refresh_token_reused"),
-  VerificationEmailNotSent: defineLogEvent<{
-    accountId: string;
-    error: unknown;
-  }>("identity.verification_email_not_sent"),
+  EmailExpiredBeforeDelivery: defineLogEvent<{ type: string }>(
+    "identity.email_expired_before_delivery",
+  ),
   EmailChangedNoticeNotSent: defineLogEvent<{
     accountId: string;
     error: unknown;

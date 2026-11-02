@@ -2,13 +2,19 @@ import { once } from "node:events";
 import type { AddressInfo } from "node:net";
 
 import { SharedLogEvent } from "@shared/application/logging/shared.log-event";
+import { OutboxRelay } from "@shared/application/services/outbox-relay";
 import { DisabledErrorReporter } from "@shared/infrastructure/errors/disabled-error-reporter";
 import { SentryErrorReporter } from "@shared/infrastructure/errors/sentry-error-reporter";
 import { HttpServerShutdown } from "@shared/infrastructure/http/http-server-shutdown";
 import { AsyncLocalLogContext } from "@shared/infrastructure/logging/async-local-log-context";
 import { PinoLogger } from "@shared/infrastructure/logging/pino-logger";
 import { MongoDatabase } from "@shared/infrastructure/mongo/mongo-database";
+import { MongoOutbox } from "@shared/infrastructure/mongo/mongo-outbox";
 import { RedisConnection } from "@shared/infrastructure/redis/redis-connection";
+import { SystemClock } from "@shared/infrastructure/time/system-clock";
+import { Dispatcher } from "@shared/presentation/dispatcher";
+import { OutboxConsumerAdapter } from "@shared/presentation/outbox/outbox-consumer-adapter";
+import { SchemaParser } from "@shared/presentation/schema-parser";
 import type { DestinationStream } from "pino";
 
 import { type Env, NodeEnv, toIdentitySettings } from "./config";
@@ -75,17 +81,25 @@ export const start = async (options: StartOptions): Promise<RunningApp> => {
     throw error;
   }
 
+  const clock = new SystemClock();
+  const outbox = new MongoOutbox({ connection: database.connection, clock });
+  await outbox.ready();
+
   const identity = await createIdentityModule(toIdentitySettings(env), {
     connection: database.connection,
     redis: cache.client,
     logger,
     logContext,
+    outbox,
+    clock,
   });
 
+  const dispatcher = new Dispatcher({ parser: new SchemaParser() });
   const app = createServer({
     modules: {
       identity,
     },
+    dispatcher,
     logger,
     errors: sentry ?? new DisabledErrorReporter(),
     logContext,
@@ -106,10 +120,21 @@ export const start = async (options: StartOptions): Promise<RunningApp> => {
   const httpShutdown = new HttpServerShutdown(server, timeouts.shutdownMs);
   const { port } = server.address() as AddressInfo;
   logger.info(SharedLogEvent.ServerStarted, { port });
+
+  const relay = new OutboxRelay({
+    store: outbox,
+    handlers: new OutboxConsumerAdapter({ dispatcher }).toHandlers(
+      identity.outboxConsumers,
+    ),
+    clock,
+    logger,
+  });
+  relay.start();
   let stopping: Promise<0 | 1> | undefined;
 
   const shutdown = async (): Promise<0 | 1> => {
     const outcome = await httpShutdown.run();
+    await relay.stop();
     await cache.close();
     await database.close();
     await sentry?.close();

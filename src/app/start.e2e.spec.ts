@@ -11,7 +11,10 @@ import { faker } from "@faker-js/faker";
 import * as Sentry from "@sentry/node";
 import { SharedLogEvent } from "@shared/application/logging/shared.log-event";
 import { LogLevel } from "@shared/application/ports/logger";
+import { OutboxRelay } from "@shared/application/services/outbox-relay";
 import { SharedError } from "@shared/domain/errors/shared.error";
+import { MongoDatabase } from "@shared/infrastructure/mongo/mongo-database";
+import type { OutboxDocument } from "@shared/infrastructure/mongo/outbox.schema";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { FakeSentryIngest } from "@shared/testing/fake-sentry-ingest";
 import { memoryMongoUri } from "@shared/testing/memory-mongo";
@@ -125,6 +128,7 @@ describe("start", () => {
   afterEach(async () => {
     vi.useRealTimers();
     await Promise.all(running.splice(0).map((app) => app.stop()));
+    vi.restoreAllMocks();
   });
 
   const databaseName = () =>
@@ -360,7 +364,7 @@ describe("start", () => {
       .split("\n")
       .map((line) => JSON.parse(line) as Record<string, unknown>)
       .find((line) => line.event === SharedLogEvent.ServerStarted.name);
-    expect(started).toMatchObject({ level: "info", port: app.port });
+    expect(started).toMatchObject({ level: LogLevel.INFO, port: app.port });
   });
 
   it("logs in the pretty format in develop", async () => {
@@ -404,6 +408,78 @@ describe("start", () => {
 
     await new Promise((resolve) => taken.close(resolve));
     expect(connectionNamed(name)?.readyState).toBe(0);
+  });
+
+  it("delivers the e-mails recorded in the outbox while it runs", async () => {
+    const { url, name, output } = await startApp();
+    const outbox = () =>
+      connectionNamed(name)!.collection<OutboxDocument>("outbox");
+    const email = faker.internet.email().toLowerCase();
+
+    await request(url)
+      .post("/api/auth/sign-up")
+      .send({
+        name: faker.person.fullName(),
+        email,
+        password: faker.internet.password(),
+      })
+      .expect(201);
+    await request(url)
+      .post("/api/auth/password-reset/request")
+      .send({ email })
+      .expect(204);
+
+    await vi.waitFor(
+      async () => {
+        expect(
+          await outbox().countDocuments({ processedAt: { $ne: null } }),
+        ).toBe(2);
+      },
+      { timeout: 5_000, interval: 100 },
+    );
+    expect(
+      (await outbox().find().sort({ createdAt: 1 }).toArray()).map(
+        ({ type, payload, failedAt }) => ({ type, payload, failedAt }),
+      ),
+    ).toStrictEqual([
+      {
+        type: "identity.email_verification_email",
+        payload: null,
+        failedAt: null,
+      },
+      { type: "identity.password_reset_email", payload: null, failedAt: null },
+    ]);
+    expect(
+      output.events().filter((event) => event === "identity.email_logged"),
+    ).toHaveLength(2);
+  });
+
+  it("starts the outbox relay after listening and stops it before closing the database", async () => {
+    const output = createOutput();
+    let eventsAtRelayStart: string[] = [];
+    vi.spyOn(OutboxRelay.prototype, "start").mockImplementation(() => {
+      eventsAtRelayStart = output.events();
+    });
+    const close = vi.spyOn(MongoDatabase.prototype, "close");
+    let closesWhenRelayStopped: number | undefined;
+    vi.spyOn(OutboxRelay.prototype, "stop").mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      closesWhenRelayStopped = close.mock.calls.length;
+    });
+    const app = await start({
+      env: buildEnv({
+        MONGO_URL: memoryMongoUri(databaseName()),
+        REDIS_URL: new URL(redis.url()),
+      }),
+      logDestination: output.logDestination,
+    });
+    running.push(app);
+
+    await app.stop();
+
+    expect(eventsAtRelayStart).toContain(SharedLogEvent.ServerStarted.name);
+    expect(closesWhenRelayStopped).toBe(0);
+    expect(close).toHaveBeenCalledTimes(1);
   });
 
   describe("stop", () => {
