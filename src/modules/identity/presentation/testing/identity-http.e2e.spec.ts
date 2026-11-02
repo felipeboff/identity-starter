@@ -1,5 +1,6 @@
 import { faker } from "@faker-js/faker";
 import { SharedLogEvent } from "@shared/application/logging/shared.log-event";
+import { LogLevel } from "@shared/application/ports/logger";
 import { describe, expect, it } from "vitest";
 
 import { createIdentityHttp } from "./identity-http";
@@ -29,7 +30,7 @@ describe("createIdentityHttp", () => {
     expect(out.status).toBe(500);
     expect(http.logger.entries).toStrictEqual([
       {
-        level: "error",
+        level: LogLevel.ERROR,
         event: SharedLogEvent.UnexpectedError.name,
         fields: { error: expect.any(Error) as unknown },
       },

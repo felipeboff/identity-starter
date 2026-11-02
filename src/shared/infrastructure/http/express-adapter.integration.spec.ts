@@ -1,5 +1,6 @@
 import { faker } from "@faker-js/faker";
 import { SharedLogEvent } from "@shared/application/logging/shared.log-event";
+import { LogLevel } from "@shared/application/ports/logger";
 import { AppError, defineError } from "@shared/domain/errors/app-error";
 import { SharedError } from "@shared/domain/errors/shared.error";
 import { Dispatcher } from "@shared/presentation/dispatcher";
@@ -25,7 +26,7 @@ class EchoHandler extends Handler<{
   input: typeof anyInput;
   output: unknown;
 }> {
-  readonly name = "test.echo";
+  readonly name = `${faker.lorem.word()}.${faker.lorem.word()}`;
   readonly input = anyInput;
 
   handle(inbound: Inbound<unknown>): Promise<unknown> {
@@ -38,7 +39,7 @@ class FailingHandler extends Handler<{
   actor: unknown;
   output: unknown;
 }> {
-  readonly name = "test.failing";
+  readonly name = `${faker.lorem.word()}.${faker.lorem.word()}`;
 
   handle(): Promise<unknown> {
     return Promise.reject(this.deps.error);
@@ -61,7 +62,7 @@ class ContextHandler extends Handler<{
   actor: unknown;
   output: unknown;
 }> {
-  readonly name = "test.context";
+  readonly name = `${faker.lorem.word()}.${faker.lorem.word()}`;
 
   handle(): Promise<unknown> {
     return Promise.resolve(this.deps.logContext.get());
@@ -93,7 +94,7 @@ const createApp = (
 };
 
 const errorsOf = (logger: FakeLogger) =>
-  logger.entries.filter((entry) => entry.level === "error");
+  logger.entries.filter((entry) => entry.level === LogLevel.ERROR);
 
 describe("ExpressAdapter", () => {
   it.each<HttpMethod>(["GET", "POST", "PUT", "PATCH", "DELETE"])(
@@ -132,14 +133,15 @@ describe("ExpressAdapter", () => {
   });
 
   it("merges query, body and params into the input, params last", async () => {
-    const route = buildRoute({ path: "/things/:thingId" });
+    const resource = faker.lorem.slug();
+    const route = buildRoute({ path: `/${resource}/:thingId` });
     const { app } = createApp([route]);
     const thingId = faker.database.mongodbObjectId();
     const page = String(faker.number.int({ min: 1, max: 9 }));
     const name = faker.person.fullName();
 
     const response = await request(app)
-      .post(`/things/${thingId}`)
+      .post(`/${resource}/${thingId}`)
       .query({ page })
       .send({ name, thingId: faker.database.mongodbObjectId() });
 
@@ -225,7 +227,7 @@ describe("ExpressAdapter", () => {
     expect(response.body).toMatchObject({ code: "shared.internal" });
     expect(errorsOf(logger)).toStrictEqual([
       {
-        level: "error",
+        level: LogLevel.ERROR,
         event: SharedLogEvent.UnexpectedError.name,
         fields: { error },
       },
@@ -277,7 +279,7 @@ describe("ExpressAdapter", () => {
     expect(response.status).toBe(500);
     expect(errorsOf(logger)).toStrictEqual([
       {
-        level: "error",
+        level: LogLevel.ERROR,
         event: SharedLogEvent.UnexpectedError.name,
         fields: { error },
       },
@@ -322,21 +324,22 @@ describe("ExpressAdapter", () => {
 
     it("runs the handler with the request id, method, route template and operation", async () => {
       const logContext = new AsyncLocalLogContext();
+      const resource = faker.lorem.slug();
       const route = buildRoute({
-        path: "/things/:thingId",
+        path: `/${resource}/:thingId`,
         handler: new ContextHandler({ logContext }),
       });
       const { app } = createApp([route], [], logContext);
 
       const response = await request(app).post(
-        `/things/${faker.database.mongodbObjectId()}`,
+        `/${resource}/${faker.database.mongodbObjectId()}`,
       );
 
       expect(response.body).toStrictEqual({
         requestId: response.headers["x-request-id"],
         method: "POST",
-        route: "/things/:thingId",
-        operation: "test.context",
+        route: route.path,
+        operation: route.handler.name,
       });
     });
 
@@ -360,7 +363,7 @@ describe("ExpressAdapter", () => {
           requestId: response.headers["x-request-id"],
           method: "POST",
           route: route.path,
-          operation: "test.echo",
+          operation: route.handler.name,
         },
       ]);
     });

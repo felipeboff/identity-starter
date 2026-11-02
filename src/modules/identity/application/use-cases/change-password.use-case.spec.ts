@@ -166,7 +166,7 @@ describe("ChangePasswordUseCase", () => {
     await expectAppError(
       useCase.execute(
         {
-          oldPassword: `${ana.password}-wrong`,
+          oldPassword: faker.internet.password(),
           newPassword: faker.internet.password(),
         },
         ana.actor,

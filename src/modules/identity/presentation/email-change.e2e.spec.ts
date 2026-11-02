@@ -61,7 +61,7 @@ describe("e-mail change", () => {
         token: ana.token,
         body: {
           newEmail: faker.internet.email(),
-          password: `${ana.password}-wrong`,
+          password: faker.internet.password(),
         },
       });
 

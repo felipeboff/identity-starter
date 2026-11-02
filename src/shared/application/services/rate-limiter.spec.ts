@@ -117,12 +117,12 @@ describe("RateLimiter", () => {
   it("keeps rules and keys apart", async () => {
     const { limiter } = create();
     const rule = buildRule();
-    const other = { ...rule, name: `${rule.name}-other` };
+    const other = { ...rule, name: faker.lorem.slug() };
     const key = faker.internet.ip();
     for (let i = 0; i < rule.limit; i++) await limiter.hit(rule, key);
 
     expect(await limiter.check(other, key)).toStrictEqual({ limited: false });
-    expect(await limiter.check(rule, `${key}0`)).toStrictEqual({
+    expect(await limiter.check(rule, faker.internet.ip())).toStrictEqual({
       limited: false,
     });
   });

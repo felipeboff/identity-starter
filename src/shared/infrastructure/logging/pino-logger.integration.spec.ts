@@ -53,7 +53,7 @@ describe("PinoLogger", () => {
 
     expect(lines()).toStrictEqual([
       {
-        level: "info",
+        level: LogLevel.INFO,
         time: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/) as unknown,
         service: options.service,
         environment: options.environment,
@@ -80,7 +80,7 @@ describe("PinoLogger", () => {
     logger.info(Tick);
     logger.warn(Tick);
 
-    expect(lines().map((line) => line.level)).toStrictEqual(["warn"]);
+    expect(lines().map((line) => line.level)).toStrictEqual([LogLevel.WARN]);
   });
 
   it("serializes an error field with its type, message and stack", () => {

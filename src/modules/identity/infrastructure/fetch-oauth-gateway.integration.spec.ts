@@ -166,11 +166,9 @@ describe("FetchOAuthGateway", () => {
     });
 
     it("fails and logs Google's error when the token request is refused for another reason", async () => {
+      const providerError = faker.string.alpha(12);
       const { gateway, logger } = create({
-        [GOOGLE_TOKEN_URL]: {
-          status: 400,
-          body: { error: "redirect_uri_mismatch" },
-        },
+        [GOOGLE_TOKEN_URL]: { status: 400, body: { error: providerError } },
       });
 
       await expectAppError(
@@ -185,7 +183,7 @@ describe("FetchOAuthGateway", () => {
           step: "token",
           failure: "unexpected_status",
           status: 400,
-          providerError: "redirect_uri_mismatch",
+          providerError,
         }),
       ]);
     });
@@ -361,8 +359,9 @@ describe("FetchOAuthGateway", () => {
     });
 
     it("fails and logs GitHub's error when the token request is refused for another reason", async () => {
+      const providerError = faker.string.alpha(12);
       const { gateway, logger } = create({
-        [GITHUB_TOKEN_URL]: ok({ error: "incorrect_client_credentials" }),
+        [GITHUB_TOKEN_URL]: ok({ error: providerError }),
       });
 
       await expectAppError(
@@ -377,7 +376,7 @@ describe("FetchOAuthGateway", () => {
           step: "token",
           failure: "unexpected_body",
           status: 200,
-          providerError: "incorrect_client_credentials",
+          providerError,
         }),
       ]);
     });

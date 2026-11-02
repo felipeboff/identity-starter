@@ -67,7 +67,7 @@ describe("RateLimitMiddleware", () => {
     const first = buildInbound();
     for (let i = 0; i < rule.limit; i++) await middleware.handle(first, next);
 
-    await middleware.handle(buildInbound(`${first.ip}0`), next);
+    await middleware.handle(buildInbound(), next);
 
     expect(next).toHaveBeenCalledTimes(rule.limit + 1);
   });

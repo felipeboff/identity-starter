@@ -2,7 +2,7 @@ import { faker } from "@faker-js/faker";
 import { describe, expect, it } from "vitest";
 
 import { defineLogEvent } from "../application/logging/log-event";
-import type { LogLevel } from "../application/ports/logger";
+import { LogLevel } from "../application/ports/logger";
 
 import { FakeLogger } from "./fake-logger";
 
@@ -12,7 +12,7 @@ const AccountSeen = defineLogEvent<{ accountId: string }>(
 const Tick = defineLogEvent(`${faker.lorem.word()}.${faker.lorem.word()}`);
 
 describe("FakeLogger", () => {
-  it.each<LogLevel>(["debug", "info", "warn", "error"])(
+  it.each(Object.values(LogLevel))(
     "records a %s entry with the event name and its fields",
     (level) => {
       const logger = new FakeLogger();
@@ -32,7 +32,7 @@ describe("FakeLogger", () => {
     logger.info(Tick);
 
     expect(logger.entries).toStrictEqual([
-      { level: "info", event: Tick.name, fields: undefined },
+      { level: LogLevel.INFO, event: Tick.name, fields: undefined },
     ]);
   });
 
@@ -43,8 +43,8 @@ describe("FakeLogger", () => {
     logger.error(Tick);
 
     expect(logger.entries.map((entry) => entry.level)).toStrictEqual([
-      "warn",
-      "error",
+      LogLevel.WARN,
+      LogLevel.ERROR,
     ]);
   });
 

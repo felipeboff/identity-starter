@@ -78,7 +78,7 @@ describe("RequestEmailChangeUseCase", () => {
 
     await expectAppError(
       useCase.execute(
-        { newEmail: newEmail(), password: `${ana.password}-wrong` },
+        { newEmail: newEmail(), password: faker.internet.password() },
         ana.actor,
       ),
       IdentityError.InvalidCredentials,

@@ -1,5 +1,6 @@
 import { faker } from "@faker-js/faker";
 import { SharedLogEvent } from "@shared/application/logging/shared.log-event";
+import { LogLevel } from "@shared/application/ports/logger";
 import { AppError, defineError } from "@shared/domain/errors/app-error";
 import type { ErrorKind } from "@shared/domain/errors/app-error";
 import { SharedError } from "@shared/domain/errors/shared.error";
@@ -125,7 +126,7 @@ describe("HttpErrorMapper", () => {
     expect(out).toStrictEqual(INTERNAL_ERROR_RESPONSE);
     expect(logger.entries).toStrictEqual([
       {
-        level: "error",
+        level: LogLevel.ERROR,
         event: SharedLogEvent.UnexpectedError.name,
         fields: { error },
       },

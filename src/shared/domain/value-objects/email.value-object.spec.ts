@@ -20,7 +20,9 @@ describe("Email", () => {
     const email = Email.create(address);
 
     expect(email.equals(Email.create(address.toUpperCase()))).toBe(true);
-    expect(email.equals(Email.create(`other.${address}`))).toBe(false);
+    expect(
+      email.equals(Email.create(`${faker.string.alpha(6)}.${address}`)),
+    ).toBe(false);
   });
 
   it.each([

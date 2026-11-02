@@ -100,7 +100,7 @@ describe("MongoDatabase", () => {
     const { host } = new URL(server.getUri());
     expect(logger.entries).toStrictEqual([
       {
-        level: "info",
+        level: LogLevel.INFO,
         event: SharedLogEvent.DatabaseConnected.name,
         fields: { host, database: name },
       },
@@ -146,7 +146,7 @@ describe("MongoDatabase", () => {
 
     expect(logger.entries).toStrictEqual([
       {
-        level: "error",
+        level: LogLevel.ERROR,
         event: SharedLogEvent.DatabaseConnectionFailed.name,
         fields: {
           host: `127.0.0.1:${port}`,
@@ -176,7 +176,7 @@ describe("MongoDatabase", () => {
     expect(database.connection.readyState).toBe(0);
     expect(logger.entries).toStrictEqual([
       {
-        level: "error",
+        level: LogLevel.ERROR,
         event: SharedLogEvent.DatabaseNotReplicaSet.name,
         fields: { host },
       },
@@ -338,12 +338,12 @@ describe("MongoDatabase", () => {
         ),
       ).toStrictEqual([
         {
-          level: "warn",
+          level: LogLevel.WARN,
           event: SharedLogEvent.DatabaseDisconnected.name,
           fields: undefined,
         },
         {
-          level: "info",
+          level: LogLevel.INFO,
           event: SharedLogEvent.DatabaseReconnected.name,
           fields: undefined,
         },

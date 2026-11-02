@@ -142,7 +142,7 @@ export const cacheContract = (create: () => CacheUnderContract) => {
     const value = buildValue();
     await cache.set(key, value, longTtl());
 
-    const other = await cache.increment(`${key}-other`, longTtl());
+    const other = await cache.increment(buildKey(), longTtl());
 
     expect(other).toBe(1);
     expect(await cache.get(key)).toStrictEqual(value);

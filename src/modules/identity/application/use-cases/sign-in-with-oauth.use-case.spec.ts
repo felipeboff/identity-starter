@@ -198,18 +198,18 @@ describe("SignInWithOAuthUseCase", () => {
     });
   });
 
-  it.each(["email", "myspace"])(
-    "throws OAuthProviderNotSupported for provider %s",
-    async (provider) => {
-      const { input } = givenGoogleLogin();
+  it.each([
+    ["the e-mail provider", AuthProvider.EMAIL],
+    ["an unknown provider", faker.string.alpha(12)],
+  ])("throws OAuthProviderNotSupported for %s", async (_, provider) => {
+    const { input } = givenGoogleLogin();
 
-      await expectAppError(
-        useCase.execute({ ...input, provider }),
-        IdentityError.OAuthProviderNotSupported,
-        { provider },
-      );
-    },
-  );
+    await expectAppError(
+      useCase.execute({ ...input, provider }),
+      IdentityError.OAuthProviderNotSupported,
+      { provider },
+    );
+  });
 
   it("writes nothing when the last write fails", async () => {
     const { profile, input } = givenGoogleLogin();

@@ -9,7 +9,8 @@ import { HttpServerShutdown } from "./http-server-shutdown";
 
 const listen = async (delayMs?: number) => {
   const server = createServer((_req, res) => {
-    if (delayMs !== undefined) setTimeout(() => res.end("done"), delayMs);
+    if (delayMs !== undefined)
+      setTimeout(() => res.end(faker.lorem.word()), delayMs);
   });
   server.listen(0);
   await once(server, "listening");

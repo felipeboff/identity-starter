@@ -222,7 +222,7 @@ describe("SignInWithEmailUseCase", () => {
 
     await expectAppError(
       useCase.execute(
-        makeInput({ email: ana.email, password: `${ana.password}-wrong` }),
+        makeInput({ email: ana.email, password: faker.internet.password() }),
       ),
       IdentityError.InvalidCredentials,
       { email: ana.email },
@@ -281,7 +281,7 @@ describe("SignInWithEmailUseCase", () => {
     for (let i = 0; i < limit; i++) {
       await useCase
         .execute(
-          makeInput({ email: ana.email, password: `${ana.password}-wrong` }),
+          makeInput({ email: ana.email, password: faker.internet.password() }),
         )
         .catch(() => undefined);
     }
@@ -302,7 +302,7 @@ describe("SignInWithEmailUseCase", () => {
     const wrong = () =>
       useCase
         .execute(
-          makeInput({ email: ana.email, password: `${ana.password}-wrong` }),
+          makeInput({ email: ana.email, password: faker.internet.password() }),
         )
         .catch(() => undefined);
     for (let i = 0; i < limit - 1; i++) await wrong();
@@ -342,7 +342,7 @@ describe("SignInWithEmailUseCase", () => {
       const ana = await seedAccount(ctx);
       const input = makeInput({
         email: ana.email,
-        password: `${ana.password}-wrong`,
+        password: faker.internet.password(),
       });
 
       await useCase.execute(input).catch(() => undefined);

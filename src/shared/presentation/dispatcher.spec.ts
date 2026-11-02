@@ -24,7 +24,7 @@ class EchoHandler extends Handler<{
   actor: unknown;
   output: string | undefined;
 }> {
-  readonly name = "test.echo";
+  readonly name = `${faker.lorem.word()}.${faker.lorem.word()}`;
 
   handle(inbound: Inbound<unknown>): Promise<string | undefined> {
     this.deps.received.push(inbound);
@@ -42,7 +42,7 @@ class InputHandler<S extends TSchema> extends Handler<{
   actor: unknown;
   input: S;
 }> {
-  readonly name = "test.input";
+  readonly name = `${faker.lorem.word()}.${faker.lorem.word()}`;
   readonly input = this.deps.schema;
 
   handle(inbound: Inbound<unknown, Type.StaticDecode<S>>): Promise<undefined> {
