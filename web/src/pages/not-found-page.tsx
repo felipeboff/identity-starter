@@ -1,24 +1,28 @@
+import { useMessages } from "../hooks/use-messages";
 import { AuthLayout } from "../layouts/auth-layout";
 import { LinkButton } from "../ui/button";
 import { ResultPanel } from "../ui/feedback";
 import { ArrowLeftIcon } from "../ui/icons";
 
-export const NotFoundPage = () => (
-  <AuthLayout
-    title="Página não encontrada"
-    eyebrow="404"
-    tagline="Esse caminho não leva a lugar nenhum"
-  >
-    <ResultPanel
-      tone="info"
-      title="Nada por aqui"
-      actions={
-        <LinkButton href="/" variant="primary" icon={<ArrowLeftIcon />}>
-          Voltar ao início
-        </LinkButton>
-      }
+export const NotFoundPage = () => {
+  const t = useMessages();
+  return (
+    <AuthLayout
+      title={t.notFound.title}
+      eyebrow="404"
+      tagline={t.notFound.tagline}
     >
-      Confira o endereço ou volte para o início.
-    </ResultPanel>
-  </AuthLayout>
-);
+      <ResultPanel
+        tone="info"
+        title={t.notFound.nothingHere}
+        actions={
+          <LinkButton href="/" variant="primary" icon={<ArrowLeftIcon />}>
+            {t.notFound.backHome}
+          </LinkButton>
+        }
+      >
+        {t.notFound.description}
+      </ResultPanel>
+    </AuthLayout>
+  );
+};

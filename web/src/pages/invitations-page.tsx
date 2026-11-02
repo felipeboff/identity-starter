@@ -5,8 +5,8 @@ import {
   type Role,
 } from "../api/identity.types";
 import { useAuth, useMe } from "../auth/auth-context";
+import { useMessages } from "../hooks/use-messages";
 import { useResource } from "../hooks/use-resource";
-import { PERMISSION_LABELS, ROLE_LABELS } from "../i18n/labels";
 import { AppLayout, PageHeader } from "../layouts/app-layout";
 import { errorMessages, format, identityApi } from "../services";
 import { ConfirmButton } from "../ui/confirm-button";
@@ -21,12 +21,8 @@ import {
 import { LockIcon, MailIcon, TrashIcon } from "../ui/icons";
 import { useToast } from "../ui/toast";
 
-const ROLE_OPTIONS = ALL_ROLES.map((role) => ({
-  value: role,
-  label: ROLE_LABELS[role],
-}));
-
 export const InvitationsPage = () => {
+  const t = useMessages();
   const auth = useAuth();
   const me = useMe();
   const toast = useToast();
@@ -40,24 +36,29 @@ export const InvitationsPage = () => {
         : Promise.resolve({ invitations: [] }),
     [canRead],
   );
+  const roleOptions = ALL_ROLES.map((role) => ({
+    value: role,
+    label: t.roles[role],
+  }));
   const grantable = me.membership.permissions.map((permission) => ({
     value: permission,
-    label: PERMISSION_LABELS[permission],
+    label: t.permissions[permission],
   }));
 
   return (
     <AppLayout>
       <PageHeader
-        title="Convites"
-        description="Convide pessoas por e-mail. O link vale 7 dias e um convite novo para o mesmo e-mail substitui o pendente."
+        title={t.invitations.title}
+        description={t.invitations.description}
       />
 
       {!canCreate && !canRead && (
         <Card>
-          <EmptyState icon={<LockIcon />} title="Sem acesso aos convites">
-            Peça a alguém do time as permissões “
-            {PERMISSION_LABELS["invitation.create"]}” ou “
-            {PERMISSION_LABELS["invitation.read"]}”.
+          <EmptyState icon={<LockIcon />} title={t.invitations.noAccess}>
+            {t.invitations.noAccessDescription(
+              t.permissions["invitation.create"],
+              t.permissions["invitation.read"],
+            )}
           </EmptyState>
         </Card>
       )}
@@ -65,8 +66,8 @@ export const InvitationsPage = () => {
       <div class="stack">
         {canCreate && (
           <Card
-            title="Novo convite"
-            description="Você só pode conceder permissões que já tem. O papel é só um rótulo."
+            title={t.invitations.newInvitation}
+            description={t.invitations.newInvitationDescription}
           >
             <Form
               resetOnSuccess
@@ -78,35 +79,39 @@ export const InvitationsPage = () => {
                 });
                 toast.show({
                   tone: "success",
-                  title: "Convite enviado",
-                  description: `${output.invitation.email} recebeu um link válido por 7 dias.`,
+                  title: t.invitations.sent,
+                  description: t.invitations.sentDescription(
+                    output.invitation.email,
+                  ),
                 });
                 await invitations.reload();
               }}
             >
               <div class="form-row">
                 <Field
-                  label="E-mail"
+                  label={t.common.email}
                   name="email"
                   type="email"
-                  placeholder="pessoa@exemplo.com"
+                  placeholder={t.invitations.emailPlaceholder}
                   required
                 />
                 <SelectField
-                  label="Papel"
+                  label={t.invitations.role}
                   name="role"
-                  options={ROLE_OPTIONS}
+                  options={roleOptions}
                   defaultValue="user"
                 />
               </div>
               <CheckboxGroup
-                label="Permissões"
+                label={t.invitations.permissions}
                 name="permissions"
                 options={grantable}
-                emptyMessage="Você não tem permissões para repassar."
+                emptyMessage={t.invitations.nothingToGrant}
               />
               <div class="form-actions">
-                <SubmitButton icon={<MailIcon />}>Enviar convite</SubmitButton>
+                <SubmitButton icon={<MailIcon />}>
+                  {t.invitations.send}
+                </SubmitButton>
               </div>
             </Form>
           </Card>
@@ -114,8 +119,8 @@ export const InvitationsPage = () => {
 
         {canRead && (
           <Card
-            title="Pendentes"
-            description="Do mais novo para o mais antigo."
+            title={t.invitations.pending}
+            description={t.invitations.pendingDescription}
           >
             {invitations.error ? (
               <Alert tone="danger">
@@ -124,9 +129,8 @@ export const InvitationsPage = () => {
             ) : !invitations.data ? (
               <Skeleton lines={3} />
             ) : invitations.data.invitations.length === 0 ? (
-              <EmptyState icon={<MailIcon />} title="Nenhum convite pendente">
-                Os convites enviados aparecem aqui até serem aceitos, revogados
-                ou expirarem.
+              <EmptyState icon={<MailIcon />} title={t.invitations.empty}>
+                {t.invitations.emptyDescription}
               </EmptyState>
             ) : (
               <ul class="list">
@@ -138,14 +142,14 @@ export const InvitationsPage = () => {
                     <div class="list-row-main">
                       <div class="list-row-title">
                         <strong>{invitation.email}</strong>
-                        <Badge tone="primary">
-                          {ROLE_LABELS[invitation.role]}
-                        </Badge>
+                        <Badge tone="primary">{t.roles[invitation.role]}</Badge>
                       </div>
                       <span class="list-row-meta">
-                        {invitation.permissions.length} permissões · enviado{" "}
-                        {format.relative(invitation.createdAt)} · expira{" "}
-                        {format.relative(invitation.expiresAt)}
+                        {t.invitations.meta(
+                          invitation.permissions.length,
+                          format.relative(invitation.createdAt),
+                          format.relative(invitation.expiresAt),
+                        )}
                       </span>
                     </div>
                     {canRevoke && (
@@ -153,19 +157,21 @@ export const InvitationsPage = () => {
                         size="sm"
                         variant="ghost"
                         icon={<TrashIcon />}
-                        title="Revogar este convite?"
-                        description={`O link enviado para ${invitation.email} deixa de funcionar.`}
-                        confirmLabel="Revogar"
+                        title={t.invitations.revokeTitle}
+                        description={t.invitations.revokeDescription(
+                          invitation.email,
+                        )}
+                        confirmLabel={t.invitations.revoke}
                         onConfirm={async () => {
                           await identityApi.revokeInvitation(invitation.id);
                           toast.show({
                             tone: "success",
-                            title: "Convite revogado",
+                            title: t.invitations.revoked,
                           });
                           await invitations.reload();
                         }}
                       >
-                        Revogar
+                        {t.invitations.revoke}
                       </ConfirmButton>
                     )}
                   </li>

@@ -4,8 +4,8 @@ import type { ApiResponse, HttpMethod } from "../api/api-client";
 import { ApiError, type ProblemDetails } from "../api/api-error";
 import { Permission, type SessionTokens } from "../api/identity.types";
 import { useAuth } from "../auth/auth-context";
+import { useMessages } from "../hooks/use-messages";
 import { useResource } from "../hooks/use-resource";
-import { PERMISSION_LABELS } from "../i18n/labels";
 import { AppLayout, PageHeader } from "../layouts/app-layout";
 import { appHistory, useLocation } from "../router/history";
 import {
@@ -13,6 +13,7 @@ import {
   errorMessages,
   format,
   identityApi,
+  localeStore,
   tokenStore,
 } from "../services";
 import { Button } from "../ui/button";
@@ -34,6 +35,7 @@ import {
   ROUTE_CATALOG,
   RoutePath,
   type CatalogRoute,
+  type RouteGroup,
 } from "./route-catalog";
 
 type RequestDraft = {
@@ -55,7 +57,6 @@ type HistoryEntry = {
 type Suggestions = Record<string, SelectOption[]>;
 
 const STATUS_TEXT: Record<number, string> = {
-  0: "Sem resposta",
   200: "OK",
   201: "Created",
   204: "No Content",
@@ -115,14 +116,20 @@ type StatusPillProps = {
   compact?: boolean;
 };
 
-const StatusPill = (props: StatusPillProps) => (
-  <span class={`status-pill status-${inspector.toneOf(props.status)}`}>
-    {props.status === 0 ? "—" : props.status}
-    {!props.compact && ` ${STATUS_TEXT[props.status] ?? ""}`}
-  </span>
-);
+const StatusPill = (props: StatusPillProps) => {
+  const t = useMessages();
+  const text =
+    props.status === 0 ? t.explorer.noResponse : STATUS_TEXT[props.status];
+  return (
+    <span class={`status-pill status-${inspector.toneOf(props.status)}`}>
+      {props.status === 0 ? "—" : props.status}
+      {!props.compact && ` ${text ?? ""}`}
+    </span>
+  );
+};
 
 export const ExplorerPage = () => {
+  const t = useMessages();
   const auth = useAuth();
   const toast = useToast();
   const location = useLocation();
@@ -147,9 +154,7 @@ export const ExplorerPage = () => {
     });
     return {
       params,
-      query: Object.fromEntries(
-        (route.query ?? []).map((param) => [param.name, ""]),
-      ),
+      query: Object.fromEntries((route.query ?? []).map((name) => [name, ""])),
       bodyText: body === undefined ? "" : JSON.stringify(body, null, 2),
       withToken: route.authenticated,
     };
@@ -179,31 +184,41 @@ export const ExplorerPage = () => {
         ? identityApi.listInvitations()
         : null,
     ]);
+    const messages = localeStore.messages.explorer;
     return {
-      accountId: [{ value: accountId, label: "Minha conta" }],
+      accountId: [{ value: accountId, label: messages.myAccount }],
       sessionId:
-        sessions?.sessions.map((session) => ({
-          value: session.id,
-          label: `${format.device(session.userAgent).label}${session.current ? " (esta)" : ""}`,
-        })) ?? [],
+        sessions?.sessions.map((session) => {
+          const device = format.device(session.userAgent).label;
+          return {
+            value: session.id,
+            label: session.current ? messages.currentSession(device) : device,
+          };
+        }) ?? [],
       invitationId:
         invitations?.invitations.map((invitation) => ({
           value: invitation.id,
           label: invitation.email,
         })) ?? [],
     };
-  }, [accountId, needsSessions, needsInvitations, history.length]);
+  }, [
+    accountId,
+    needsSessions,
+    needsInvitations,
+    history.length,
+    localeStore.locale,
+  ]);
 
   const groups = useMemo(() => {
     const term = filter.trim().toLowerCase();
     const visible = ROUTE_CATALOG.filter(
       (candidate) =>
         !term ||
-        `${candidate.method} ${candidate.path} ${candidate.summary}`
+        `${candidate.method} ${candidate.path} ${t.explorer.routes[candidate.id].summary}`
           .toLowerCase()
           .includes(term),
     );
-    const byGroup = new Map<string, CatalogRoute[]>();
+    const byGroup = new Map<RouteGroup, CatalogRoute[]>();
     for (const candidate of visible) {
       byGroup.set(candidate.group, [
         ...(byGroup.get(candidate.group) ?? []),
@@ -211,7 +226,7 @@ export const ExplorerPage = () => {
       ]);
     }
     return [...byGroup.entries()];
-  }, [filter]);
+  }, [filter, t]);
 
   const lastStatusOf = (candidate: CatalogRoute): number | null =>
     history.find((entry) => entry.route.id === candidate.id)?.response.status ??
@@ -235,7 +250,7 @@ export const ExplorerPage = () => {
       await auth.startSession(response.body);
       toast.show({
         tone: "success",
-        title: "Sessão deste navegador trocada pelos tokens da resposta",
+        title: t.explorer.sessionReplaced,
       });
       return;
     }
@@ -248,13 +263,13 @@ export const ExplorerPage = () => {
       try {
         body = JSON.parse(draft.bodyText);
       } catch (error) {
-        setInputError(`JSON inválido: ${(error as Error).message}`);
+        setInputError(t.explorer.invalidJson((error as Error).message));
         return;
       }
     }
     const missing = paramNames.filter((name) => !draft.params[name]);
     if (missing.length > 0) {
-      setInputError(`Preencha ${missing.join(", ")}.`);
+      setInputError(t.explorer.fillIn(missing.join(", ")));
       return;
     }
     setInputError(null);
@@ -290,29 +305,31 @@ export const ExplorerPage = () => {
       )
     : false;
   const storedTokens = tokenStore.read();
+  const copy = t.explorer.routes[route.id];
 
   return (
     <AppLayout>
       <PageHeader
-        title="Explorador de rotas"
-        description={`Chame qualquer uma das ${ROUTE_CATALOG.length} rotas da API e veja a resposta crua. Tokens devolvidos viram a sessão deste navegador.`}
+        title={t.explorer.title}
+        description={t.explorer.description(ROUTE_CATALOG.length)}
         actions={
           <div class="session-indicator">
             <span class={`dot ${auth.me ? "dot-on" : ""}`} />
             {auth.me ? (
               <>
                 <span>
-                  Sessão de <strong>{auth.me.account.email}</strong>
+                  {t.explorer.sessionOf}{" "}
+                  <strong>{auth.me.account.email}</strong>
                 </span>
                 {storedTokens && (
                   <CopyButton
                     value={storedTokens.accessToken}
-                    label="Copiar access token"
+                    label={t.explorer.copyAccessToken}
                   />
                 )}
               </>
             ) : (
-              <span>Sem sessão</span>
+              <span>{t.explorer.noSession}</span>
             )}
           </div>
         }
@@ -324,7 +341,7 @@ export const ExplorerPage = () => {
             <SearchIcon size={16} />
             <input
               type="search"
-              placeholder="Filtrar por método, caminho ou texto"
+              placeholder={t.explorer.filter}
               value={filter}
               onInput={(event) => setFilter(event.currentTarget.value)}
             />
@@ -333,7 +350,7 @@ export const ExplorerPage = () => {
             {groups.map(([group, routes]) => (
               <div key={group} class="route-group">
                 <h3>
-                  {group} <span>{routes.length}</span>
+                  {t.explorer.groups[group]} <span>{routes.length}</span>
                 </h3>
                 <ul>
                   {routes.map((candidate) => {
@@ -363,7 +380,7 @@ export const ExplorerPage = () => {
               </div>
             ))}
             {groups.length === 0 && (
-              <p class="muted small">Nenhuma rota com esse filtro.</p>
+              <p class="muted small">{t.explorer.noMatch}</p>
             )}
           </div>
         </aside>
@@ -379,29 +396,37 @@ export const ExplorerPage = () => {
                 pending={pending}
                 onClick={() => void send()}
               >
-                Enviar
+                {t.explorer.send}
               </Button>
             </div>
-            <p class="request-summary">{route.summary}</p>
+            <p class="request-summary">{copy.summary}</p>
             <div class="request-meta">
               <Badge tone={route.authenticated ? "primary" : "neutral"}>
-                {route.authenticated ? "Requer login" : "Pública"}
+                {route.authenticated
+                  ? t.explorer.requiresSignIn
+                  : t.explorer.public}
               </Badge>
               {route.permission && (
                 <Badge
                   tone={auth.can(route.permission) ? "success" : "warning"}
                 >
-                  <KeyIcon size={12} /> {PERMISSION_LABELS[route.permission]}
+                  <KeyIcon size={12} /> {t.permissions[route.permission]}
                 </Badge>
               )}
-              {route.rateLimit && <Badge>{route.rateLimit}</Badge>}
+              {route.rateLimits && (
+                <Badge>
+                  {route.rateLimits
+                    .map((limit) => t.explorer.rateLimit(limit))
+                    .join("; ")}
+                </Badge>
+              )}
               <span class="status-list">
                 {[route.status, ...route.failures].map((status) => (
                   <StatusPill key={status} status={status} compact />
                 ))}
               </span>
             </div>
-            {route.note && <Alert tone="info">{route.note}</Alert>}
+            {copy.note && <Alert tone="info">{copy.note}</Alert>}
 
             {paramNames.length > 0 && (
               <div class="form-row">
@@ -424,16 +449,16 @@ export const ExplorerPage = () => {
 
             {route.query && (
               <div class="form-row">
-                {route.query.map((param) => (
+                {route.query.map((name) => (
                   <QueryInput
-                    key={`${route.id}-${param.name}`}
-                    name={param.name}
-                    hint={param.hint}
-                    value={draft.query[param.name] ?? ""}
+                    key={`${route.id}-${name}`}
+                    name={name}
+                    hint={t.explorer.queryHints[name]}
+                    value={draft.query[name] ?? ""}
                     onChange={(value) =>
                       setDraft({
                         ...draft,
-                        query: { ...draft.query, [param.name]: value },
+                        query: { ...draft.query, [name]: value },
                       })
                     }
                   />
@@ -444,13 +469,13 @@ export const ExplorerPage = () => {
             {route.body && (
               <div class="field">
                 <div class="field-label-row">
-                  <label for={bodyId}>Corpo (JSON)</label>
+                  <label for={bodyId}>{t.explorer.body}</label>
                   <button
                     type="button"
                     class="text-link small"
                     onClick={() => setDraft(draftOf(route))}
                   >
-                    Restaurar exemplo
+                    {t.explorer.restoreExample}
                   </button>
                 </div>
                 <textarea
@@ -479,9 +504,9 @@ export const ExplorerPage = () => {
               />
               <span class="switch-track" aria-hidden="true" />
               <span>
-                Enviar <code>Authorization: Bearer</code>
+                {t.explorer.send} <code>Authorization: Bearer</code>
                 {draft.withToken && !storedTokens && (
-                  <em class="muted"> (não há token salvo)</em>
+                  <em class="muted"> ({t.explorer.noStoredToken})</em>
                 )}
               </span>
             </label>
@@ -496,7 +521,7 @@ export const ExplorerPage = () => {
                 <div class="response-head">
                   <StatusPill status={active.response.status} />
                   <Badge tone={expected ? "neutral" : "danger"}>
-                    {expected ? "Previsto no contrato" : "Fora do contrato"}
+                    {expected ? t.explorer.expected : t.explorer.unexpected}
                   </Badge>
                   <span class="muted small">
                     {active.response.durationMs} ms
@@ -507,7 +532,7 @@ export const ExplorerPage = () => {
                   {active.response.body !== null && (
                     <CopyButton
                       value={JSON.stringify(active.response.body, null, 2)}
-                      label="Copiar resposta"
+                      label={t.explorer.copyResponse}
                     />
                   )}
                 </div>
@@ -524,7 +549,7 @@ export const ExplorerPage = () => {
                     {errorMessages.describeCode("client.network_failed")}
                   </Alert>
                 ) : active.response.body === null ? (
-                  <div class="empty-body">Resposta sem corpo</div>
+                  <div class="empty-body">{t.explorer.emptyBody}</div>
                 ) : (
                   <JsonView value={active.response.body} />
                 )}
@@ -532,9 +557,9 @@ export const ExplorerPage = () => {
             ) : (
               <EmptyState
                 icon={<TerminalIcon />}
-                title="Nenhuma resposta ainda"
+                title={t.explorer.noResponseYet}
               >
-                Ajuste a requisição e clique em Enviar.
+                {t.explorer.noResponseYetDescription}
               </EmptyState>
             )}
           </div>
@@ -543,9 +568,9 @@ export const ExplorerPage = () => {
             <div class="card">
               <header class="card-header">
                 <div>
-                  <h2 class="card-title">Histórico</h2>
+                  <h2 class="card-title">{t.explorer.history}</h2>
                   <p class="card-description">
-                    As últimas {HISTORY_LIMIT} chamadas desta aba.
+                    {t.explorer.historyDescription(HISTORY_LIMIT)}
                   </p>
                 </div>
               </header>
@@ -563,9 +588,7 @@ export const ExplorerPage = () => {
                       <StatusPill status={entry.response.status} compact />
                       <MethodBadge method={entry.route.method} />
                       <span class="route-path">{entry.path}</span>
-                      <span class="muted small">
-                        {entry.at.toLocaleTimeString("pt-BR")}
-                      </span>
+                      <span class="muted small">{format.time(entry.at)}</span>
                     </button>
                   </li>
                 ))}
@@ -612,6 +635,7 @@ type ParamInputProps = {
 };
 
 const ParamInput = (props: ParamInputProps) => {
+  const t = useMessages();
   const id = useId();
   return (
     <div class="field">
@@ -637,7 +661,7 @@ const ParamInput = (props: ParamInputProps) => {
             id={id}
             class="input input-mono"
             list={`${id}-options`}
-            placeholder="24 caracteres hexadecimais"
+            placeholder={t.explorer.idPlaceholder}
             spellcheck={false}
             value={props.value}
             onInput={(event) =>
@@ -652,9 +676,7 @@ const ParamInput = (props: ParamInputProps) => {
             ))}
           </datalist>
           {props.suggestions.length > 0 && (
-            <p class="field-message">
-              Dê dois cliques no campo para ver sugestões.
-            </p>
+            <p class="field-message">{t.explorer.suggestionsHint}</p>
           )}
         </>
       )}

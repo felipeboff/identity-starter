@@ -1,5 +1,6 @@
 import { AuthProvider, useAuth } from "./auth/auth-context";
 import { ExplorerPage } from "./explorer/explorer-page";
+import { useMessages } from "./hooks/use-messages";
 import { AcceptInvitationPage } from "./pages/accept-invitation-page";
 import { ConfirmEmailChangePage } from "./pages/confirm-email-change-page";
 import { ForgotPasswordPage } from "./pages/forgot-password-page";
@@ -64,11 +65,14 @@ const ROUTES = new RouteTable([
   { pattern: "/members", access: "member", render: () => <MembersPage /> },
 ]);
 
-const Splash = () => (
-  <div class="splash" aria-busy="true" aria-label="Carregando">
-    <AsteriskLogo size={40} class="splash-logo" />
-  </div>
-);
+const Splash = () => {
+  const t = useMessages();
+  return (
+    <div class="splash" aria-busy="true" aria-label={t.common.loading}>
+      <AsteriskLogo size={40} class="splash-logo" />
+    </div>
+  );
+};
 
 const Routes = () => {
   const auth = useAuth();

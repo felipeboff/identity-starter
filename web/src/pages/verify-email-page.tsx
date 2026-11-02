@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from "preact/hooks";
 
 import { useAuth } from "../auth/auth-context";
 import { useAction } from "../hooks/use-action";
+import { useMessages } from "../hooks/use-messages";
 import { AuthLayout } from "../layouts/auth-layout";
 import { useLocation } from "../router/history";
-import { errorMessages, identityApi } from "../services";
+import { errorMessages, identityApi, localeStore } from "../services";
 import { Button, LinkButton } from "../ui/button";
 import { ResultPanel } from "../ui/feedback";
 import { useToast } from "../ui/toast";
@@ -15,6 +16,7 @@ type Verification =
   | { status: "failed"; message: string };
 
 export const VerifyEmailPage = () => {
+  const t = useMessages();
   const auth = useAuth();
   const toast = useToast();
   const token = useLocation().search.get("token");
@@ -27,7 +29,7 @@ export const VerifyEmailPage = () => {
     await identityApi.requestEmailVerification();
     toast.show({
       tone: "success",
-      title: "Link novo enviado",
+      title: t.verifyEmail.newLinkSent,
       description: auth.me?.account.email,
     });
   });
@@ -38,7 +40,7 @@ export const VerifyEmailPage = () => {
     if (!token) {
       setVerification({
         status: "failed",
-        message: "O link veio sem o token. Abra-o como chegou no e-mail.",
+        message: localeStore.messages.verifyEmail.missingToken,
       });
       return;
     }
@@ -58,32 +60,36 @@ export const VerifyEmailPage = () => {
 
   const home = auth.me ? (
     <LinkButton href="/" variant="primary">
-      Ir para o painel
+      {t.verifyEmail.goToDashboard}
     </LinkButton>
   ) : (
     <LinkButton href="/sign-in" variant="primary">
-      Entrar
+      {t.common.signIn}
     </LinkButton>
   );
 
   return (
     <AuthLayout
-      title="Confirmação de e-mail"
-      eyebrow="Um passo a mais"
-      tagline="E-mail confirmado deixa sua conta mais fácil de recuperar"
+      title={t.verifyEmail.title}
+      eyebrow={t.verifyEmail.eyebrow}
+      tagline={t.verifyEmail.tagline}
     >
       {verification.status === "pending" && (
-        <ResultPanel tone="pending" title="Confirmando seu e-mail…" />
+        <ResultPanel tone="pending" title={t.verifyEmail.confirming} />
       )}
       {verification.status === "verified" && (
-        <ResultPanel tone="success" title="E-mail confirmado" actions={home}>
-          {verification.email} está confirmado. Tudo certo por aqui.
+        <ResultPanel
+          tone="success"
+          title={t.verifyEmail.confirmed}
+          actions={home}
+        >
+          {t.verifyEmail.confirmedDescription(verification.email)}
         </ResultPanel>
       )}
       {verification.status === "failed" && (
         <ResultPanel
           tone="danger"
-          title="Não deu para confirmar"
+          title={t.verifyEmail.failed}
           actions={
             <>
               {auth.me && (
@@ -92,7 +98,7 @@ export const VerifyEmailPage = () => {
                   pending={resend.pending}
                   onClick={() => void resend.run()}
                 >
-                  Enviar link novo
+                  {t.verifyEmail.sendNewLink}
                 </Button>
               )}
               {home}

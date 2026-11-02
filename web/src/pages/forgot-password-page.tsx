@@ -1,5 +1,6 @@
 import { useState } from "preact/hooks";
 
+import { useMessages } from "../hooks/use-messages";
 import { AuthLayout } from "../layouts/auth-layout";
 import { Link } from "../router/router";
 import { identityApi } from "../services";
@@ -9,31 +10,31 @@ import { Field, Form, SubmitButton } from "../ui/form";
 import { ArrowLeftIcon } from "../ui/icons";
 
 export const ForgotPasswordPage = () => {
+  const t = useMessages();
   const [sentTo, setSentTo] = useState<string | null>(null);
 
   return (
     <AuthLayout
-      title="Esqueceu a senha?"
-      subtitle="Digite o e-mail da sua conta e enviamos um link para criar uma senha nova. Vale também para contas criadas com GitHub ou Google."
-      eyebrow="Acontece com todo mundo"
-      tagline="Recupere o acesso sem perder nada do que é seu"
+      title={t.forgotPassword.title}
+      subtitle={t.forgotPassword.subtitle}
+      eyebrow={t.forgotPassword.eyebrow}
+      tagline={t.forgotPassword.tagline}
     >
       {sentTo ? (
         <ResultPanel
           tone="success"
-          title="Confira sua caixa de entrada"
+          title={t.forgotPassword.checkInbox}
           actions={
             <LinkButton
               href="/sign-in"
               variant="secondary"
               icon={<ArrowLeftIcon />}
             >
-              Voltar para o login
+              {t.forgotPassword.backToSignIn}
             </LinkButton>
           }
         >
-          Se houver uma conta com {sentTo}, o link chega em instantes. Ele vale
-          por pouco tempo e só pode ser usado uma vez.
+          {t.forgotPassword.sent(sentTo)}
         </ResultPanel>
       ) : (
         <>
@@ -45,20 +46,20 @@ export const ForgotPasswordPage = () => {
             }}
           >
             <Field
-              label="Seu e-mail"
+              label={t.common.yourEmail}
               name="email"
               type="email"
               autocomplete="email"
-              placeholder="voce@exemplo.com"
+              placeholder={t.common.emailPlaceholder}
               required
               autoFocus
             />
-            <SubmitButton block>Enviar link</SubmitButton>
+            <SubmitButton block>{t.forgotPassword.submit}</SubmitButton>
           </Form>
           <p class="auth-switch">
-            Lembrou?{" "}
+            {t.forgotPassword.remembered}{" "}
             <Link href="/sign-in" class="text-link">
-              Voltar para o login
+              {t.forgotPassword.backToSignIn}
             </Link>
           </p>
         </>

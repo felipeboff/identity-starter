@@ -4,7 +4,7 @@ import { useEffect, useRef } from "preact/hooks";
 import { MEMBER_ACTION_PERMISSIONS, Permission } from "../api/identity.types";
 import { useAuth } from "../auth/auth-context";
 import { useAction } from "../hooks/use-action";
-import { ROLE_LABELS } from "../i18n/labels";
+import { useMessages } from "../hooks/use-messages";
 import { useLocation } from "../router/history";
 import { Link } from "../router/router";
 import { format } from "../services";
@@ -19,6 +19,7 @@ import {
   UserIcon,
   UsersIcon,
 } from "../ui/icons";
+import { LocaleSwitch } from "../ui/locale-switch";
 
 type NavItem = {
   href: string;
@@ -37,6 +38,7 @@ const MEMBERS_PAGE_PERMISSIONS: readonly Permission[] = [
 ];
 
 export const AppLayout = (props: AppLayoutProps) => {
+  const t = useMessages();
   const auth = useAuth();
   const location = useLocation();
   const signOut = useAction(auth.signOut);
@@ -52,25 +54,25 @@ export const AppLayout = (props: AppLayoutProps) => {
   const items: NavItem[] = [
     {
       href: "/",
-      label: "Visão geral",
+      label: t.nav.overview,
       icon: <HomeIcon />,
       visible: Boolean(me),
     },
     {
       href: "/profile",
-      label: "Perfil",
+      label: t.nav.profile,
       icon: <UserIcon />,
       visible: Boolean(me),
     },
     {
       href: "/security",
-      label: "Segurança",
+      label: t.nav.security,
       icon: <ShieldIcon />,
       visible: Boolean(me),
     },
     {
       href: "/invitations",
-      label: "Convites",
+      label: t.nav.invitations,
       icon: <MailIcon />,
       visible:
         auth.can(Permission.INVITATION_CREATE) ||
@@ -78,7 +80,7 @@ export const AppLayout = (props: AppLayoutProps) => {
     },
     {
       href: "/members",
-      label: "Membros",
+      label: t.nav.members,
       icon: <UsersIcon />,
       visible: MEMBERS_PAGE_PERMISSIONS.some((permission) =>
         auth.can(permission),
@@ -86,7 +88,7 @@ export const AppLayout = (props: AppLayoutProps) => {
     },
     {
       href: "/explorer",
-      label: "Explorador de rotas",
+      label: t.nav.explorer,
       icon: <TerminalIcon />,
       visible: true,
     },
@@ -102,7 +104,7 @@ export const AppLayout = (props: AppLayoutProps) => {
           <span class="brand-name">{import.meta.env.VITE_APP_NAME}</span>
         </Link>
 
-        <nav class="nav" aria-label="Principal" ref={nav}>
+        <nav class="nav" aria-label={t.nav.main} ref={nav}>
           {items
             .filter((item) => item.visible)
             .map((item) => (
@@ -118,18 +120,20 @@ export const AppLayout = (props: AppLayoutProps) => {
             ))}
         </nav>
 
+        <LocaleSwitch />
+
         {me ? (
           <div class="user-chip">
             <span class="avatar">{format.initials(me.account.name)}</span>
             <div class="user-chip-text">
               <strong>{me.account.name}</strong>
-              <span>{ROLE_LABELS[me.membership.role]}</span>
+              <span>{t.roles[me.membership.role]}</span>
             </div>
             <button
               type="button"
               class="icon-button"
-              aria-label="Sair"
-              title="Sair"
+              aria-label={t.common.signOut}
+              title={t.common.signOut}
               disabled={signOut.pending}
               onClick={() => void signOut.run()}
             >
@@ -139,10 +143,10 @@ export const AppLayout = (props: AppLayoutProps) => {
         ) : (
           <div class="guest-actions">
             <LinkButton href="/sign-in" variant="primary" size="sm" block>
-              Entrar
+              {t.common.signIn}
             </LinkButton>
             <LinkButton href="/sign-up" variant="ghost" size="sm" block>
-              Criar conta
+              {t.common.signUp}
             </LinkButton>
           </div>
         )}

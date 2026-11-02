@@ -7,6 +7,7 @@ import {
   useState,
 } from "preact/hooks";
 
+import { useMessages } from "../hooks/use-messages";
 import { errorMessages } from "../services";
 
 import { AlertIcon, CheckIcon, CloseIcon, InfoIcon } from "./icons";
@@ -37,6 +38,7 @@ export type ToastProviderProps = {
 };
 
 export const ToastProvider = (props: ToastProviderProps) => {
+  const t = useMessages();
   const [toasts, setToasts] = useState<ToastEntry[]>([]);
   const nextId = useRef(1);
 
@@ -84,7 +86,7 @@ export const ToastProvider = (props: ToastProviderProps) => {
             <button
               type="button"
               class="toast-close"
-              aria-label="Fechar"
+              aria-label={t.common.close}
               onClick={() => dismiss(toast.id)}
             >
               <CloseIcon size={14} />

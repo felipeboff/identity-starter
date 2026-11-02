@@ -6,6 +6,7 @@ import {
 } from "../api/identity.types";
 import { useAuth, useMe } from "../auth/auth-context";
 import { useAction } from "../hooks/use-action";
+import { useMessages } from "../hooks/use-messages";
 import { useResource } from "../hooks/use-resource";
 import { PROVIDER_LABELS } from "../i18n/labels";
 import { AppLayout, PageHeader } from "../layouts/app-layout";
@@ -30,6 +31,7 @@ type SessionRowProps = {
 };
 
 const SessionRow = (props: SessionRowProps) => {
+  const t = useMessages();
   const auth = useAuth();
   const toast = useToast();
   const signOut = useAction(auth.signOut);
@@ -43,12 +45,16 @@ const SessionRow = (props: SessionRowProps) => {
       <div class="list-row-main">
         <div class="list-row-title">
           <strong>{device.label}</strong>
-          {props.session.current && <Badge tone="success">Esta sessão</Badge>}
+          {props.session.current && (
+            <Badge tone="success">{t.sessions.current}</Badge>
+          )}
         </div>
         <span class="list-row-meta">
-          {props.session.ipAddress} · aberta{" "}
-          {format.relative(props.session.createdAt)} · expira{" "}
-          {format.relative(props.session.expiresAt)}
+          {t.sessions.meta(
+            props.session.ipAddress,
+            format.relative(props.session.createdAt),
+            format.relative(props.session.expiresAt),
+          )}
         </span>
       </div>
       {props.session.current ? (
@@ -59,23 +65,26 @@ const SessionRow = (props: SessionRowProps) => {
           pending={signOut.pending}
           onClick={() => void signOut.run()}
         >
-          Sair
+          {t.common.signOut}
         </Button>
       ) : (
         <ConfirmButton
           size="sm"
           variant="ghost"
           icon={<TrashIcon />}
-          title="Encerrar esta sessão?"
-          description={`${device.label} (${props.session.ipAddress}) vai precisar entrar de novo.`}
-          confirmLabel="Encerrar"
+          title={t.sessions.endTitle}
+          description={t.sessions.endDescription(
+            device.label,
+            props.session.ipAddress,
+          )}
+          confirmLabel={t.sessions.end}
           onConfirm={async () => {
             await identityApi.revokeSession(props.session.id);
-            toast.show({ tone: "success", title: "Sessão encerrada" });
+            toast.show({ tone: "success", title: t.sessions.ended });
             await props.onRevoked();
           }}
         >
-          Encerrar
+          {t.sessions.end}
         </ConfirmButton>
       )}
     </li>
@@ -90,6 +99,7 @@ type ProviderRowProps = {
 };
 
 const ProviderRow = (props: ProviderRowProps) => {
+  const t = useMessages();
   const toast = useToast();
   const label = PROVIDER_LABELS[props.provider];
 
@@ -101,12 +111,20 @@ const ProviderRow = (props: ProviderRowProps) => {
       <div class="list-row-main">
         <div class="list-row-title">
           <strong>{label}</strong>
-          {props.credential && <Badge tone="success">Conectado</Badge>}
+          {props.credential && (
+            <Badge tone="success">{t.security.connected}</Badge>
+          )}
         </div>
         <span class="list-row-meta">
           {props.credential
-            ? `${props.credential.providerEmail ?? "Sem e-mail"} · conectado ${format.relative(props.credential.createdAt)}${props.onlyMethod ? " · único jeito de entrar" : ""}`
-            : `Use sua conta do ${label} para entrar.`}
+            ? [
+                props.credential.providerEmail ?? t.security.noEmail,
+                t.security.connectedAt(
+                  format.relative(props.credential.createdAt),
+                ),
+                ...(props.onlyMethod ? [t.security.onlyMethod] : []),
+              ].join(" · ")
+            : t.security.useProvider(label)}
         </span>
       </div>
       {props.credential ? (
@@ -114,22 +132,25 @@ const ProviderRow = (props: ProviderRowProps) => {
           size="sm"
           variant="ghost"
           disabled={props.onlyMethod}
-          title={`Desconectar ${label}?`}
-          description={`Você deixa de entrar com o ${label}. Dá para conectar de novo quando quiser.`}
-          confirmLabel="Desconectar"
+          title={t.security.disconnectTitle(label)}
+          description={t.security.disconnectDescription(label)}
+          confirmLabel={t.security.disconnect}
           onConfirm={async () => {
             await identityApi.unlinkOAuth(props.provider);
-            toast.show({ tone: "success", title: `${label} desconectado` });
+            toast.show({
+              tone: "success",
+              title: t.security.disconnected(label),
+            });
             await props.onChanged();
           }}
         >
-          Desconectar
+          {t.security.disconnect}
         </ConfirmButton>
       ) : (
         <OAuthButton
           provider={props.provider}
           intent="link"
-          label="Conectar"
+          label={t.security.connect}
           variant="secondary"
           size="sm"
         />
@@ -139,6 +160,7 @@ const ProviderRow = (props: ProviderRowProps) => {
 };
 
 const SignInMethods = () => {
+  const t = useMessages();
   const credentials = useResource(() => identityApi.listCredentials(), []);
   const active = credentials.data?.credentials ?? [];
   const password = active.find((credential) => credential.provider === "email");
@@ -146,8 +168,8 @@ const SignInMethods = () => {
 
   return (
     <Card
-      title="Formas de entrar"
-      description="Entre com a senha, o GitHub ou o Google. Precisa sobrar pelo menos uma."
+      title={t.security.methods}
+      description={t.security.methodsDescription}
     >
       {credentials.error ? (
         <Alert tone="danger">{errorMessages.describe(credentials.error)}</Alert>
@@ -161,17 +183,17 @@ const SignInMethods = () => {
             </span>
             <div class="list-row-main">
               <div class="list-row-title">
-                <strong>E-mail e senha</strong>
+                <strong>{t.security.emailAndPassword}</strong>
                 {password ? (
-                  <Badge tone="success">Ativo</Badge>
+                  <Badge tone="success">{t.security.active}</Badge>
                 ) : (
-                  <Badge>Sem senha</Badge>
+                  <Badge>{t.security.noPassword}</Badge>
                 )}
               </div>
               <span class="list-row-meta">
                 {password
-                  ? `${password.providerEmail ?? ""} · senha atualizada ${format.relative(password.updatedAt)}`
-                  : "Esta conta entra só pelos provedores abaixo."}
+                  ? `${password.providerEmail ?? ""} · ${t.security.passwordUpdated(format.relative(password.updatedAt))}`
+                  : t.security.providersOnly}
               </span>
             </div>
             <LinkButton
@@ -179,7 +201,7 @@ const SignInMethods = () => {
               size="sm"
               variant={password ? "ghost" : "secondary"}
             >
-              {password ? "Trocar senha" : "Definir senha"}
+              {password ? t.security.changePassword : t.security.setPassword}
             </LinkButton>
           </li>
           {ALL_OAUTH_PROVIDERS.map((provider) => (
@@ -200,6 +222,7 @@ const SignInMethods = () => {
 };
 
 export const SecurityPage = () => {
+  const t = useMessages();
   const auth = useAuth();
   const me = useMe();
   const toast = useToast();
@@ -210,21 +233,21 @@ export const SecurityPage = () => {
   return (
     <AppLayout>
       <PageHeader
-        title="Segurança"
-        description="Onde sua conta está aberta e por quais provedores você entra."
+        title={t.security.title}
+        description={t.security.description}
       />
 
       <div class="stack">
         <Card
-          title="Sessões ativas"
-          description="Cada login abre uma sessão nova; as outras continuam valendo até expirar ou serem encerradas."
+          title={t.security.activeSessions}
+          description={t.security.activeSessionsDescription}
           actions={
             <>
               <Button
                 size="sm"
                 variant="ghost"
                 icon={<RefreshIcon />}
-                ariaLabel="Recarregar sessões"
+                ariaLabel={t.security.reloadSessions}
                 pending={sessions.loading && Boolean(sessions.data)}
                 onClick={() => void sessions.reload()}
               />
@@ -232,36 +255,36 @@ export const SecurityPage = () => {
                 size="sm"
                 tone="primary"
                 disabled={others === 0}
-                title="Encerrar as outras sessões?"
-                description="Todo dispositivo além deste precisa entrar de novo."
-                confirmLabel="Encerrar as outras"
+                title={t.security.endOthersTitle}
+                description={t.security.endOthersDescription}
+                confirmLabel={t.security.endOthers}
                 onConfirm={async () => {
                   const output = await identityApi.revokeOtherSessions();
                   toast.show({
                     tone: "success",
-                    title: `${output.revokedCount} sessões encerradas`,
+                    title: t.sessions.endedCount(output.revokedCount),
                   });
                   await sessions.reload();
                 }}
               >
-                Encerrar as outras
+                {t.security.endOthers}
               </ConfirmButton>
               <ConfirmButton
                 size="sm"
                 variant="danger-soft"
-                title="Encerrar todas as sessões?"
-                description="Inclusive esta: você sai agora em todos os dispositivos."
-                confirmLabel="Encerrar todas"
+                title={t.security.endAllTitle}
+                description={t.security.endAllDescription}
+                confirmLabel={t.sessions.endAll}
                 onConfirm={async () => {
                   const output = await identityApi.revokeAllSessions(
                     me.account.id,
                   );
                   auth.endLocally(
-                    `${output.revokedCount} sessões encerradas. Entre de novo.`,
+                    t.security.allEndedNotice(output.revokedCount),
                   );
                 }}
               >
-                Encerrar todas
+                {t.sessions.endAll}
               </ConfirmButton>
             </>
           }

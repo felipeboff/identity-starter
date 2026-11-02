@@ -5,6 +5,7 @@ import {
   PASSWORD_MIN_LENGTH,
 } from "../api/identity.types";
 import { useAuth } from "../auth/auth-context";
+import { useMessages } from "../hooks/use-messages";
 import { AuthLayout } from "../layouts/auth-layout";
 import { useLocation } from "../router/history";
 import { LinkButton } from "../ui/button";
@@ -18,41 +19,41 @@ import {
 import { identityApi } from "../services";
 
 export const ResetPasswordPage = () => {
+  const t = useMessages();
   const auth = useAuth();
   const token = useLocation().search.get("token");
   const [done, setDone] = useState(false);
 
   return (
     <AuthLayout
-      title="Criar uma senha nova"
-      subtitle="Depois de trocar, todas as sessões abertas são encerradas por segurança."
-      eyebrow="Quase lá"
-      tagline="Uma senha nova e todas as sessões antigas encerradas"
+      title={t.resetPassword.title}
+      subtitle={t.resetPassword.subtitle}
+      eyebrow={t.resetPassword.eyebrow}
+      tagline={t.resetPassword.tagline}
     >
       {!token ? (
         <ResultPanel
           tone="danger"
-          title="Link incompleto"
+          title={t.common.incompleteLink}
           actions={
             <LinkButton href="/forgot-password" variant="primary">
-              Pedir um link novo
+              {t.resetPassword.requestNewLink}
             </LinkButton>
           }
         >
-          Abra o link exatamente como chegou no e-mail.
+          {t.common.openLinkAsReceived}
         </ResultPanel>
       ) : done ? (
         <ResultPanel
           tone="success"
-          title="Senha salva"
+          title={t.resetPassword.saved}
           actions={
             <LinkButton href="/sign-in" variant="primary">
-              Entrar
+              {t.common.signIn}
             </LinkButton>
           }
         >
-          Use a senha nova para entrar com o seu e-mail. As sessões abertas
-          foram encerradas.
+          {t.resetPassword.savedDescription}
         </ResultPanel>
       ) : (
         <Form
@@ -60,32 +61,34 @@ export const ResetPasswordPage = () => {
             const newPassword = values.text("newPassword");
             if (newPassword !== values.text("confirmPassword")) {
               throw new FieldErrorsThrown({
-                confirmPassword: "As senhas não conferem.",
+                confirmPassword: t.resetPassword.mismatch,
               });
             }
             await identityApi.resetPassword({ token, newPassword });
-            if (auth.me)
-              auth.endLocally("Senha salva. Entre com a senha nova.");
+            if (auth.me) auth.endLocally(t.resetPassword.savedNotice);
             setDone(true);
           }}
         >
           <PasswordField
-            label="Senha nova"
+            label={t.common.newPassword}
             name="newPassword"
             autocomplete="new-password"
             minLength={PASSWORD_MIN_LENGTH}
             maxLength={PASSWORD_MAX_LENGTH}
-            hint={`De ${PASSWORD_MIN_LENGTH} a ${PASSWORD_MAX_LENGTH} caracteres.`}
+            hint={t.common.passwordLength(
+              PASSWORD_MIN_LENGTH,
+              PASSWORD_MAX_LENGTH,
+            )}
             required
             autoFocus
           />
           <PasswordField
-            label="Repita a senha nova"
+            label={t.resetPassword.repeatPassword}
             name="confirmPassword"
             autocomplete="new-password"
             required
           />
-          <SubmitButton block>Redefinir senha</SubmitButton>
+          <SubmitButton block>{t.resetPassword.submit}</SubmitButton>
         </Form>
       )}
     </AuthLayout>

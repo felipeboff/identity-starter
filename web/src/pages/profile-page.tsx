@@ -6,6 +6,7 @@ import {
 } from "../api/identity.types";
 import { useAuth, useMe } from "../auth/auth-context";
 import { useAction } from "../hooks/use-action";
+import { useMessages } from "../hooks/use-messages";
 import { useResource } from "../hooks/use-resource";
 import { AppLayout, PageHeader } from "../layouts/app-layout";
 import { identityApi } from "../services";
@@ -16,6 +17,7 @@ import { Field, Form, PasswordField, SubmitButton } from "../ui/form";
 import { useToast } from "../ui/toast";
 
 export const ProfilePage = () => {
+  const t = useMessages();
   const auth = useAuth();
   const me = useMe();
   const toast = useToast();
@@ -34,57 +36,54 @@ export const ProfilePage = () => {
 
   return (
     <AppLayout>
-      <PageHeader
-        title="Perfil"
-        description="Seu nome, seu e-mail e sua senha."
-      />
+      <PageHeader title={t.profile.title} description={t.profile.description} />
 
       <div class="stack">
         <Card
-          title="Dados pessoais"
-          description="Como seu nome aparece para o time."
+          title={t.profile.personal}
+          description={t.profile.personalDescription}
         >
           <Form
             class="form-inline"
             action={async (values) => {
               await identityApi.updateName({ name: values.text("name") });
               await auth.reloadMe();
-              toast.show({ tone: "success", title: "Nome atualizado" });
+              toast.show({ tone: "success", title: t.profile.nameUpdated });
             }}
           >
             <Field
-              label="Nome"
+              label={t.profile.name}
               name="name"
               autocomplete="name"
               defaultValue={me.account.name}
               required
             />
-            <SubmitButton>Salvar</SubmitButton>
+            <SubmitButton>{t.common.save}</SubmitButton>
           </Form>
         </Card>
 
         <Card
-          title="E-mail"
-          description="Enviamos um link de 1 hora para o endereço novo. A troca encerra todas as sessões."
+          title={t.common.email}
+          description={t.profile.emailDescription}
           actions={
             <Badge tone={me.account.emailVerifiedAt ? "success" : "warning"}>
-              {me.account.emailVerifiedAt ? "Confirmado" : "Não confirmado"}
+              {me.account.emailVerifiedAt
+                ? t.profile.confirmed
+                : t.profile.notConfirmed}
             </Badge>
           }
         >
           <p class="current-value">
-            Atual: <strong>{me.account.email}</strong>
+            {t.profile.current} <strong>{me.account.email}</strong>
           </p>
           {pendingEmail && (
-            <Alert tone="success" title="Link enviado">
-              Abra o e-mail que mandamos para {pendingEmail} para concluir a
-              troca.
+            <Alert tone="success" title={t.common.linkSent}>
+              {t.profile.emailChangeSent(pendingEmail)}
             </Alert>
           )}
           {hasPassword === false ? (
-            <Alert tone="info" title="Defina uma senha primeiro">
-              A troca de e-mail pede a senha atual. Sua conta entra só com
-              GitHub ou Google: crie uma senha pelo link do card abaixo.
+            <Alert tone="info" title={t.profile.setPasswordFirst}>
+              {t.profile.setPasswordFirstDescription}
             </Alert>
           ) : (
             <Form
@@ -100,14 +99,14 @@ export const ProfilePage = () => {
             >
               <div class="form-row">
                 <Field
-                  label="E-mail novo"
+                  label={t.profile.newEmail}
                   name="newEmail"
                   type="email"
                   autocomplete="email"
                   required
                 />
                 <PasswordField
-                  label="Senha atual"
+                  label={t.common.currentPassword}
                   name="password"
                   autocomplete="current-password"
                   maxLength={PASSWORD_MAX_LENGTH}
@@ -115,18 +114,20 @@ export const ProfilePage = () => {
                 />
               </div>
               <div class="form-actions">
-                <SubmitButton>Enviar link de troca</SubmitButton>
+                <SubmitButton>{t.profile.sendChangeLink}</SubmitButton>
               </div>
             </Form>
           )}
         </Card>
 
         <Card
-          title={hasPassword === false ? "Definir senha" : "Senha"}
+          title={
+            hasPassword === false ? t.profile.setPassword : t.common.password
+          }
           description={
             hasPassword === false
-              ? `Sua conta entra só com GitHub ou Google. Para criar uma senha, mandamos um link para ${me.account.email}: assim você mantém um jeito de entrar mesmo sem o provedor.`
-              : "Trocar a senha encerra todas as sessões, inclusive esta."
+              ? t.profile.setPasswordDescription(me.account.email)
+              : t.profile.changePasswordDescription
           }
         >
           {hasPassword === null ? (
@@ -134,10 +135,8 @@ export const ProfilePage = () => {
           ) : !hasPassword ? (
             <>
               {passwordLinkSent ? (
-                <Alert tone="success" title="Link enviado">
-                  Abra o e-mail que mandamos para {me.account.email} e crie a
-                  senha por lá. Ao salvar, as sessões abertas são encerradas e
-                  você entra de novo.
+                <Alert tone="success" title={t.common.linkSent}>
+                  {t.profile.passwordLinkSent(me.account.email)}
                 </Alert>
               ) : (
                 <div class="button-row">
@@ -146,7 +145,7 @@ export const ProfilePage = () => {
                     pending={sendPasswordLink.pending}
                     onClick={() => void sendPasswordLink.run()}
                   >
-                    Enviar link para criar senha
+                    {t.profile.sendPasswordLink}
                   </Button>
                 </div>
               )}
@@ -158,31 +157,32 @@ export const ProfilePage = () => {
                   oldPassword: values.text("oldPassword"),
                   newPassword: values.text("newPassword"),
                 });
-                auth.endLocally(
-                  "Senha alterada. Por segurança, todas as sessões foram encerradas; entre de novo.",
-                );
+                auth.endLocally(t.profile.passwordChanged);
               }}
             >
               <div class="form-row">
                 <PasswordField
-                  label="Senha atual"
+                  label={t.common.currentPassword}
                   name="oldPassword"
                   autocomplete="current-password"
                   maxLength={PASSWORD_MAX_LENGTH}
                   required
                 />
                 <PasswordField
-                  label="Senha nova"
+                  label={t.common.newPassword}
                   name="newPassword"
                   autocomplete="new-password"
                   minLength={PASSWORD_MIN_LENGTH}
                   maxLength={PASSWORD_MAX_LENGTH}
-                  hint={`De ${PASSWORD_MIN_LENGTH} a ${PASSWORD_MAX_LENGTH} caracteres.`}
+                  hint={t.common.passwordLength(
+                    PASSWORD_MIN_LENGTH,
+                    PASSWORD_MAX_LENGTH,
+                  )}
                   required
                 />
               </div>
               <div class="form-actions">
-                <SubmitButton>Trocar senha</SubmitButton>
+                <SubmitButton>{t.profile.changePassword}</SubmitButton>
               </div>
             </Form>
           )}
@@ -190,20 +190,20 @@ export const ProfilePage = () => {
 
         <Card
           tone="danger"
-          title="Desativar conta"
-          description="A conta fica inativa e todas as sessões são encerradas. Só alguém com a permissão de reativar contas pode trazê-la de volta."
+          title={t.profile.deactivate}
+          description={t.profile.deactivateDescription}
           actions={
             <ConfirmButton
               variant="danger-soft"
-              title="Desativar sua conta?"
-              description="Você sai agora e não consegue entrar de novo até alguém reativar a conta."
-              confirmLabel="Desativar"
+              title={t.profile.deactivateTitle}
+              description={t.profile.deactivateConfirmDescription}
+              confirmLabel={t.profile.deactivateConfirm}
               onConfirm={async () => {
                 await identityApi.deactivateAccount(me.account.id);
-                auth.endLocally("Sua conta foi desativada.");
+                auth.endLocally(t.common.accountDeactivated);
               }}
             >
-              Desativar conta
+              {t.profile.deactivate}
             </ConfirmButton>
           }
         />

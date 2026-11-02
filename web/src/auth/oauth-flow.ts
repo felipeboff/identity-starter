@@ -50,7 +50,11 @@ const PROVIDERS: Record<OAuthProvider, ProviderSettings> = {
   },
 };
 
-export class OAuthFlowError extends Error {}
+export class OAuthFlowError extends Error {
+  constructor(readonly code: string) {
+    super(code);
+  }
+}
 
 export class OAuthFlow {
   constructor(private readonly storage: Storage) {}
@@ -96,15 +100,13 @@ export class OAuthFlow {
   complete(callback: OAuthCallback): OAuthGrant {
     const attempt = this.takeAttempt();
     if (callback.error) {
-      throw new OAuthFlowError("O provedor cancelou ou recusou o login.");
+      throw new OAuthFlowError("client.oauth_cancelled");
     }
     if (!attempt || !callback.state || callback.state !== attempt.state) {
-      throw new OAuthFlowError(
-        "Não reconhecemos esta tentativa de login. Comece de novo por aqui.",
-      );
+      throw new OAuthFlowError("client.oauth_unrecognized");
     }
     if (attempt.provider !== callback.provider || !callback.code) {
-      throw new OAuthFlowError("A resposta do provedor veio incompleta.");
+      throw new OAuthFlowError("client.oauth_incomplete");
     }
     return {
       provider: attempt.provider,

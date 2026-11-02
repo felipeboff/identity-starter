@@ -15,8 +15,8 @@ import {
 } from "../api/identity.types";
 import { useAuth, useMe } from "../auth/auth-context";
 import { useAction } from "../hooks/use-action";
+import { useMessages } from "../hooks/use-messages";
 import { useResource } from "../hooks/use-resource";
-import { PERMISSION_LABELS, ROLE_LABELS } from "../i18n/labels";
 import { AppLayout, PageHeader } from "../layouts/app-layout";
 import { errorMessages, format, identityApi } from "../services";
 import { Button } from "../ui/button";
@@ -38,14 +38,6 @@ import { useToast } from "../ui/toast";
 
 const ACCOUNT_ID = new RegExp(`^${OBJECT_ID_PATTERN}$`);
 const STACKED_LAYOUT = "(max-width: 1100px)";
-const ROLE_OPTIONS = ALL_ROLES.map((role) => ({
-  value: role,
-  label: ROLE_LABELS[role],
-}));
-const PERMISSION_OPTIONS = ALL_PERMISSIONS.map((permission) => ({
-  value: permission,
-  label: PERMISSION_LABELS[permission],
-}));
 
 type MemberChanges = {
   account?: Account;
@@ -59,6 +51,7 @@ type MemberActionsProps = {
 };
 
 const MemberActions = (props: MemberActionsProps) => {
+  const t = useMessages();
   const auth = useAuth();
   const me = useMe();
   const toast = useToast();
@@ -78,20 +71,23 @@ const MemberActions = (props: MemberActionsProps) => {
   const canRevokeAll = auth.can(Permission.SESSION_REVOKE_ALL);
   const canReadSessions = auth.can(Permission.SESSION_READ) || isSelf;
   const [sessionsVersion, setSessionsVersion] = useState(0);
+  const roleOptions = ALL_ROLES.map((role) => ({
+    value: role,
+    label: t.roles[role],
+  }));
+  const permissionOptions = ALL_PERMISSIONS.map((permission) => ({
+    value: permission,
+    label: t.permissions[permission],
+  }));
 
   return (
     <>
-      {isSelf && (
-        <Alert tone="info">
-          Esta é a sua conta. Ninguém muda o próprio papel ou as próprias
-          permissões.
-        </Alert>
-      )}
+      {isSelf && <Alert tone="info">{t.members.selfNotice}</Alert>}
 
       {canRole && (
         <section class="panel-section">
-          <h3>Papel</h3>
-          <p class="panel-hint">Só um rótulo; não dá nem tira acesso.</p>
+          <h3>{t.members.role}</h3>
+          <p class="panel-hint">{t.members.roleHint}</p>
           <Form
             key={`role-${props.accountId}-${version}`}
             class="form-inline"
@@ -103,28 +99,28 @@ const MemberActions = (props: MemberActionsProps) => {
               props.onChanged({ membership: output.membership });
               toast.show({
                 tone: "success",
-                title: `Papel agora é ${ROLE_LABELS[output.membership.role]}`,
+                title: t.members.roleChanged(t.roles[output.membership.role]),
               });
             }}
           >
             <SelectField
-              label="Escolha o papel"
+              label={t.members.chooseRole}
               name="role"
-              options={ROLE_OPTIONS}
+              options={roleOptions}
               defaultValue={props.member?.membership.role ?? "user"}
             />
-            <SubmitButton>Salvar</SubmitButton>
+            <SubmitButton>{t.common.save}</SubmitButton>
           </Form>
         </section>
       )}
 
       {canPermissions && (
         <section class="panel-section">
-          <h3>Permissões</h3>
+          <h3>{t.members.permissions}</h3>
           <p class="panel-hint">
             {props.member
-              ? "Marcadas são as que o membro tem hoje. Você só mexe nas que também tem."
-              : "Substitui o conjunto inteiro. Você só mexe nas que também tem."}
+              ? t.members.permissionsHintMember
+              : t.members.permissionsHintManual}
           </p>
           <Form
             key={`permissions-${props.accountId}-${version}`}
@@ -136,23 +132,25 @@ const MemberActions = (props: MemberActionsProps) => {
               props.onChanged({ membership: output.membership });
               toast.show({
                 tone: "success",
-                title: "Permissões atualizadas",
-                description: `${output.membership.permissions.length} permissões no membro.`,
+                title: t.members.permissionsUpdated,
+                description: t.members.permissionsCount(
+                  output.membership.permissions.length,
+                ),
               });
             }}
           >
             <CheckboxGroup
-              label="Permissões do membro"
+              label={t.members.memberPermissions}
               name="permissions"
-              options={PERMISSION_OPTIONS}
+              options={permissionOptions}
               defaultValues={props.member?.membership.permissions ?? []}
               lockedValues={ALL_PERMISSIONS.filter(
                 (permission) => !auth.can(permission),
               )}
-              lockedTitle="Você não tem essa permissão, então não pode dar nem tirar."
+              lockedTitle={t.members.lockedPermission}
             />
             <div class="form-actions">
-              <SubmitButton>Salvar permissões</SubmitButton>
+              <SubmitButton>{t.members.savePermissions}</SubmitButton>
             </div>
           </Form>
         </section>
@@ -160,21 +158,21 @@ const MemberActions = (props: MemberActionsProps) => {
 
       {(canDeactivate || canReactivate) && (
         <section class="panel-section">
-          <h3>Acesso</h3>
+          <h3>{t.members.access}</h3>
           <p class="panel-hint">
             {deactivated === null
-              ? "Desativar encerra todas as sessões da conta."
+              ? t.members.accessHintUnknown
               : deactivated
-                ? "A conta está desativada e não consegue entrar."
-                : "A conta está ativa. Desativar encerra todas as sessões dela."}
+                ? t.members.accessHintDeactivated
+                : t.members.accessHintActive}
           </p>
           <div class="button-row">
             {canReactivate && (
               <ConfirmButton
                 tone="primary"
-                title="Reativar a conta?"
-                description="A pessoa volta a conseguir entrar."
-                confirmLabel="Reativar"
+                title={t.members.reactivateTitle}
+                description={t.members.reactivateDescription}
+                confirmLabel={t.members.reactivateConfirm}
                 onConfirm={async () => {
                   const output = await identityApi.reactivateAccount(
                     props.accountId,
@@ -182,23 +180,23 @@ const MemberActions = (props: MemberActionsProps) => {
                   props.onChanged({ account: output.account });
                   toast.show({
                     tone: "success",
-                    title: `${output.account.name} reativada`,
+                    title: t.members.reactivated(output.account.name),
                   });
                 }}
               >
-                Reativar conta
+                {t.members.reactivate}
               </ConfirmButton>
             )}
             {canDeactivate && (
               <ConfirmButton
                 variant="danger-soft"
-                title="Desativar a conta?"
-                description="A pessoa sai de todos os dispositivos e não entra até alguém reativar."
-                confirmLabel="Desativar"
+                title={t.members.deactivateTitle}
+                description={t.members.deactivateDescription}
+                confirmLabel={t.members.deactivateConfirm}
                 onConfirm={async () => {
                   await identityApi.deactivateAccount(props.accountId);
                   if (isSelf) {
-                    auth.endLocally("Sua conta foi desativada.");
+                    auth.endLocally(t.common.accountDeactivated);
                     return;
                   }
                   if (props.member) {
@@ -209,10 +207,10 @@ const MemberActions = (props: MemberActionsProps) => {
                       },
                     });
                   }
-                  toast.show({ tone: "success", title: "Conta desativada" });
+                  toast.show({ tone: "success", title: t.members.deactivated });
                 }}
               >
-                Desativar conta
+                {t.members.deactivate}
               </ConfirmButton>
             )}
           </div>
@@ -221,7 +219,7 @@ const MemberActions = (props: MemberActionsProps) => {
 
       {(canReadSessions || canRevokeAll) && (
         <section class="panel-section">
-          <h3>Sessões</h3>
+          <h3>{t.members.sessions}</h3>
           {canReadSessions ? (
             <MemberSessions
               key={sessionsVersion}
@@ -229,34 +227,32 @@ const MemberActions = (props: MemberActionsProps) => {
               isSelf={isSelf}
             />
           ) : (
-            <p class="panel-hint">
-              Força a pessoa a entrar de novo em todos os dispositivos.
-            </p>
+            <p class="panel-hint">{t.members.revokeAllHint}</p>
           )}
           {canRevokeAll && (
             <div class="button-row">
               <ConfirmButton
                 variant="danger-soft"
                 icon={<KeyIcon />}
-                title="Encerrar todas as sessões da conta?"
-                description="Os refresh tokens dela deixam de valer na hora."
-                confirmLabel="Encerrar todas"
+                title={t.members.revokeAllTitle}
+                description={t.members.revokeAllDescription}
+                confirmLabel={t.sessions.endAll}
                 onConfirm={async () => {
                   const output = await identityApi.revokeAllSessions(
                     props.accountId,
                   );
                   if (isSelf) {
-                    auth.endLocally("Todas as suas sessões foram encerradas.");
+                    auth.endLocally(t.members.allSessionsEnded);
                     return;
                   }
                   toast.show({
                     tone: "success",
-                    title: `${output.revokedCount} sessões encerradas`,
+                    title: t.sessions.endedCount(output.revokedCount),
                   });
                   setSessionsVersion((version) => version + 1);
                 }}
               >
-                Encerrar todas as sessões
+                {t.members.revokeAll}
               </ConfirmButton>
             </div>
           )}
@@ -272,6 +268,7 @@ type MemberSessionsProps = {
 };
 
 const MemberSessions = (props: MemberSessionsProps) => {
+  const t = useMessages();
   const auth = useAuth();
   const toast = useToast();
   const sessions = useResource(
@@ -287,7 +284,7 @@ const MemberSessions = (props: MemberSessionsProps) => {
   }
   if (!sessions.data) return <Skeleton lines={2} />;
   if (sessions.data.sessions.length === 0) {
-    return <p class="panel-hint">Nenhuma sessão ativa agora.</p>;
+    return <p class="panel-hint">{t.members.noSessions}</p>;
   }
 
   return (
@@ -302,12 +299,16 @@ const MemberSessions = (props: MemberSessionsProps) => {
             <div class="list-row-main">
               <div class="list-row-title">
                 <strong>{device.label}</strong>
-                {session.current && <Badge tone="success">Esta sessão</Badge>}
+                {session.current && (
+                  <Badge tone="success">{t.sessions.current}</Badge>
+                )}
               </div>
               <span class="list-row-meta">
-                {session.ipAddress} · aberta{" "}
-                {format.relative(session.createdAt)} · expira{" "}
-                {format.relative(session.expiresAt)}
+                {t.sessions.meta(
+                  session.ipAddress,
+                  format.relative(session.createdAt),
+                  format.relative(session.expiresAt),
+                )}
               </span>
             </div>
             {canRevoke && !session.current && (
@@ -315,16 +316,19 @@ const MemberSessions = (props: MemberSessionsProps) => {
                 size="sm"
                 variant="ghost"
                 icon={<TrashIcon />}
-                title="Encerrar esta sessão?"
-                description={`${device.label} (${session.ipAddress}) vai precisar entrar de novo.`}
-                confirmLabel="Encerrar"
+                title={t.sessions.endTitle}
+                description={t.sessions.endDescription(
+                  device.label,
+                  session.ipAddress,
+                )}
+                confirmLabel={t.sessions.end}
                 onConfirm={async () => {
                   await identityApi.revokeSession(session.id);
-                  toast.show({ tone: "success", title: "Sessão encerrada" });
+                  toast.show({ tone: "success", title: t.sessions.ended });
                   await sessions.reload();
                 }}
               >
-                Encerrar
+                {t.sessions.end}
               </ConfirmButton>
             )}
           </li>
@@ -339,20 +343,25 @@ type MemberBadgesProps = {
   isSelf: boolean;
 };
 
-const MemberBadges = (props: MemberBadgesProps) => (
-  <>
-    {props.member.account.deletedAt ? (
-      <Badge tone="danger">Desativada</Badge>
-    ) : (
-      <Badge
-        tone={props.member.membership.role === "admin" ? "primary" : "neutral"}
-      >
-        {ROLE_LABELS[props.member.membership.role]}
-      </Badge>
-    )}
-    {props.isSelf && <Badge tone="success">Você</Badge>}
-  </>
-);
+const MemberBadges = (props: MemberBadgesProps) => {
+  const t = useMessages();
+  return (
+    <>
+      {props.member.account.deletedAt ? (
+        <Badge tone="danger">{t.members.deactivatedBadge}</Badge>
+      ) : (
+        <Badge
+          tone={
+            props.member.membership.role === "admin" ? "primary" : "neutral"
+          }
+        >
+          {t.roles[props.member.membership.role]}
+        </Badge>
+      )}
+      {props.isSelf && <Badge tone="success">{t.members.you}</Badge>}
+    </>
+  );
+};
 
 type MemberPanelProps = {
   member: Member;
@@ -360,19 +369,24 @@ type MemberPanelProps = {
 };
 
 const MemberPanel = (props: MemberPanelProps) => {
+  const t = useMessages();
   const me = useMe();
   const account = props.member.account;
   const details: Array<[string, string, boolean]> = [
-    ["ID da conta", account.id, true],
-    ["Membro desde", format.date(account.createdAt), false],
+    [t.common.accountId, account.id, true],
+    [t.common.memberSince, format.date(account.createdAt), false],
     [
-      "Último acesso",
-      account.lastSeenAt ? format.relative(account.lastSeenAt) : "Nunca",
+      t.members.lastSeen,
+      account.lastSeenAt
+        ? format.relative(account.lastSeenAt)
+        : t.members.never,
       false,
     ],
     [
-      "E-mail confirmado",
-      account.emailVerifiedAt ? format.date(account.emailVerifiedAt) : "Não",
+      t.members.emailConfirmed,
+      account.emailVerifiedAt
+        ? format.date(account.emailVerifiedAt)
+        : t.members.no,
       false,
     ],
   ];
@@ -401,7 +415,7 @@ const MemberPanel = (props: MemberPanelProps) => {
             <dd>
               <span class={copyable ? "mono" : ""}>{value}</span>
               {copyable && (
-                <CopyButton value={value} label={`Copiar ${label}`} />
+                <CopyButton value={value} label={t.common.copyLabel(label)} />
               )}
             </dd>
           </div>
@@ -417,6 +431,7 @@ const MemberPanel = (props: MemberPanelProps) => {
 };
 
 const MemberDirectory = () => {
+  const t = useMessages();
   const me = useMe();
   const searchId = useId();
   const panel = useRef<HTMLDivElement>(null);
@@ -484,18 +499,18 @@ const MemberDirectory = () => {
   return (
     <div class="members-layout">
       <Card
-        title="Time"
+        title={t.members.team}
         description={
           directory
-            ? `${members.length}${directory.nextCursor ? "+" : ""} membros carregados`
-            : "Carregando…"
+            ? t.members.loaded(members.length, Boolean(directory.nextCursor))
+            : t.members.loadingList
         }
         actions={
           <Button
             size="sm"
             variant="ghost"
             icon={<RefreshIcon />}
-            ariaLabel="Recarregar membros"
+            ariaLabel={t.members.reload}
             pending={reload.pending}
             onClick={() => void reload.run()}
           />
@@ -506,7 +521,7 @@ const MemberDirectory = () => {
           <input
             id={searchId}
             type="search"
-            placeholder="Buscar por nome ou e-mail"
+            placeholder={t.members.search}
             value={filter}
             onInput={(event) => setFilter(event.currentTarget.value)}
           />
@@ -516,10 +531,10 @@ const MemberDirectory = () => {
         ) : !directory ? (
           <Skeleton lines={4} />
         ) : visible.length === 0 ? (
-          <EmptyState icon={<SearchIcon />} title="Ninguém encontrado">
+          <EmptyState icon={<SearchIcon />} title={t.members.nobodyFound}>
             {directory.nextCursor
-              ? "Carregue mais membros para buscar entre todos."
-              : "Confira o nome ou o e-mail."}
+              ? t.members.loadMoreToSearch
+              : t.members.checkSearch}
           </EmptyState>
         ) : (
           <ul class="member-list">
@@ -558,7 +573,7 @@ const MemberDirectory = () => {
             pending={loadMore.pending}
             onClick={() => void loadMore.run()}
           >
-            Carregar mais
+            {t.members.loadMore}
           </Button>
         )}
       </Card>
@@ -571,8 +586,8 @@ const MemberDirectory = () => {
             onChanged={(changes) => patch(selected.account.id, changes)}
           />
         ) : (
-          <EmptyState icon={<UsersIcon />} title="Escolha um membro">
-            O papel, as permissões e o acesso dele aparecem aqui.
+          <EmptyState icon={<UsersIcon />} title={t.members.chooseMember}>
+            {t.members.chooseMemberDescription}
           </EmptyState>
         )}
       </div>
@@ -581,19 +596,19 @@ const MemberDirectory = () => {
 };
 
 const ManualMember = () => {
+  const t = useMessages();
   const inputId = useId();
   const [accountId, setAccountId] = useState("");
   const valid = ACCOUNT_ID.test(accountId);
 
   return (
     <div class="stack">
-      <Alert tone="info" title="Lista de membros oculta">
-        Sem a permissão “{PERMISSION_LABELS["member.read"]}”, informe o ID da
-        conta de quem você quer gerenciar.
+      <Alert tone="info" title={t.members.listHidden}>
+        {t.members.listHiddenDescription(t.permissions["member.read"])}
       </Alert>
-      <Card title="Membro">
+      <Card title={t.members.member}>
         <div class={`field ${accountId && !valid ? "is-invalid" : ""}`}>
-          <label for={inputId}>ID da conta</label>
+          <label for={inputId}>{t.common.accountId}</label>
           <input
             id={inputId}
             class="input input-mono"
@@ -604,7 +619,7 @@ const ManualMember = () => {
           />
           {accountId && !valid && (
             <p class="field-message field-error">
-              Use os 24 caracteres hexadecimais do ID.
+              {t.members.invalidAccountId}
             </p>
           )}
         </div>
@@ -624,6 +639,7 @@ const ManualMember = () => {
 };
 
 export const MembersPage = () => {
+  const t = useMessages();
   const auth = useAuth();
   const canRead = auth.can(Permission.MEMBER_READ);
   const canAct = MEMBER_ACTION_PERMISSIONS.some((permission) =>
@@ -632,19 +648,15 @@ export const MembersPage = () => {
 
   return (
     <AppLayout>
-      <PageHeader
-        title="Membros"
-        description="Quem está no time, com que papel e com quais permissões."
-      />
+      <PageHeader title={t.members.title} description={t.members.description} />
       {canRead ? (
         <MemberDirectory />
       ) : canAct ? (
         <ManualMember />
       ) : (
         <Card>
-          <EmptyState icon={<LockIcon />} title="Sem acesso aos membros">
-            Peça a alguém do time a permissão “
-            {PERMISSION_LABELS["member.read"]}”.
+          <EmptyState icon={<LockIcon />} title={t.members.noAccess}>
+            {t.members.noAccessDescription(t.permissions["member.read"])}
           </EmptyState>
         </Card>
       )}

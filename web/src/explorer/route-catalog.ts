@@ -11,43 +11,82 @@ export type TemplateContext = {
   sample: string;
 };
 
-export type QueryParam = {
-  name: string;
-  hint: string;
+export type RouteId =
+  | "sign-up"
+  | "sign-in"
+  | "oauth-sign-in"
+  | "refresh"
+  | "password-reset-request"
+  | "password-reset"
+  | "email-verification"
+  | "accept-invitation"
+  | "confirm-email-change"
+  | "sign-out"
+  | "get-me"
+  | "update-name"
+  | "change-password"
+  | "request-email-change"
+  | "request-email-verification"
+  | "list-credentials"
+  | "link-oauth"
+  | "unlink-oauth"
+  | "list-sessions"
+  | "revoke-other-sessions"
+  | "revoke-session"
+  | "list-account-sessions"
+  | "revoke-all-sessions"
+  | "deactivate-account"
+  | "reactivate-account"
+  | "list-members"
+  | "update-member-role"
+  | "update-member-permissions"
+  | "invite-member"
+  | "list-invitations"
+  | "revoke-invitation";
+
+export type RouteGroup =
+  "auth" | "account" | "sessions" | "members" | "invitations";
+
+export type QueryName = "limit" | "cursor";
+
+export type RateLimitWindow = "hour" | "quarter-hour";
+
+export type RateLimitScope = "ip" | "email";
+
+export type RateLimit = {
+  max: number;
+  window: RateLimitWindow;
+  scope: RateLimitScope;
 };
 
 export type CatalogRoute = {
-  id: string;
-  group: string;
+  id: RouteId;
+  group: RouteGroup;
   method: HttpMethod;
   path: string;
-  summary: string;
-  note?: string;
   authenticated: boolean;
   permission?: Permission;
   status: number;
   failures: readonly number[];
-  rateLimit?: string;
+  rateLimits?: readonly RateLimit[];
   body?: (context: TemplateContext) => unknown;
-  query?: readonly QueryParam[];
+  query?: readonly QueryName[];
 };
 
 export const PROVIDER_OPTIONS = ALL_OAUTH_PROVIDERS;
 
-const SAMPLE_PASSWORD = "uma frase longa e segura";
+const SAMPLE_PASSWORD = "a long and safe passphrase";
 
 export const ROUTE_CATALOG: readonly CatalogRoute[] = [
   {
     id: "sign-up",
-    group: "Autenticação",
+    group: "auth",
     method: "POST",
     path: "/auth/sign-up",
-    summary: "Cria uma conta com e-mail e senha e já abre uma sessão.",
-    note: "Os tokens da resposta viram a sessão deste navegador.",
     authenticated: false,
     status: 201,
     failures: [400, 429],
-    rateLimit: "10 por hora por IP",
+    rateLimits: [{ max: 10, window: "hour", scope: "ip" }],
     body: (context) => ({
       name: "Ada Lovelace",
       email: `ada.${context.sample}@example.com`,
@@ -56,15 +95,13 @@ export const ROUTE_CATALOG: readonly CatalogRoute[] = [
   },
   {
     id: "sign-in",
-    group: "Autenticação",
+    group: "auth",
     method: "POST",
     path: "/auth/sign-in",
-    summary: "Entra com e-mail e senha.",
-    note: "Sem a senha certa, toda falha é o mesmo 401, exista a conta ou não. 5 falhas para o mesmo e-mail em 15 min bloqueiam o login dele.",
     authenticated: false,
     status: 200,
     failures: [400, 401, 404, 409, 422, 429],
-    rateLimit: "20 a cada 15 min por IP",
+    rateLimits: [{ max: 20, window: "quarter-hour", scope: "ip" }],
     body: (context) => ({
       email: context.me?.account.email ?? "ada@example.com",
       password: SAMPLE_PASSWORD,
@@ -72,79 +109,73 @@ export const ROUTE_CATALOG: readonly CatalogRoute[] = [
   },
   {
     id: "oauth-sign-in",
-    group: "Autenticação",
+    group: "auth",
     method: "POST",
     path: "/auth/oauth/:provider",
-    summary: "Troca o código do GitHub ou do Google por uma sessão.",
-    note: "O código vem do redirecionamento do provedor e só vale uma vez.",
     authenticated: false,
     status: 200,
     failures: [400, 401, 403, 404, 422, 429],
-    rateLimit: "20 a cada 15 min por IP",
+    rateLimits: [{ max: 20, window: "quarter-hour", scope: "ip" }],
     body: () => ({ code: "", codeVerifier: "" }),
   },
   {
     id: "refresh",
-    group: "Autenticação",
+    group: "auth",
     method: "POST",
     path: "/auth/refresh",
-    summary: "Gira o refresh token e devolve um par novo.",
-    note: "Reenviar um token já girado é tratado como roubo: todas as sessões caem.",
     authenticated: false,
     status: 200,
     failures: [400, 401, 404, 422, 429],
-    rateLimit: "60 a cada 15 min por IP",
+    rateLimits: [{ max: 60, window: "quarter-hour", scope: "ip" }],
     body: (context) => ({ refreshToken: context.refreshToken ?? "" }),
   },
   {
     id: "password-reset-request",
-    group: "Autenticação",
+    group: "auth",
     method: "POST",
     path: "/auth/password-reset/request",
-    summary: "Envia um link de redefinição de senha.",
-    note: "Vale para qualquer conta ativa, com ou sem senha: o link cria a senha se não houver. Responde 204 mesmo sem conta.",
     authenticated: false,
     status: 204,
     failures: [400, 422, 429],
-    rateLimit: "5 por hora por IP; 3 por hora por e-mail",
+    rateLimits: [
+      { max: 5, window: "hour", scope: "ip" },
+      { max: 3, window: "hour", scope: "email" },
+    ],
     body: (context) => ({
       email: context.me?.account.email ?? "ada@example.com",
     }),
   },
   {
     id: "password-reset",
-    group: "Autenticação",
+    group: "auth",
     method: "POST",
     path: "/auth/password-reset",
-    summary: "Troca a senha com o token do e-mail e encerra as sessões.",
     authenticated: false,
     status: 204,
     failures: [400, 401, 404, 422, 429],
-    rateLimit: "10 por hora por IP",
+    rateLimits: [{ max: 10, window: "hour", scope: "ip" }],
     body: () => ({ token: "", newPassword: SAMPLE_PASSWORD }),
   },
   {
     id: "email-verification",
-    group: "Autenticação",
+    group: "auth",
     method: "POST",
     path: "/auth/email-verification",
-    summary: "Confirma o e-mail com o token do link.",
     authenticated: false,
     status: 200,
     failures: [400, 401, 404, 422, 429],
-    rateLimit: "10 por hora por IP",
+    rateLimits: [{ max: 10, window: "hour", scope: "ip" }],
     body: () => ({ token: "" }),
   },
   {
     id: "accept-invitation",
-    group: "Autenticação",
+    group: "auth",
     method: "POST",
     path: "/auth/invitations/accept",
-    summary: "Aceita um convite, cria a conta já confirmada e entra.",
     authenticated: false,
     status: 201,
     failures: [400, 401, 422, 429],
-    rateLimit: "10 por hora por IP",
+    rateLimits: [{ max: 10, window: "hour", scope: "ip" }],
     body: () => ({
       token: "",
       name: "Grace Hopper",
@@ -153,42 +184,38 @@ export const ROUTE_CATALOG: readonly CatalogRoute[] = [
   },
   {
     id: "confirm-email-change",
-    group: "Autenticação",
+    group: "auth",
     method: "POST",
     path: "/auth/email-change",
-    summary: "Confirma a troca de e-mail e encerra todas as sessões.",
     authenticated: false,
     status: 200,
     failures: [400, 401, 422, 429],
-    rateLimit: "10 por hora por IP",
+    rateLimits: [{ max: 10, window: "hour", scope: "ip" }],
     body: () => ({ token: "" }),
   },
   {
     id: "sign-out",
-    group: "Minha conta",
+    group: "account",
     method: "POST",
     path: "/auth/sign-out",
-    summary: "Encerra a sessão atual.",
     authenticated: true,
     status: 204,
     failures: [401],
   },
   {
     id: "get-me",
-    group: "Minha conta",
+    group: "account",
     method: "GET",
     path: "/me",
-    summary: "Devolve a conta e a membership de quem chama.",
     authenticated: true,
     status: 200,
     failures: [401],
   },
   {
     id: "update-name",
-    group: "Minha conta",
+    group: "account",
     method: "PATCH",
     path: "/me",
-    summary: "Atualiza o nome.",
     authenticated: true,
     status: 200,
     failures: [400, 401],
@@ -196,104 +223,94 @@ export const ROUTE_CATALOG: readonly CatalogRoute[] = [
   },
   {
     id: "change-password",
-    group: "Minha conta",
+    group: "account",
     method: "PUT",
     path: "/me/password",
-    summary: "Troca a senha e encerra todas as sessões, inclusive esta.",
     authenticated: true,
     status: 204,
     failures: [400, 401, 404, 422, 429],
-    rateLimit: "10 por hora por IP",
+    rateLimits: [{ max: 10, window: "hour", scope: "ip" }],
     body: () => ({
       oldPassword: SAMPLE_PASSWORD,
-      newPassword: `${SAMPLE_PASSWORD} nova`,
+      newPassword: `${SAMPLE_PASSWORD} renewed`,
     }),
   },
   {
     id: "request-email-change",
-    group: "Minha conta",
+    group: "account",
     method: "POST",
     path: "/me/email",
-    summary: "Manda um link de 1 hora para o e-mail novo.",
     authenticated: true,
     status: 204,
     failures: [400, 401, 422, 429],
-    rateLimit: "5 por hora por IP",
+    rateLimits: [{ max: 5, window: "hour", scope: "ip" }],
     body: (context) => ({
-      newEmail: `novo.${context.sample}@example.com`,
+      newEmail: `new.${context.sample}@example.com`,
       password: SAMPLE_PASSWORD,
     }),
   },
   {
     id: "request-email-verification",
-    group: "Minha conta",
+    group: "account",
     method: "POST",
     path: "/me/email-verification",
-    summary: "Reenvia o link de confirmação de e-mail.",
     authenticated: true,
     status: 204,
     failures: [401, 409, 422, 429],
-    rateLimit: "5 por hora por IP",
+    rateLimits: [{ max: 5, window: "hour", scope: "ip" }],
   },
   {
     id: "list-credentials",
-    group: "Minha conta",
+    group: "account",
     method: "GET",
     path: "/me/credentials",
-    summary: "Formas de entrar da conta: senha e provedores conectados.",
     authenticated: true,
     status: 200,
     failures: [401],
   },
   {
     id: "link-oauth",
-    group: "Minha conta",
+    group: "account",
     method: "POST",
     path: "/me/oauth/:provider",
-    summary: "Liga um provedor à conta com um código do OAuth.",
     authenticated: true,
     status: 201,
     failures: [400, 401, 403, 409, 422, 429],
-    rateLimit: "20 a cada 15 min por IP",
+    rateLimits: [{ max: 20, window: "quarter-hour", scope: "ip" }],
     body: () => ({ code: "", codeVerifier: "" }),
   },
   {
     id: "unlink-oauth",
-    group: "Minha conta",
+    group: "account",
     method: "DELETE",
     path: "/me/oauth/:provider",
-    summary: "Desliga um provedor; recusa se for o único jeito de entrar.",
     authenticated: true,
     status: 204,
     failures: [400, 401, 404, 422],
   },
   {
     id: "list-sessions",
-    group: "Sessões",
+    group: "sessions",
     method: "GET",
     path: "/me/sessions",
-    summary: "Sessões ativas, da mais nova para a mais antiga.",
     authenticated: true,
     status: 200,
     failures: [401],
   },
   {
     id: "revoke-other-sessions",
-    group: "Sessões",
+    group: "sessions",
     method: "DELETE",
     path: "/me/sessions",
-    summary: "Encerra todas as sessões menos a atual.",
     authenticated: true,
     status: 200,
     failures: [401],
   },
   {
     id: "revoke-session",
-    group: "Sessões",
+    group: "sessions",
     method: "DELETE",
     path: "/sessions/:sessionId",
-    summary: "Encerra uma sessão.",
-    note: "Na sessão de outra pessoa exige a permissão.",
     authenticated: true,
     permission: "session.revoke",
     status: 204,
@@ -301,11 +318,9 @@ export const ROUTE_CATALOG: readonly CatalogRoute[] = [
   },
   {
     id: "list-account-sessions",
-    group: "Sessões",
+    group: "sessions",
     method: "GET",
     path: "/accounts/:accountId/sessions",
-    summary: "Sessões ativas de uma conta, da mais nova para a mais antiga.",
-    note: "Na conta de outra pessoa exige a permissão.",
     authenticated: true,
     permission: "session.read",
     status: 200,
@@ -313,11 +328,9 @@ export const ROUTE_CATALOG: readonly CatalogRoute[] = [
   },
   {
     id: "revoke-all-sessions",
-    group: "Sessões",
+    group: "sessions",
     method: "DELETE",
     path: "/accounts/:accountId/sessions",
-    summary: "Encerra todas as sessões de uma conta.",
-    note: "Na conta de outra pessoa exige a permissão.",
     authenticated: true,
     permission: "session.revoke_all",
     status: 200,
@@ -325,11 +338,9 @@ export const ROUTE_CATALOG: readonly CatalogRoute[] = [
   },
   {
     id: "deactivate-account",
-    group: "Contas e membros",
+    group: "members",
     method: "POST",
     path: "/accounts/:accountId/deactivate",
-    summary: "Desativa a conta e encerra as sessões dela.",
-    note: "Na conta de outra pessoa exige a permissão.",
     authenticated: true,
     permission: "account.deactivate",
     status: 204,
@@ -337,10 +348,9 @@ export const ROUTE_CATALOG: readonly CatalogRoute[] = [
   },
   {
     id: "reactivate-account",
-    group: "Contas e membros",
+    group: "members",
     method: "POST",
     path: "/accounts/:accountId/reactivate",
-    summary: "Reativa uma conta desativada.",
     authenticated: true,
     permission: "account.reactivate",
     status: 200,
@@ -348,26 +358,20 @@ export const ROUTE_CATALOG: readonly CatalogRoute[] = [
   },
   {
     id: "list-members",
-    group: "Contas e membros",
+    group: "members",
     method: "GET",
     path: "/members",
-    summary: "Membros com conta e membership, página por página.",
-    note: "Mande o nextCursor da resposta em cursor para a próxima página.",
     authenticated: true,
     permission: "member.read",
     status: 200,
     failures: [400, 401, 403],
-    query: [
-      { name: "limit", hint: "1 a 100; padrão 50" },
-      { name: "cursor", hint: "nextCursor da página anterior" },
-    ],
+    query: ["limit", "cursor"],
   },
   {
     id: "update-member-role",
-    group: "Contas e membros",
+    group: "members",
     method: "PUT",
     path: "/members/:accountId/role",
-    summary: "Troca o papel de um membro. Ninguém troca o próprio.",
     authenticated: true,
     permission: "member.role.update",
     status: 200,
@@ -376,10 +380,9 @@ export const ROUTE_CATALOG: readonly CatalogRoute[] = [
   },
   {
     id: "update-member-permissions",
-    group: "Contas e membros",
+    group: "members",
     method: "PUT",
     path: "/members/:accountId/permissions",
-    summary: "Substitui as permissões de um membro. Só concede o que você tem.",
     authenticated: true,
     permission: "member.permissions.update",
     status: 200,
@@ -390,26 +393,24 @@ export const ROUTE_CATALOG: readonly CatalogRoute[] = [
   },
   {
     id: "invite-member",
-    group: "Convites",
+    group: "invitations",
     method: "POST",
     path: "/invitations",
-    summary: "Convida por e-mail com papel e permissões.",
     authenticated: true,
     permission: "invitation.create",
     status: 201,
     failures: [400, 401, 403, 422],
     body: (context) => ({
-      email: `convidado.${context.sample}@example.com`,
+      email: `guest.${context.sample}@example.com`,
       role: "user",
       permissions: [],
     }),
   },
   {
     id: "list-invitations",
-    group: "Convites",
+    group: "invitations",
     method: "GET",
     path: "/invitations",
-    summary: "Convites pendentes, do mais novo para o mais antigo.",
     authenticated: true,
     permission: "invitation.read",
     status: 200,
@@ -417,10 +418,9 @@ export const ROUTE_CATALOG: readonly CatalogRoute[] = [
   },
   {
     id: "revoke-invitation",
-    group: "Convites",
+    group: "invitations",
     method: "DELETE",
     path: "/invitations/:invitationId",
-    summary: "Revoga um convite pendente; um aceito responde 422.",
     authenticated: true,
     permission: "invitation.revoke",
     status: 204,

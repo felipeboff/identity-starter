@@ -1,5 +1,7 @@
 import type { ComponentChild, ComponentChildren } from "preact";
 
+import { useMessages } from "../hooks/use-messages";
+
 import { AlertIcon, CheckIcon, InfoIcon } from "./icons";
 
 export type Tone = "info" | "success" | "warning" | "danger";
@@ -85,13 +87,16 @@ export type SkeletonProps = {
   lines?: number;
 };
 
-export const Skeleton = (props: SkeletonProps) => (
-  <div class="skeleton-stack" aria-busy="true" aria-label="Carregando">
-    {Array.from({ length: props.lines ?? 3 }, (_, index) => (
-      <span key={index} class="skeleton" />
-    ))}
-  </div>
-);
+export const Skeleton = (props: SkeletonProps) => {
+  const t = useMessages();
+  return (
+    <div class="skeleton-stack" aria-busy="true" aria-label={t.common.loading}>
+      {Array.from({ length: props.lines ?? 3 }, (_, index) => (
+        <span key={index} class="skeleton" />
+      ))}
+    </div>
+  );
+};
 
 export type CardProps = {
   title?: string;

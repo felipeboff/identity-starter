@@ -2,8 +2,8 @@ import {
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
 } from "../api/identity.types";
-import { ApiError } from "../api/api-error";
 import { useAuth } from "../auth/auth-context";
+import { useMessages } from "../hooks/use-messages";
 import { AuthLayout } from "../layouts/auth-layout";
 import { OAuthButtons } from "../layouts/oauth-buttons";
 import { appHistory } from "../router/history";
@@ -12,49 +12,40 @@ import { identityApi } from "../services";
 import { Field, Form, PasswordField, SubmitButton } from "../ui/form";
 import { useToast } from "../ui/toast";
 
-const EMAIL_TAKEN = new Set([
-  "identity.account_email_taken",
-  "identity.credential_email_taken",
-]);
-
 export const SignUpPage = () => {
+  const t = useMessages();
   const auth = useAuth();
   const toast = useToast();
 
   return (
     <AuthLayout
-      title="Criar uma conta"
-      subtitle="Comece em segundos. Enviamos um link para confirmar seu e-mail logo depois do cadastro."
-      eyebrow="Leva menos de um minuto"
-      tagline="Uma conta para acessar tudo, com sessões sob seu controle"
+      title={t.signUp.title}
+      subtitle={t.signUp.subtitle}
+      eyebrow={t.signUp.eyebrow}
+      tagline={t.signUp.tagline}
     >
       <Form
+        messages={{
+          "identity.account_email_taken": t.signUp.emailTaken,
+          "identity.credential_email_taken": t.signUp.emailTaken,
+        }}
         action={async (values) => {
-          const result = await identityApi
-            .signUp({
-              name: values.text("name"),
-              email: values.text("email"),
-              password: values.text("password"),
-            })
-            .catch((error: unknown) => {
-              if (error instanceof ApiError && EMAIL_TAKEN.has(error.code)) {
-                throw new Error(
-                  "Esse e-mail já tem conta. Entre com GitHub ou Google, ou crie uma senha em “Esqueceu a senha?” na tela de login.",
-                );
-              }
-              throw error;
-            });
+          const result = await identityApi.signUp({
+            name: values.text("name"),
+            email: values.text("email"),
+            password: values.text("password"),
+          });
           await auth.startSession(result);
           toast.show({
             tone: "success",
-            title: "Conta criada",
-            description: `Enviamos um link de confirmação para ${result.account.email}.`,
+            title: t.signUp.created,
+            description: t.signUp.confirmationSent(result.account.email),
           });
           appHistory.replace("/");
         }}
       >
         <Field
-          label="Seu nome"
+          label={t.common.yourName}
           name="name"
           autocomplete="name"
           placeholder="Ada Lovelace"
@@ -62,29 +53,29 @@ export const SignUpPage = () => {
           autoFocus
         />
         <Field
-          label="Seu e-mail"
+          label={t.common.yourEmail}
           name="email"
           type="email"
           autocomplete="email"
-          placeholder="voce@exemplo.com"
+          placeholder={t.common.emailPlaceholder}
           required
         />
         <PasswordField
-          label="Senha"
+          label={t.common.password}
           name="password"
           autocomplete="new-password"
           minLength={PASSWORD_MIN_LENGTH}
           maxLength={PASSWORD_MAX_LENGTH}
-          hint={`De ${PASSWORD_MIN_LENGTH} a ${PASSWORD_MAX_LENGTH} caracteres. Uma frase longa funciona bem.`}
+          hint={t.signUp.passwordHint(PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH)}
           required
         />
-        <SubmitButton block>Começar</SubmitButton>
+        <SubmitButton block>{t.signUp.submit}</SubmitButton>
       </Form>
       <OAuthButtons intent="sign-in" />
       <p class="auth-switch">
-        Já tem uma conta?{" "}
+        {t.signUp.haveAccount}{" "}
         <Link href="/sign-in" class="text-link">
-          Entrar
+          {t.common.signIn}
         </Link>
       </p>
     </AuthLayout>

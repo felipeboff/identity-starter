@@ -3,6 +3,7 @@ import type { ComponentChild } from "preact";
 import { ALL_OAUTH_PROVIDERS, type OAuthProvider } from "../api/identity.types";
 import type { OAuthIntent } from "../auth/oauth-flow";
 import { useAction } from "../hooks/use-action";
+import { useMessages } from "../hooks/use-messages";
 import { PROVIDER_LABELS } from "../i18n/labels";
 import { oauthFlow } from "../services";
 import { Button } from "../ui/button";
@@ -23,13 +24,16 @@ export type OAuthButtonProps = {
 };
 
 export const OAuthButton = (props: OAuthButtonProps) => {
+  const t = useMessages();
   const toast = useToast();
   const start = useAction(async () => {
     if (!oauthFlow.isConfigured(props.provider)) {
       toast.show({
         tone: "info",
-        title: `Login com ${PROVIDER_LABELS[props.provider]} não configurado`,
-        description: `Defina ${oauthFlow.missingConfigName(props.provider)} em web/.env e reinicie o Vite.`,
+        title: t.oauth.notConfigured(PROVIDER_LABELS[props.provider]),
+        description: t.oauth.configureHint(
+          oauthFlow.missingConfigName(props.provider),
+        ),
       });
       return;
     }
@@ -53,15 +57,22 @@ export type OAuthButtonsProps = {
   intent: OAuthIntent;
 };
 
-export const OAuthButtons = (props: OAuthButtonsProps) => (
-  <>
-    <div class="divider">
-      <span>ou continue com</span>
-    </div>
-    <div class="social-row">
-      {ALL_OAUTH_PROVIDERS.map((provider) => (
-        <OAuthButton key={provider} provider={provider} intent={props.intent} />
-      ))}
-    </div>
-  </>
-);
+export const OAuthButtons = (props: OAuthButtonsProps) => {
+  const t = useMessages();
+  return (
+    <>
+      <div class="divider">
+        <span>{t.oauth.continueWith}</span>
+      </div>
+      <div class="social-row">
+        {ALL_OAUTH_PROVIDERS.map((provider) => (
+          <OAuthButton
+            key={provider}
+            provider={provider}
+            intent={props.intent}
+          />
+        ))}
+      </div>
+    </>
+  );
+};

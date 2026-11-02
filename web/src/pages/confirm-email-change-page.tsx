@@ -2,6 +2,7 @@ import { useState } from "preact/hooks";
 
 import { useAuth } from "../auth/auth-context";
 import { useAction } from "../hooks/use-action";
+import { useMessages } from "../hooks/use-messages";
 import { AuthLayout } from "../layouts/auth-layout";
 import { useLocation } from "../router/history";
 import { identityApi } from "../services";
@@ -9,6 +10,7 @@ import { Button, LinkButton } from "../ui/button";
 import { ResultPanel } from "../ui/feedback";
 
 export const ConfirmEmailChangePage = () => {
+  const t = useMessages();
   const auth = useAuth();
   const token = useLocation().search.get("token");
   const [newEmail, setNewEmail] = useState<string | null>(null);
@@ -17,60 +19,56 @@ export const ConfirmEmailChangePage = () => {
     if (!token) return;
     const output = await identityApi.confirmEmailChange({ token });
     if (auth.me) {
-      auth.endLocally(
-        `E-mail trocado para ${output.account.email}. Entre de novo com o endereço novo.`,
-      );
+      auth.endLocally(t.confirmEmailChange.changedNotice(output.account.email));
     }
     setNewEmail(output.account.email);
   });
 
   return (
     <AuthLayout
-      title="Trocar o e-mail da conta"
-      eyebrow="Confirmação"
-      tagline="Seu e-mail novo passa a valer para entrar e para receber avisos"
+      title={t.confirmEmailChange.title}
+      eyebrow={t.confirmEmailChange.eyebrow}
+      tagline={t.confirmEmailChange.tagline}
     >
       {!token ? (
         <ResultPanel
           tone="danger"
-          title="Link incompleto"
+          title={t.common.incompleteLink}
           actions={
             <LinkButton href="/" variant="primary">
-              Voltar
+              {t.common.back}
             </LinkButton>
           }
         >
-          Abra o link exatamente como chegou no e-mail novo.
+          {t.confirmEmailChange.openLinkAsReceived}
         </ResultPanel>
       ) : newEmail ? (
         <ResultPanel
           tone="success"
-          title="E-mail trocado"
+          title={t.confirmEmailChange.changed}
           actions={
             <LinkButton href="/sign-in" variant="primary">
-              Entrar com o e-mail novo
+              {t.confirmEmailChange.signInWithNewEmail}
             </LinkButton>
           }
         >
-          A conta agora usa {newEmail}. Todas as sessões foram encerradas e o
-          endereço antigo recebeu um aviso.
+          {t.confirmEmailChange.changedDescription(newEmail)}
         </ResultPanel>
       ) : (
         <ResultPanel
           tone="info"
-          title="Confirmar a troca?"
+          title={t.confirmEmailChange.confirmTitle}
           actions={
             <Button
               variant="primary"
               pending={confirm.pending}
               onClick={() => void confirm.run()}
             >
-              Confirmar troca de e-mail
+              {t.confirmEmailChange.confirm}
             </Button>
           }
         >
-          Ao confirmar, todas as sessões da conta são encerradas, inclusive
-          esta, e você entra de novo com o e-mail novo.
+          {t.confirmEmailChange.confirmDescription}
         </ResultPanel>
       )}
     </AuthLayout>

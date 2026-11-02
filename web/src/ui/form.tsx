@@ -7,8 +7,10 @@ import {
 import { useContext, useId, useState } from "preact/hooks";
 
 import { ApiError } from "../api/api-error";
+import { useMessages } from "../hooks/use-messages";
 import type { MessageOverrides } from "../i18n/error-messages";
-import { errorMessages } from "../services";
+import type { LocaleStore } from "../i18n/locale-store";
+import { errorMessages, localeStore } from "../services";
 
 import { Button, type ButtonProps } from "./button";
 import { Alert } from "./feedback";
@@ -41,6 +43,8 @@ type ValidatableElement =
   HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 
 export class FieldValidator {
+  constructor(private readonly locales: LocaleStore) {}
+
   validate(form: HTMLFormElement): FieldErrors {
     const errors: FieldErrors = {};
     for (const element of Array.from(form.elements)) {
@@ -71,18 +75,19 @@ export class FieldValidator {
   }
 
   private messageOf(element: ValidatableElement): string | null {
+    const messages = this.locales.messages.form;
     const value = element.value;
-    if (element.required && value.trim() === "") return "Preencha este campo.";
+    if (element.required && value.trim() === "") return messages.required;
     if (value === "") return null;
     if (element instanceof HTMLInputElement) {
       if (element.minLength > 0 && value.length < element.minLength) {
-        return `Use pelo menos ${element.minLength} caracteres.`;
+        return messages.minLength(element.minLength);
       }
       if (element.validity.typeMismatch && element.type === "email") {
-        return "Digite um e-mail válido.";
+        return messages.invalidEmail;
       }
       if (element.validity.patternMismatch) {
-        return element.title || "Formato inválido.";
+        return element.title || messages.invalidFormat;
       }
     }
     return element.validity.valid ? null : element.validationMessage;
@@ -97,7 +102,7 @@ export class FieldValidator {
   }
 }
 
-const fieldValidator = new FieldValidator();
+const fieldValidator = new FieldValidator(localeStore);
 
 type FormContextValue = {
   pending: boolean;
@@ -261,6 +266,7 @@ export const Field = (props: FieldProps) => {
 };
 
 export const PasswordField = (props: FieldProps) => {
+  const t = useMessages();
   const id = useId();
   const [visible, setVisible] = useState(false);
   const invalid = Boolean(useFormState().errors[props.name]);
@@ -290,7 +296,7 @@ export const PasswordField = (props: FieldProps) => {
         <button
           type="button"
           class="input-addon"
-          aria-label={visible ? "Esconder senha" : "Mostrar senha"}
+          aria-label={visible ? t.form.hidePassword : t.form.showPassword}
           onClick={() => setVisible(!visible)}
         >
           {visible ? <EyeOffIcon /> : <EyeIcon />}
@@ -344,12 +350,13 @@ export type CheckboxGroupProps = {
 };
 
 export const CheckboxGroup = (props: CheckboxGroupProps) => {
+  const t = useMessages();
   const error = useFormState().errors[props.name];
   return (
     <fieldset class={`field checkbox-group ${error ? "is-invalid" : ""}`}>
       <legend>{props.label}</legend>
       {props.options.length === 0 && (
-        <p class="field-message">{props.emptyMessage ?? "Nenhuma opção."}</p>
+        <p class="field-message">{props.emptyMessage ?? t.form.noOptions}</p>
       )}
       <div class="checkbox-grid">
         {props.options.map((option) => {

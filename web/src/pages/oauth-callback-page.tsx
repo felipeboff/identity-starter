@@ -2,10 +2,16 @@ import { useEffect, useRef, useState } from "preact/hooks";
 
 import { ApiError } from "../api/api-error";
 import { useAuth } from "../auth/auth-context";
+import { useMessages } from "../hooks/use-messages";
 import { AuthLayout } from "../layouts/auth-layout";
 import { PROVIDER_LABELS } from "../i18n/labels";
 import { appHistory, useLocation } from "../router/history";
-import { errorMessages, identityApi, oauthFlow } from "../services";
+import {
+  errorMessages,
+  identityApi,
+  localeStore,
+  oauthFlow,
+} from "../services";
 import { LinkButton } from "../ui/button";
 import { ResultPanel } from "../ui/feedback";
 import { useToast } from "../ui/toast";
@@ -15,6 +21,7 @@ export type OAuthCallbackPageProps = {
 };
 
 export const OAuthCallbackPage = (props: OAuthCallbackPageProps) => {
+  const t = useMessages();
   const auth = useAuth();
   const toast = useToast();
   const search = useLocation().search;
@@ -39,18 +46,19 @@ export const OAuthCallbackPage = (props: OAuthCallbackPageProps) => {
         await identityApi.linkOAuth(grant);
         toast.show({
           tone: "success",
-          title: `${providerName} conectado à sua conta`,
+          title: localeStore.messages.oauthCallback.linked(providerName),
         });
         appHistory.replace("/security");
         return;
       }
       const result = await identityApi.signInWithOAuth(grant);
       await auth.startSession(result);
+      const messages = localeStore.messages.oauthCallback;
       toast.show({
         tone: "success",
         title: result.isNewAccount
-          ? `Conta criada com ${providerName}`
-          : `Bem-vindo de volta, ${result.account.name}`,
+          ? messages.created(providerName)
+          : messages.welcomeBack(result.account.name),
       });
       appHistory.replace("/");
     };
@@ -59,7 +67,7 @@ export const OAuthCallbackPage = (props: OAuthCallbackPageProps) => {
       setFailure(
         error instanceof ApiError &&
           error.code === "identity.account_email_taken"
-          ? `Já existe uma conta com o e-mail do ${providerName}. Entre com e-mail e senha (ou crie uma em “Esqueceu a senha?”) e conecte o ${providerName} em Segurança.`
+          ? localeStore.messages.oauthCallback.emailTaken(providerName)
           : errorMessages.describe(error),
       ),
     );
@@ -67,20 +75,20 @@ export const OAuthCallbackPage = (props: OAuthCallbackPageProps) => {
 
   return (
     <AuthLayout
-      title={`Entrando com ${providerName}`}
-      eyebrow="Login social"
-      tagline="Sem senha nova para lembrar"
+      title={t.oauthCallback.title(providerName)}
+      eyebrow={t.oauthCallback.eyebrow}
+      tagline={t.oauthCallback.tagline}
     >
       {failure ? (
         <ResultPanel
           tone="danger"
-          title="Não deu para concluir"
+          title={t.oauthCallback.failed}
           actions={
             <LinkButton
               href={auth.me ? "/security" : "/sign-in"}
               variant="primary"
             >
-              Voltar
+              {t.common.back}
             </LinkButton>
           }
         >
@@ -89,7 +97,7 @@ export const OAuthCallbackPage = (props: OAuthCallbackPageProps) => {
       ) : (
         <ResultPanel
           tone="pending"
-          title={`Conferindo a resposta do ${providerName}…`}
+          title={t.oauthCallback.checking(providerName)}
         />
       )}
     </AuthLayout>

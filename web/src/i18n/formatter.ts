@@ -1,6 +1,15 @@
+import type { Locale, LocaleStore } from "./locale-store";
+
 export type DeviceDescription = {
   label: string;
   mobile: boolean;
+};
+
+type LocaleFormats = {
+  dateTime: Intl.DateTimeFormat;
+  date: Intl.DateTimeFormat;
+  time: Intl.DateTimeFormat;
+  relative: Intl.RelativeTimeFormat;
 };
 
 const BROWSERS: ReadonlyArray<[RegExp, string]> = [
@@ -28,42 +37,42 @@ const RELATIVE_UNITS: ReadonlyArray<[Intl.RelativeTimeFormatUnit, number]> = [
 ];
 
 export class Formatter {
-  private readonly dateTimeFormat = new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-  private readonly dateFormat = new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "long",
-  });
-  private readonly relativeFormat = new Intl.RelativeTimeFormat("pt-BR", {
-    numeric: "auto",
-  });
+  private readonly cache = new Map<Locale, LocaleFormats>();
+
+  constructor(private readonly locales: LocaleStore) {}
 
   dateTime(iso: string): string {
-    return this.dateTimeFormat.format(new Date(iso));
+    return this.formats.dateTime.format(new Date(iso));
   }
 
   date(iso: string): string {
-    return this.dateFormat.format(new Date(iso));
+    return this.formats.date.format(new Date(iso));
+  }
+
+  time(date: Date): string {
+    return this.formats.time.format(date);
   }
 
   relative(iso: string): string {
     const seconds = (new Date(iso).getTime() - Date.now()) / 1000;
     for (const [unit, size] of RELATIVE_UNITS) {
       if (Math.abs(seconds) >= size) {
-        return this.relativeFormat.format(Math.round(seconds / size), unit);
+        return this.formats.relative.format(Math.round(seconds / size), unit);
       }
     }
-    return "agora";
+    return this.formats.relative.format(0, "second");
   }
 
   device(userAgent: string): DeviceDescription {
+    const messages = this.locales.messages.format;
     const browser = BROWSERS.find(([pattern]) => pattern.test(userAgent))?.[1];
     const system = SYSTEMS.find(([pattern]) => pattern.test(userAgent))?.[1];
     const mobile = /Mobile|Android|iPhone/.test(userAgent);
-    if (browser && system) return { label: `${browser} no ${system}`, mobile };
+    if (browser && system) {
+      return { label: messages.deviceOn(browser, system), mobile };
+    }
     return {
-      label: browser ?? system ?? (userAgent || "Dispositivo desconhecido"),
+      label: browser ?? system ?? (userAgent || messages.unknownDevice),
       mobile,
     };
   }
@@ -80,10 +89,27 @@ export class Formatter {
     return text
       .normalize("NFD")
       .replace(/\p{Diacritic}/gu, "")
-      .toLocaleLowerCase("pt-BR");
+      .toLocaleLowerCase(this.locales.locale);
   }
 
   firstName(name: string): string {
     return name.trim().split(/\s+/)[0] ?? name;
+  }
+
+  private get formats(): LocaleFormats {
+    const locale = this.locales.locale;
+    const cached = this.cache.get(locale);
+    if (cached) return cached;
+    const formats: LocaleFormats = {
+      dateTime: new Intl.DateTimeFormat(locale, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }),
+      date: new Intl.DateTimeFormat(locale, { dateStyle: "long" }),
+      time: new Intl.DateTimeFormat(locale, { timeStyle: "medium" }),
+      relative: new Intl.RelativeTimeFormat(locale, { numeric: "auto" }),
+    };
+    this.cache.set(locale, formats);
+    return formats;
   }
 }

@@ -10,7 +10,12 @@ import {
 
 import { ApiError } from "../api/api-error";
 import type { Me, Permission, SessionTokens } from "../api/identity.types";
-import { errorMessages, identityApi, tokenStore } from "../services";
+import {
+  errorMessages,
+  identityApi,
+  localeStore,
+  tokenStore,
+} from "../services";
 
 export type AuthState =
   | { status: "loading" }
@@ -27,8 +32,6 @@ export type AuthContextValue = {
   endLocally: (notice: string | null) => void;
   can: (permission: Permission) => boolean;
 };
-
-const SESSION_ENDED_NOTICE = "Sua sessão terminou. Entre de novo.";
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -54,7 +57,9 @@ export const AuthProvider = (props: AuthProviderProps) => {
       if (expired) tokenStore.clear();
       setState({
         status: "signed-out",
-        notice: expired ? SESSION_ENDED_NOTICE : errorMessages.describe(error),
+        notice: expired
+          ? localeStore.messages.auth.sessionEnded
+          : errorMessages.describe(error),
       });
     }
   }, []);
@@ -65,7 +70,10 @@ export const AuthProvider = (props: AuthProviderProps) => {
       if (!tokens) {
         setState((current) =>
           current.status === "signed-in"
-            ? { status: "signed-out", notice: SESSION_ENDED_NOTICE }
+            ? {
+                status: "signed-out",
+                notice: localeStore.messages.auth.sessionEnded,
+              }
             : current,
         );
       }

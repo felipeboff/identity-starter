@@ -1,5 +1,6 @@
 import { PASSWORD_MAX_LENGTH } from "../api/identity.types";
 import { useAuth } from "../auth/auth-context";
+import { useMessages } from "../hooks/use-messages";
 import { AuthLayout } from "../layouts/auth-layout";
 import { OAuthButtons } from "../layouts/oauth-buttons";
 import { appHistory, useLocation } from "../router/history";
@@ -8,30 +9,22 @@ import { identityApi } from "../services";
 import { Alert } from "../ui/feedback";
 import { Field, Form, PasswordField, SubmitButton } from "../ui/form";
 
-const ACCOUNT_UNAVAILABLE =
-  "Não foi possível entrar nesta conta. Fale com um administrador.";
-
-const SIGN_IN_MESSAGES = {
-  "identity.account_deleted":
-    "Esta conta está desativada. Peça a um administrador para reativá-la.",
-  "identity.credential_account_mismatch": ACCOUNT_UNAVAILABLE,
-  "identity.membership_not_found": ACCOUNT_UNAVAILABLE,
-  "identity.membership_deleted": ACCOUNT_UNAVAILABLE,
-};
-
 export const SignInPage = () => {
+  const t = useMessages();
   const auth = useAuth();
   const location = useLocation();
   const next = appHistory.internalPath(location.search.get("next"));
 
   return (
-    <AuthLayout
-      title="Entrar na sua conta"
-      subtitle="Acesse suas sessões, convites e permissões de qualquer lugar, com tudo organizado em um só lugar."
-    >
+    <AuthLayout title={t.signIn.title} subtitle={t.signIn.subtitle}>
       {auth.notice && <Alert tone="info">{auth.notice}</Alert>}
       <Form
-        messages={SIGN_IN_MESSAGES}
+        messages={{
+          "identity.account_deleted": t.signIn.accountDeactivated,
+          "identity.credential_account_mismatch": t.signIn.accountUnavailable,
+          "identity.membership_not_found": t.signIn.accountUnavailable,
+          "identity.membership_deleted": t.signIn.accountUnavailable,
+        }}
         action={async (values) => {
           const result = await identityApi.signIn({
             email: values.text("email"),
@@ -42,33 +35,33 @@ export const SignInPage = () => {
         }}
       >
         <Field
-          label="Seu e-mail"
+          label={t.common.yourEmail}
           name="email"
           type="email"
           autocomplete="email"
-          placeholder="voce@exemplo.com"
+          placeholder={t.common.emailPlaceholder}
           required
           autoFocus
         />
         <PasswordField
-          label="Senha"
+          label={t.common.password}
           name="password"
           autocomplete="current-password"
           maxLength={PASSWORD_MAX_LENGTH}
           required
           aside={
             <Link href="/forgot-password" class="text-link small">
-              Esqueceu a senha?
+              {t.signIn.forgotPassword}
             </Link>
           }
         />
-        <SubmitButton block>Entrar</SubmitButton>
+        <SubmitButton block>{t.common.signIn}</SubmitButton>
       </Form>
       <OAuthButtons intent="sign-in" />
       <p class="auth-switch">
-        Ainda não tem conta?{" "}
+        {t.signIn.noAccount}{" "}
         <Link href="/sign-up" class="text-link">
-          Criar conta
+          {t.common.signUp}
         </Link>
       </p>
     </AuthLayout>

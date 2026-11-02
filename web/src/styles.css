@@ -251,6 +251,11 @@ code,
 }
 
 .auth-footnote {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 20px;
   font-size: 13px;
   color: var(--text-muted);
 }
@@ -1353,6 +1358,61 @@ code,
   gap: 6px;
 }
 
+.locale-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  width: fit-content;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgba(14, 14, 27, 0.045);
+  box-shadow: inset 0 0 0 1px rgba(14, 14, 27, 0.05);
+  color: var(--text-subtle);
+}
+
+.locale-switch > svg {
+  margin-inline: 6px 3px;
+}
+
+.locale-option {
+  min-width: 36px;
+  height: 26px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    box-shadow 0.15s;
+}
+
+.locale-option:hover {
+  color: var(--text);
+}
+
+.locale-option[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--primary);
+  box-shadow:
+    0 1px 3px rgba(30, 20, 120, 0.14),
+    0 0 0 1px rgba(30, 20, 120, 0.05);
+  cursor: default;
+}
+
+.locale-option:focus-visible {
+  outline-offset: 0;
+}
+
+.sidebar > .locale-switch {
+  margin-inline: 8px;
+}
+
 .content {
   min-width: 0;
   max-width: 1280px;
@@ -2323,6 +2383,15 @@ code,
     margin-left: auto;
     padding: 4px;
     background: none;
+  }
+
+  .sidebar > .locale-switch {
+    margin-inline: auto 0;
+  }
+
+  .sidebar > .locale-switch + .user-chip,
+  .sidebar > .locale-switch + .guest-actions {
+    margin-left: 0;
   }
 
   .guest-actions {

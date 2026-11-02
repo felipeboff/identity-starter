@@ -2,6 +2,7 @@ import type { ComponentChild, ComponentChildren } from "preact";
 import { useRef } from "preact/hooks";
 
 import { useAction } from "../hooks/use-action";
+import { useMessages } from "../hooks/use-messages";
 
 import { Button, type ButtonSize, type ButtonVariant } from "./button";
 import { AlertIcon, InfoIcon } from "./icons";
@@ -21,6 +22,7 @@ export type ConfirmButtonProps = {
 };
 
 export const ConfirmButton = (props: ConfirmButtonProps) => {
+  const t = useMessages();
   const dialog = useRef<HTMLDialogElement>(null);
   const action = useAction(async () => {
     await props.onConfirm();
@@ -60,7 +62,7 @@ export const ConfirmButton = (props: ConfirmButtonProps) => {
               disabled={action.pending}
               onClick={() => dialog.current?.close()}
             >
-              Cancelar
+              {t.common.cancel}
             </Button>
             <Button
               variant={tone === "danger" ? "danger" : "primary"}

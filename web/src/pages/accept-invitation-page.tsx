@@ -3,6 +3,7 @@ import {
   PASSWORD_MIN_LENGTH,
 } from "../api/identity.types";
 import { useAuth } from "../auth/auth-context";
+import { useMessages } from "../hooks/use-messages";
 import { AuthLayout } from "../layouts/auth-layout";
 import { appHistory, useLocation } from "../router/history";
 import { identityApi } from "../services";
@@ -12,35 +13,35 @@ import { Field, Form, PasswordField, SubmitButton } from "../ui/form";
 import { useToast } from "../ui/toast";
 
 export const AcceptInvitationPage = () => {
+  const t = useMessages();
   const auth = useAuth();
   const toast = useToast();
   const token = useLocation().search.get("token");
 
   return (
     <AuthLayout
-      title="Você foi convidado"
-      subtitle="Escolha seu nome e uma senha. A conta já nasce confirmada, com o papel e as permissões do convite."
-      eyebrow="Bem-vindo ao time"
-      tagline="Seu acesso já vem pronto, do jeito que o time preparou"
+      title={t.acceptInvitation.title}
+      subtitle={t.acceptInvitation.subtitle}
+      eyebrow={t.acceptInvitation.eyebrow}
+      tagline={t.acceptInvitation.tagline}
     >
       {!token ? (
         <ResultPanel
           tone="danger"
-          title="Convite incompleto"
+          title={t.acceptInvitation.incomplete}
           actions={
             <LinkButton href="/sign-in" variant="primary">
-              Ir para o login
+              {t.acceptInvitation.goToSignIn}
             </LinkButton>
           }
         >
-          Abra o link exatamente como chegou no e-mail.
+          {t.common.openLinkAsReceived}
         </ResultPanel>
       ) : (
         <>
           {auth.me && (
             <Alert tone="info">
-              Você está conectado como {auth.me.account.email}. Aceitar o
-              convite cria outra conta e troca a sessão deste navegador.
+              {t.acceptInvitation.signedInAs(auth.me.account.email)}
             </Alert>
           )}
           <Form
@@ -53,13 +54,13 @@ export const AcceptInvitationPage = () => {
               await auth.startSession(result);
               toast.show({
                 tone: "success",
-                title: `Bem-vindo, ${result.account.name}!`,
+                title: t.acceptInvitation.welcome(result.account.name),
               });
               appHistory.replace("/");
             }}
           >
             <Field
-              label="Seu nome"
+              label={t.common.yourName}
               name="name"
               autocomplete="name"
               placeholder="Ada Lovelace"
@@ -67,15 +68,18 @@ export const AcceptInvitationPage = () => {
               autoFocus
             />
             <PasswordField
-              label="Senha"
+              label={t.common.password}
               name="password"
               autocomplete="new-password"
               minLength={PASSWORD_MIN_LENGTH}
               maxLength={PASSWORD_MAX_LENGTH}
-              hint={`De ${PASSWORD_MIN_LENGTH} a ${PASSWORD_MAX_LENGTH} caracteres.`}
+              hint={t.common.passwordLength(
+                PASSWORD_MIN_LENGTH,
+                PASSWORD_MAX_LENGTH,
+              )}
               required
             />
-            <SubmitButton block>Aceitar convite</SubmitButton>
+            <SubmitButton block>{t.acceptInvitation.submit}</SubmitButton>
           </Form>
         </>
       )}

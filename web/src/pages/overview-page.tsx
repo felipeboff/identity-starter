@@ -1,8 +1,8 @@
 import { ALL_PERMISSIONS } from "../api/identity.types";
 import { useMe } from "../auth/auth-context";
 import { useAction } from "../hooks/use-action";
+import { useMessages } from "../hooks/use-messages";
 import { useResource } from "../hooks/use-resource";
-import { PERMISSION_LABELS, ROLE_LABELS } from "../i18n/labels";
 import { AppLayout } from "../layouts/app-layout";
 import { format, identityApi } from "../services";
 import { Link } from "../router/router";
@@ -21,6 +21,7 @@ import {
 import { useToast } from "../ui/toast";
 
 export const OverviewPage = () => {
+  const t = useMessages();
   const me = useMe();
   const toast = useToast();
   const sessions = useResource(() => identityApi.listSessions(), []);
@@ -28,22 +29,22 @@ export const OverviewPage = () => {
     await identityApi.requestEmailVerification();
     toast.show({
       tone: "success",
-      title: "Link de confirmação enviado",
-      description: `Confira ${me.account.email}.`,
+      title: t.overview.linkSent,
+      description: t.overview.checkEmail(me.account.email),
     });
   });
 
   const held = me.membership.permissions;
   const details: Array<[string, string, boolean]> = [
-    ["ID da conta", me.account.id, true],
-    ["E-mail", me.account.email, false],
-    ["ID do membro", me.membership.id, true],
-    ["Criada em", format.dateTime(me.account.createdAt), false],
+    [t.common.accountId, me.account.id, true],
+    [t.common.email, me.account.email, false],
+    [t.overview.memberId, me.membership.id, true],
+    [t.overview.createdAt, format.dateTime(me.account.createdAt), false],
     [
-      "E-mail confirmado em",
+      t.overview.emailConfirmedAt,
       me.account.emailVerifiedAt
         ? format.dateTime(me.account.emailVerifiedAt)
-        : "Ainda não",
+        : t.overview.notYet,
       false,
     ],
   ];
@@ -54,15 +55,15 @@ export const OverviewPage = () => {
         <div class="mesh" />
         <div class="mesh-grain" />
         <div class="hero-content">
-          <p class="hero-eyebrow">Que bom te ver por aqui</p>
-          <h1>Olá, {format.firstName(me.account.name)}</h1>
+          <p class="hero-eyebrow">{t.overview.eyebrow}</p>
+          <h1>{t.overview.greeting(format.firstName(me.account.name))}</h1>
           <p class="hero-text">{me.account.email}</p>
           <div class="hero-badges">
-            <span class="glass-badge">{ROLE_LABELS[me.membership.role]}</span>
+            <span class="glass-badge">{t.roles[me.membership.role]}</span>
             <span class="glass-badge">
               {me.account.emailVerifiedAt
-                ? "E-mail confirmado"
-                : "E-mail pendente"}
+                ? t.overview.emailConfirmed
+                : t.overview.emailPending}
             </span>
           </div>
         </div>
@@ -72,7 +73,7 @@ export const OverviewPage = () => {
       {!me.account.emailVerifiedAt && (
         <Alert
           tone="warning"
-          title="Confirme seu e-mail"
+          title={t.overview.confirmEmail}
           action={
             <Button
               size="sm"
@@ -80,12 +81,11 @@ export const OverviewPage = () => {
               pending={resend.pending}
               onClick={() => void resend.run()}
             >
-              Reenviar link
+              {t.overview.resendLink}
             </Button>
           }
         >
-          Enviamos um link para {me.account.email} no cadastro. Ele ajuda a
-          recuperar a conta se você esquecer a senha.
+          {t.overview.confirmEmailDescription(me.account.email)}
         </Alert>
       )}
 
@@ -95,7 +95,7 @@ export const OverviewPage = () => {
             <MonitorIcon />
           </span>
           <div>
-            <span class="stat-label">Sessões ativas</span>
+            <span class="stat-label">{t.overview.activeSessions}</span>
             <strong class="stat-value">
               {sessions.data ? sessions.data.sessions.length : "–"}
             </strong>
@@ -107,10 +107,10 @@ export const OverviewPage = () => {
             <KeyIcon />
           </span>
           <div>
-            <span class="stat-label">Permissões</span>
+            <span class="stat-label">{t.overview.permissions}</span>
             <strong class="stat-value">
               {held.length}
-              <small> de {ALL_PERMISSIONS.length}</small>
+              <small> {t.overview.outOf(ALL_PERMISSIONS.length)}</small>
             </strong>
           </div>
         </div>
@@ -119,7 +119,7 @@ export const OverviewPage = () => {
             <ClockIcon />
           </span>
           <div>
-            <span class="stat-label">Membro desde</span>
+            <span class="stat-label">{t.common.memberSince}</span>
             <strong class="stat-value stat-value-sm">
               {format.date(me.account.createdAt)}
             </strong>
@@ -129,8 +129,8 @@ export const OverviewPage = () => {
 
       <div class="grid-2">
         <Card
-          title="Suas permissões"
-          description="O papel é só um rótulo; o que vale são as permissões abaixo."
+          title={t.overview.yourPermissions}
+          description={t.overview.yourPermissionsDescription}
         >
           <ul class="permission-list">
             {ALL_PERMISSIONS.map((permission) => {
@@ -140,7 +140,7 @@ export const OverviewPage = () => {
                   <span class="permission-icon">
                     {granted ? <CheckIcon size={14} /> : <LockIcon size={14} />}
                   </span>
-                  <span>{PERMISSION_LABELS[permission]}</span>
+                  <span>{t.permissions[permission]}</span>
                   <code>{permission}</code>
                 </li>
               );
@@ -149,8 +149,8 @@ export const OverviewPage = () => {
         </Card>
 
         <Card
-          title="Detalhes da conta"
-          description="Copie o ID para usar no Explorador de rotas."
+          title={t.overview.accountDetails}
+          description={t.overview.accountDetailsDescription}
         >
           <dl class="details">
             {details.map(([label, value, copyable]) => (
@@ -159,7 +159,10 @@ export const OverviewPage = () => {
                 <dd>
                   <span class={copyable ? "mono" : ""}>{value}</span>
                   {copyable && (
-                    <CopyButton value={value} label={`Copiar ${label}`} />
+                    <CopyButton
+                      value={value}
+                      label={t.common.copyLabel(label)}
+                    />
                   )}
                 </dd>
               </div>
