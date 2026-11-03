@@ -57,10 +57,6 @@ export const SharedError = {
     "shared.database_not_replica_set",
     "precondition_failed",
   ),
-  NestedTransaction: defineError(
-    "shared.nested_transaction",
-    "precondition_failed",
-  ),
   RateLimited: defineError<{ retryAfterSeconds: number }>(
     "shared.rate_limited",
     "rate_limited",

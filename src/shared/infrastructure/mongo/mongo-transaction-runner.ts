@@ -1,8 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
 import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
-import { AppError } from "@shared/domain/errors/app-error";
-import { SharedError } from "@shared/domain/errors/shared.error";
 import type { Connection } from "mongoose";
 
 type Attempt = { committed: (() => void)[] };
@@ -15,9 +13,7 @@ export class MongoTransactionRunner implements TransactionRunner {
   }
 
   async run<T>(work: () => Promise<T>): Promise<T> {
-    if (this.attempts.getStore()) {
-      throw new AppError(SharedError.NestedTransaction);
-    }
+    if (this.attempts.getStore()) return work();
 
     let last: Attempt = { committed: [] };
     const value = await this.connection.transaction(() => {

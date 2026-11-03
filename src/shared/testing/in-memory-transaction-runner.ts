@@ -1,8 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
 import type { TransactionRunner } from "../application/ports/transaction-runner";
-import { AppError } from "../domain/errors/app-error";
-import { SharedError } from "../domain/errors/shared.error";
 
 type Attempt = { committed: (() => void)[]; rollbacks: (() => void)[] };
 
@@ -10,9 +8,7 @@ export class InMemoryTransactionRunner implements TransactionRunner {
   private readonly attempts = new AsyncLocalStorage<Attempt>();
 
   async run<T>(work: () => Promise<T>): Promise<T> {
-    if (this.attempts.getStore()) {
-      throw new AppError(SharedError.NestedTransaction);
-    }
+    if (this.attempts.getStore()) return work();
 
     const attempt: Attempt = { committed: [], rollbacks: [] };
     let value: T;

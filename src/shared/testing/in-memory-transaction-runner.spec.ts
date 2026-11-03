@@ -1,9 +1,6 @@
 import { faker } from "@faker-js/faker";
 import { describe, expect, it, vi } from "vitest";
 
-import { SharedError } from "../domain/errors/shared.error";
-
-import { expectAppError } from "./expect-app-error";
 import { InMemoryTransactionRunner } from "./in-memory-transaction-runner";
 
 describe("InMemoryTransactionRunner", () => {
@@ -58,19 +55,42 @@ describe("InMemoryTransactionRunner", () => {
     expect(rollback).not.toHaveBeenCalled();
   });
 
-  it("refuses a run inside a run", async () => {
+  it("joins the outer transaction when a run starts inside a run: the outer failure rolls back the inner work", async () => {
     const transactions = new InMemoryTransactionRunner();
     const rollback = vi.fn();
+    const callback = vi.fn();
+    const failure = new Error(faker.lorem.sentence());
 
-    await expectAppError(
+    await expect(
       transactions.run(async () => {
-        transactions.onRollback(rollback);
-        await transactions.run(() => Promise.resolve());
+        await transactions.run(() => {
+          transactions.onRollback(rollback);
+          transactions.afterCommit(callback);
+          return Promise.resolve();
+        });
+        throw failure;
       }),
-      SharedError.NestedTransaction,
-    );
+    ).rejects.toBe(failure);
 
     expect(rollback).toHaveBeenCalledOnce();
+    expect(callback).not.toHaveBeenCalled();
+  });
+
+  it("joins the outer transaction when a run starts inside a run: its after-commit callback waits for the outer commit", async () => {
+    const transactions = new InMemoryTransactionRunner();
+    const callback = vi.fn();
+    let calledBeforeOuterEnded = false;
+
+    await transactions.run(async () => {
+      await transactions.run(() => {
+        transactions.afterCommit(callback);
+        return Promise.resolve();
+      });
+      calledBeforeOuterEnded = callback.mock.calls.length > 0;
+    });
+
+    expect(calledBeforeOuterEnded).toBe(false);
+    expect(callback).toHaveBeenCalledOnce();
   });
 
   it("tells whether a run is in progress", async () => {

@@ -1,6 +1,4 @@
 import { faker } from "@faker-js/faker";
-import { SharedError } from "@shared/domain/errors/shared.error";
-import { expectAppError } from "@shared/testing/expect-app-error";
 import { useMemoryMongo } from "@shared/testing/memory-mongo";
 import { type Model, Schema, Types, mongo } from "mongoose";
 import { beforeAll, describe, expect, it, vi } from "vitest";
@@ -122,18 +120,41 @@ describe("MongoTransactionRunner", () => {
     expect(callback).toHaveBeenCalledOnce();
   });
 
-  it("refuses a run inside a run", async () => {
-    const note = newNote();
+  it("joins the outer transaction when a run starts inside a run: its writes roll back with the outer one", async () => {
+    const outer = newNote();
+    const inner = newNote();
+    const failure = new Error(faker.lorem.sentence());
 
-    await expectAppError(
+    await expect(
       transactions.run(async () => {
-        await notes.create(note);
-        await transactions.run(() => Promise.resolve());
+        await notes.create(outer);
+        await transactions.run(async () => {
+          await notes.create(inner);
+        });
+        throw failure;
       }),
-      SharedError.NestedTransaction,
-    );
+    ).rejects.toBe(failure);
 
-    expect(await stored(notes, note)).toBeNull();
+    expect(await stored(notes, outer)).toBeNull();
+    expect(await stored(notes, inner)).toBeNull();
+  });
+
+  it("joins the outer transaction when a run starts inside a run: its after-commit callback waits for the outer commit", async () => {
+    const inner = newNote();
+    const callback = vi.fn();
+    let calledBeforeOuterEnded = false;
+
+    await transactions.run(async () => {
+      await transactions.run(async () => {
+        await notes.create(inner);
+        transactions.afterCommit(callback);
+      });
+      calledBeforeOuterEnded = callback.mock.calls.length > 0;
+    });
+
+    expect(calledBeforeOuterEnded).toBe(false);
+    expect(callback).toHaveBeenCalledOnce();
+    expect(await stored(notes, inner)).not.toBeNull();
   });
 
   it("runs an after-commit callback at once outside a run", () => {
