@@ -3,6 +3,7 @@ import { LogLevel } from "@shared/application/ports/logger";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { AccountRegisteredVia, IdentityEvent } from "../events/identity-event";
 import {
   IdentityContext,
   createIdentityContext,
@@ -90,6 +91,34 @@ describe("AcceptInvitationUseCase", () => {
     expect(output.accessToken).toMatch(`access:${accountId}:`);
   });
 
+  it("publishes identity.account.registered when the invitation is accepted, in its transaction", async () => {
+    const { input, token } = await givenInvitation();
+    const accept = makeInput(token);
+    const publish = ctx.outbox.publish.bind(ctx.outbox);
+    const running: boolean[] = [];
+    vi.spyOn(ctx.outbox, "publish").mockImplementation((event) => {
+      running.push(ctx.transactions.isRunning());
+      return publish(event);
+    });
+
+    const output = await useCase.execute(accept);
+
+    expect(running).toStrictEqual([true]);
+    expect(
+      ctx.outbox.events().map(({ type, payload }) => ({ type, payload })),
+    ).toStrictEqual([
+      {
+        type: IdentityEvent.ACCOUNT_REGISTERED,
+        payload: {
+          accountId: output.account.id,
+          email: input.email,
+          name: accept.name,
+          registeredVia: AccountRegisteredVia.INVITATION,
+        },
+      },
+    ]);
+  });
+
   it("logs identity.invitation_accepted", async () => {
     const { admin, invitationId, token } = await givenInvitation();
 
@@ -155,5 +184,6 @@ describe("AcceptInvitationUseCase", () => {
     expect((await ctx.invitations.findById(invitationId))?.isAccepted()).toBe(
       false,
     );
+    expect(ctx.outbox.events()).toStrictEqual([]);
   });
 });

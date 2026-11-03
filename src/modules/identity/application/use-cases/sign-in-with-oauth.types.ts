@@ -1,6 +1,7 @@
 import { Clock } from "@shared/application/ports/clock";
 import { IdGenerator } from "@shared/application/ports/id-generator";
 import type { Logger } from "@shared/application/ports/logger";
+import type { Outbox } from "@shared/application/ports/outbox";
 import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
 
 import { AccountOutput } from "../mappers/toOutputAccount";
@@ -33,6 +34,7 @@ export type SignInWithOAuthDeps = {
   accounts: AccountRepository;
   credentials: CredentialRepository;
   memberships: MembershipRepository;
+  outbox: Outbox;
 
   oauth: OAuthGateway;
   sessionIssuer: SessionIssuer;

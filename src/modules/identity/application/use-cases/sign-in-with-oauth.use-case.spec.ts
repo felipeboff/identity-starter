@@ -3,6 +3,7 @@ import { LogLevel } from "@shared/application/ports/logger";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { AccountRegisteredVia, IdentityEvent } from "../events/identity-event";
 import { toOutputAccount } from "../mappers/toOutputAccount";
 import { OAuthProfile } from "../ports/oauth-gateway";
 import {
@@ -64,6 +65,16 @@ describe("SignInWithOAuthUseCase", () => {
   });
 
   describe("when the provider identity is already linked", () => {
+    it("does not publish identity.account.registered for an existing account", async () => {
+      const { profile, input } = givenGoogleLogin();
+      const ana = await seedAccount(ctx, { email: profile.email });
+      await saveGoogleCredential(ana.accountId, profile);
+
+      await useCase.execute(input);
+
+      expect(ctx.outbox.events()).toStrictEqual([]);
+    });
+
     it("signs in, keeps the other sessions and marks the account as seen", async () => {
       const { profile, input } = givenGoogleLogin();
       const ana = await seedAccount(ctx, { email: profile.email });
@@ -188,6 +199,33 @@ describe("SignInWithOAuthUseCase", () => {
       );
     });
 
+    it("publishes identity.account.registered for a new account, in its transaction", async () => {
+      const { profile, input } = givenGoogleLogin();
+      const publish = ctx.outbox.publish.bind(ctx.outbox);
+      const running: boolean[] = [];
+      vi.spyOn(ctx.outbox, "publish").mockImplementation((event) => {
+        running.push(ctx.transactions.isRunning());
+        return publish(event);
+      });
+
+      const output = await useCase.execute(input);
+
+      expect(running).toStrictEqual([true]);
+      expect(
+        ctx.outbox.events().map(({ type, payload }) => ({ type, payload })),
+      ).toStrictEqual([
+        {
+          type: IdentityEvent.ACCOUNT_REGISTERED,
+          payload: {
+            accountId: output.account.id,
+            email: profile.email,
+            name: profile.name,
+            registeredVia: AccountRegisteredVia.OAUTH,
+          },
+        },
+      ]);
+    });
+
     it("throws AccountEmailTaken when an account already uses the e-mail", async () => {
       const { profile, input } = givenGoogleLogin();
       await seedAccount(ctx, { email: profile.email });
@@ -230,6 +268,7 @@ describe("SignInWithOAuthUseCase", () => {
         profile.subject,
       ),
     ).toBeNull();
+    expect(ctx.outbox.events()).toStrictEqual([]);
   });
 
   it.each([

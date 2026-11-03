@@ -1,6 +1,8 @@
+import { OutboxKind } from "@shared/application/ports/outbox";
 import { Access, UseCase } from "@shared/application/use-cases";
 import { AppError } from "@shared/domain/errors/app-error";
 
+import { AccountRegisteredVia, IdentityEvent } from "../events/identity-event";
 import { toOutputAccount } from "../mappers/toOutputAccount";
 import { OAuthProfile } from "../ports/oauth-gateway";
 import { IssuedSession } from "../services/session-issuer";
@@ -178,6 +180,16 @@ export class SignInWithOAuthUseCase extends UseCase<{
     await this.deps.accounts.save(account);
     await this.deps.credentials.save(credential);
     await this.deps.memberships.save(membership);
+    await this.deps.outbox.publish({
+      kind: OutboxKind.EVENT,
+      type: IdentityEvent.ACCOUNT_REGISTERED,
+      payload: {
+        accountId: account.id.value,
+        email: account.email.value,
+        name: account.name,
+        registeredVia: AccountRegisteredVia.OAUTH,
+      },
+    });
 
     const issued = await this.deps.sessionIssuer.issue(
       {

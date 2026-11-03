@@ -6,3 +6,9 @@ export {
   MembershipPermission,
   MembershipRole,
 } from "./domain/membership.entity";
+export {
+  type AccountRegisteredEvent,
+  type AccountRegisteredPayload,
+  AccountRegisteredVia,
+  IdentityEvent,
+} from "./application/events/identity-event";

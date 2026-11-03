@@ -27,6 +27,7 @@ import { FakeSentryIngest } from "@shared/testing/fake-sentry-ingest";
 import { memoryMongoUri } from "@shared/testing/memory-mongo";
 import { useMemoryRedis } from "@shared/testing/memory-redis";
 import { useRabbitMq } from "@shared/testing/rabbitmq-broker";
+import type { GetMessage } from "amqplib";
 import { Queue } from "bullmq";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import mongoose from "mongoose";
@@ -545,6 +546,45 @@ describe("start", () => {
     await startApp({ APP_NAME: prefix });
 
     expect(await scheduled.getJobSchedulers()).toStrictEqual([]);
+  });
+
+  it("publishes identity.account.registered when an account signs up", async () => {
+    const prefix = appName();
+    const channel = broker.channel();
+    await channel.assertExchange(`${prefix}.events`, "topic", {
+      durable: true,
+    });
+    const { queue } = await channel.assertQueue("", { exclusive: true });
+    await channel.bindQueue(
+      queue,
+      `${prefix}.events`,
+      "identity.account.registered",
+    );
+    const { url } = await startApp({ APP_NAME: prefix });
+    const name = faker.person.fullName();
+    const email = faker.internet.email().toLowerCase();
+
+    const response = await request(url)
+      .post("/api/auth/sign-up")
+      .send({ name, email, password: faker.internet.password() })
+      .expect(201);
+
+    let message: GetMessage | false = false;
+    await vi.waitFor(
+      async () => {
+        message = await channel.get(queue, { noAck: true });
+        expect(message).not.toBe(false);
+      },
+      { timeout: 5_000, interval: 100 },
+    );
+    const received = message as unknown as GetMessage;
+    expect(received.properties.type).toBe("identity.account.registered");
+    expect(JSON.parse(received.content.toString())).toStrictEqual({
+      accountId: (response.body as { account: { id: string } }).account.id,
+      email,
+      name,
+      registeredVia: "sign_up",
+    });
   });
 
   it("closes the relay, the subscribers and RabbitMQ before Redis and Mongo", async () => {

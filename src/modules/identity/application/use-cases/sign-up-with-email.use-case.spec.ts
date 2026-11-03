@@ -2,6 +2,7 @@ import { faker } from "@faker-js/faker";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { AccountRegisteredVia, IdentityEvent } from "../events/identity-event";
 import { toOutputAccount } from "../mappers/toOutputAccount";
 import { IdentityOutboxEffect } from "../outbox/identity-outbox-effect";
 import {
@@ -136,6 +137,7 @@ describe("SignUpWithEmailUseCase", () => {
     expect(await ctx.accounts.findByEmail(input.email)).toBeNull();
     expect(await ctx.credentials.findByEmail(input.email)).toBeNull();
     expect(await ctx.memberships.findById(membership.id.value)).toBeNull();
+    expect(ctx.outbox.events()).toStrictEqual([]);
   });
 
   it("returns the account as it was stored", async () => {
@@ -179,6 +181,32 @@ describe("SignUpWithEmailUseCase", () => {
       expiresAt,
       consumedAt: null,
     });
+  });
+
+  it("publishes identity.account.registered in the account's transaction", async () => {
+    const input = makeInput();
+    const seen = spyOnPublished(input.email);
+
+    const output = await useCase.execute(input);
+
+    expect(seen).toContainEqual({
+      type: IdentityEvent.ACCOUNT_REGISTERED,
+      running: true,
+      accountStored: true,
+    });
+    expect(
+      ctx.outbox.events().map(({ type, payload }) => ({ type, payload })),
+    ).toStrictEqual([
+      {
+        type: IdentityEvent.ACCOUNT_REGISTERED,
+        payload: {
+          accountId: output.account.id,
+          email: input.email,
+          name: input.name,
+          registeredVia: AccountRegisteredVia.SIGN_UP,
+        },
+      },
+    ]);
   });
 
   it("records the e-mail inside the sign-up transaction", async () => {

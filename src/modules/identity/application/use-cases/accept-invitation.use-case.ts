@@ -1,6 +1,8 @@
+import { OutboxKind } from "@shared/application/ports/outbox";
 import { Access, UseCase } from "@shared/application/use-cases";
 import { AppError } from "@shared/domain/errors/app-error";
 
+import { AccountRegisteredVia, IdentityEvent } from "../events/identity-event";
 import { toOutputAccount } from "../mappers/toOutputAccount";
 import { IdentityUseCaseLogEvent } from "../use-case.log-event";
 
@@ -81,6 +83,16 @@ export class AcceptInvitationUseCase extends UseCase<{
       await this.deps.credentials.save(credential);
       await this.deps.accounts.save(account);
       await this.deps.memberships.save(membership);
+      await this.deps.outbox.publish({
+        kind: OutboxKind.EVENT,
+        type: IdentityEvent.ACCOUNT_REGISTERED,
+        payload: {
+          accountId: account.id.value,
+          email: account.email.value,
+          name: account.name,
+          registeredVia: AccountRegisteredVia.INVITATION,
+        },
+      });
 
       const issued = await this.deps.sessionIssuer.issue(
         {

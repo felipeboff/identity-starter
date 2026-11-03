@@ -1,6 +1,7 @@
 import { Clock } from "@shared/application/ports/clock";
 import { IdGenerator } from "@shared/application/ports/id-generator";
 import type { Logger } from "@shared/application/ports/logger";
+import type { Outbox } from "@shared/application/ports/outbox";
 import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
 
 import { AccountOutput } from "../mappers/toOutputAccount";
@@ -33,6 +34,7 @@ export type AcceptInvitationDeps = {
   credentials: CredentialRepository;
   memberships: MembershipRepository;
   invitations: InvitationRepository;
+  outbox: Outbox;
 
   passwordHasher: PasswordHasher;
   tokens: TokenIssuer;
