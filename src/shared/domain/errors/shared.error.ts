@@ -69,4 +69,8 @@ export const SharedError = {
     "shared.broker_unavailable",
     "precondition_failed",
   ),
+  InvalidPermissionCatalog: defineError<{ module: string; permission: string }>(
+    "shared.invalid_permission_catalog",
+    "precondition_failed",
+  ),
 };
