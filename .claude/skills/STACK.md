@@ -11,14 +11,15 @@ file deserve an ADR (`create-adr`).
   transport-neutral `Handler` per entry point, wrapped by `Middleware`s
   (`src/shared/presentation/handler.ts`), bound to each transport by a small declaration: `HttpRoute`
   (method, path, success status), `OutboxConsumer` (effect type, dispatched for the outbox relay by
-  `OutboxConsumerAdapter`), later `McpTool` and `MessageConsumer`. Express (or Fastify), MCP
-  and RabbitMQ are thin adapters that build the `Inbound` and translate errors; HTTP errors are
-  RFC 9457 problem details. Express is the first adapter (`src/shared/infrastructure/http/`);
-  `McpTool` and `MessageConsumer` are _planned_.
+  `OutboxConsumerAdapter`), `MessageConsumer` (event name, dispatched for RabbitMQ by
+  `MessageConsumerAdapter` with the event id in `metadata["event-id"]`), later `McpTool`. Express
+  (or Fastify), MCP and RabbitMQ are thin adapters that build the `Inbound` and translate errors;
+  HTTP errors are RFC 9457 problem details. Express is the first adapter
+  (`src/shared/infrastructure/http/`); `McpTool` is _planned_.
 - **Dependency injection: manual.** One composition root per module instantiates adapters and
   use cases; no DI container, no decorators.
 - **One instance per process of each shared adapter** (clock, logger, log context, connections,
-  outbox): `start` creates it and passes it down through each module's runtime
+  outbox, transaction runner): `start` creates it and passes it down through each module's runtime
   (`IdentityRuntime`); a module creates only its own adapters (repositories, mailer, OAuth
   gateway) and never a second instance of one `start` already has.
 - **Input validation:** TypeBox (`typebox`, [ADR-005](../../docs/adr/005-typebox-input-schemas-declared-on-the-handler.md)).
@@ -61,14 +62,23 @@ file deserve an ADR (`create-adr`).
 
 ## Messaging and jobs
 
-- **Outbox** in MongoDB (`outbox` collection): use cases record side effects through the `Outbox`
-  port inside their transaction; an `OutboxRelay` in the API process polls every second and hands
+- **Outbox** in MongoDB (`outbox` collection): use cases write side effects with `Outbox.publish`
+  and `kind: "effect"` inside their transaction; an `OutboxRelay` in the API process polls every second and hands
   each due effect to BullMQ's `outbox` queue (`jobId` = effect id), holding it for 2 h; a finished
   effect loses its payload and a TTL index removes it 7 days later
   ([ADR-010](../../docs/adr/010-transactional-outbox-in-mongo-with-an-in-process-relay.md),
   [ADR-012](../../docs/adr/012-run-outbox-effects-and-scheduled-jobs-on-bullmq.md)).
-- **RabbitMQ** for events between modules, published through a transactional outbox stored in
-  MongoDB. _planned_
+- **RabbitMQ** for events between modules (`src/shared/infrastructure/messaging`,
+  [ADR-013](../../docs/adr/013-publish-events-between-modules-on-rabbitmq-from-the-outbox.md)):
+  use cases write an event with `Outbox.publish` (or `publishAll`) and `kind: "event"`
+  (`<module>.<aggregate>.<action>`, ids and public data, never a secret); the relay hands it to the
+  `EventBroker` port, which sends it on a confirm channel to the `<APP_NAME>.events` topic exchange,
+  and marks it processed once the broker confirms. A module subscribes by declaring a
+  `MessageConsumer`; each gets a quorum queue `<APP_NAME>.<handler.name>`, records the event in the
+  Mongo `inbox` in the same transaction as its writes (a duplicate is acknowledged and skipped),
+  and retries a failure 5 times at once (header `x-attempt`) before `<APP_NAME>.dead`. A
+  `transactions.run` inside another joins it. The API does not start without RabbitMQ
+  (`amqp-connection-manager` reconnects while it runs).
 - **BullMQ** (`src/shared/infrastructure/jobs`,
   [ADR-012](../../docs/adr/012-run-outbox-effects-and-scheduled-jobs-on-bullmq.md)): a worker runs
   the outbox effects through `OutboxEffectRunner` (8 attempts, exponential backoff from 30 s with
@@ -111,5 +121,6 @@ file deserve an ADR (`create-adr`).
 
 - Vitest; unit tests next to the code (`*.spec.ts`), 100% coverage target. How to write them:
   [`writing-tests`](writing-tests/SKILL.md) (faker-first data, deterministic branches, helpers).
-- Integration tests with `mongodb-memory-server` and `supertest` for the HTTP edge.
+- Integration tests with `mongodb-memory-server` and `supertest` for the HTTP edge; RabbitMQ runs
+  in a container started by `@testcontainers/rabbitmq`, so integration and e2e tests need Docker.
 - Mutation testing with Stryker is an option when `spec-lean` runs at profile `standard`.

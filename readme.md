@@ -44,6 +44,9 @@ every route.
   a BullMQ worker with retry and backoff
 - Scheduled jobs on BullMQ, declared by each module with a cron pattern and a time zone, run once
   per occurrence however many API instances there are
+- Events between modules on RabbitMQ, fed by the same outbox: identity publishes
+  `identity.account.registered`; a module subscribes by declaring a `MessageConsumer`, runs each
+  event once (inbox) and gives up after 5 attempts into a dead-letter queue
 - Errors as RFC 9457 problem details with a stable `code`
 - Structured logs with Pino, one event per request, with its request id
 - Unexpected errors reported to Sentry (or a local Bugsink), without personal data
@@ -52,20 +55,21 @@ every route.
 
 ## Stack
 
-| Concern         | Choice                                                       |
-| --------------- | ------------------------------------------------------------ |
-| Runtime         | Node.js 24, TypeScript, ESM, pnpm                            |
-| HTTP            | Express 5, Helmet, CORS                                      |
-| Validation      | TypeBox                                                      |
-| Database        | MongoDB 8 (replica set, for transactions) through Mongoose   |
-| Cache and limit | Redis through ioredis                                        |
-| Jobs            | BullMQ on the same Redis (outbox effects and scheduled jobs) |
-| Tokens          | `jose` (HS256) and opaque refresh tokens                     |
-| E-mail          | MailerSend, or a logging mailer for development              |
-| Errors          | Sentry (`@sentry/node`); Bugsink locally                     |
-| Tests           | Vitest, Supertest, in-memory MongoDB and Redis               |
-| Front end       | Preact and Vite (`web/`)                                     |
-| Quality         | ESLint (with module boundaries), Prettier, husky, commitlint |
+| Concern         | Choice                                                         |
+| --------------- | -------------------------------------------------------------- |
+| Runtime         | Node.js 24, TypeScript, ESM, pnpm                              |
+| HTTP            | Express 5, Helmet, CORS                                        |
+| Validation      | TypeBox                                                        |
+| Database        | MongoDB 8 (replica set, for transactions) through Mongoose     |
+| Cache and limit | Redis through ioredis                                          |
+| Jobs            | BullMQ on the same Redis (outbox effects and scheduled jobs)   |
+| Events          | RabbitMQ 4 through `amqp-connection-manager`                   |
+| Tokens          | `jose` (HS256) and opaque refresh tokens                       |
+| E-mail          | MailerSend, or a logging mailer for development                |
+| Errors          | Sentry (`@sentry/node`); Bugsink locally                       |
+| Tests           | Vitest, Supertest, in-memory MongoDB and Redis, Testcontainers |
+| Front end       | Preact and Vite (`web/`)                                       |
+| Quality         | ESLint (with module boundaries), Prettier, husky, commitlint   |
 
 ## Getting started
 
@@ -76,7 +80,7 @@ Docker.
 pnpm install
 cp .env.example .env            # then set JWT_SECRET: openssl rand -base64 48
 cp web/.env.example web/.env
-pnpm docker:up                  # MongoDB (replica set), Redis and Bugsink
+pnpm docker:up                  # MongoDB (replica set), Redis, RabbitMQ and Bugsink
 pnpm dev                        # API on http://localhost:3000
 pnpm --filter web dev           # front end on http://localhost:5173
 ```
@@ -128,6 +132,7 @@ Every variable is validated on boot; the API refuses to start and names each inv
 | `APP_NAME`, `NODE_ENV`, `PORT`, `TRUST_PROXY`, `LOG_LEVEL`          | `TRUST_PROXY` is the number of proxies in front of the API, used for the IP |
 | `MONGO_URL`                                                         | must point to a replica set (`?replicaSet=rs0` locally)                     |
 | `REDIS_URL`                                                         | rate limit counters and the repository cache                                |
+| `RABBITMQ_URL`                                                      | `amqp://` or `amqps://`; required, the events between modules go through it |
 | `JWT_SECRET`                                                        | at least 32 characters                                                      |
 | `APP_URL`, `CORS_ORIGINS`                                           | e-mail links point to `APP_URL`; `CORS_ORIGINS` is comma-separated          |
 | `MAILER`, `MAIL_FROM_EMAIL`, `MAIL_FROM_NAME`, `MAILERSEND_API_KEY` | `MAILER` is `log` or `mailersend`                                           |
@@ -234,7 +239,7 @@ src/
       identity.module.ts  wires the module
       public.ts           the only file other modules may import
   shared/                 building blocks every module uses (errors, HTTP edge, Mongo,
-                          Redis, outbox, logging, rate limit, test helpers)
+                          Redis, outbox, RabbitMQ, logging, rate limit, test helpers)
 web/                      Preact front end
 docs/adr/                 architecture decision records
 ```
@@ -254,7 +259,7 @@ it and a line in [src/app/http-routes.ts](src/app/http-routes.ts) for its routes
 | ------------------------------------------ | ------------------------------------------------------ |
 | `pnpm dev` / `pnpm start`                  | runs the API from source, with or without watch        |
 | `pnpm build`                               | bundles the API to `dist/main.js` with esbuild         |
-| `pnpm docker:up`                           | starts MongoDB, Redis and Bugsink                      |
+| `pnpm docker:up`                           | starts MongoDB, Redis, RabbitMQ and Bugsink            |
 | `pnpm identity:grant-admin <email>`        | gives an account the `admin` role and every permission |
 | `pnpm lint` / `pnpm typecheck`             | ESLint and `tsc --noEmit`                              |
 | `pnpm format` / `pnpm format:check`        | Prettier                                               |
@@ -262,14 +267,15 @@ it and a line in [src/app/http-routes.ts](src/app/http-routes.ts) for its routes
 | `pnpm test:unit` / `:integration` / `:e2e` | one test level                                         |
 | `pnpm test:coverage`                       | every test, with coverage                              |
 
-To run the API in a container next to MongoDB and Redis:
+To run the API in a container next to MongoDB, Redis and RabbitMQ:
 `docker compose --profile app up -d --wait`
 ([ADR-009](docs/adr/009-run-the-api-from-an-esbuild-bundle-in-a-slim-image.md)).
 
 ## Testing
 
 Tests sit next to the code: `*.spec.ts` (unit), `*.integration.spec.ts` and `*.e2e.spec.ts`.
-Integration and e2e tests start MongoDB and Redis in memory, so they need no Docker. Each level
+Integration and e2e tests start MongoDB and Redis in memory and RabbitMQ in a container
+(Testcontainers), so Docker must be running for them, and for the `pre-commit` hook. Each level
 has its own 100% coverage threshold, and the e2e run also fails when a declared route × status
 pair is never exercised.
 
@@ -282,5 +288,5 @@ add `push` or `pull_request` to its `on` to run it on every change.
 
 The [ADRs](docs/adr/) record why the code looks the way it does: the transport-neutral handler
 layer, optimistic concurrency on every write, TypeBox schemas on handlers, the access every use
-case declares, retrying idempotent outbound calls, Sentry reporting, the Docker image and the
-Mongo outbox.
+case declares, retrying idempotent outbound calls, Sentry reporting, the Docker image, the
+Mongo outbox and its BullMQ and RabbitMQ delivery.
