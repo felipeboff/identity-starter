@@ -38,6 +38,8 @@ describe("src/shared/presentation", () => {
       path.join("http", "http-route.ts"),
       path.join("http", "http-router.ts"),
       path.join("http", "open-api-generator.ts"),
+      path.join("messaging", "message-consumer-adapter.ts"),
+      path.join("messaging", "message-consumer.ts"),
       path.join("outbox", "outbox-consumer-adapter.ts"),
       path.join("outbox", "outbox-consumer.ts"),
       "page-request.schema.ts",

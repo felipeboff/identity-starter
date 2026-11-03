@@ -56,7 +56,10 @@ export default defineConfig({
         test: {
           name: "integration",
           include: [INTEGRATION],
-          globalSetup: ["src/shared/testing/memory-databases.global-setup.ts"],
+          globalSetup: [
+            "src/shared/testing/memory-databases.global-setup.ts",
+            "src/shared/testing/rabbitmq.global-setup.ts",
+          ],
         },
       },
       {
@@ -67,6 +70,7 @@ export default defineConfig({
           globalSetup: [
             "src/shared/testing/route-statuses.global-setup.ts",
             "src/shared/testing/memory-databases.global-setup.ts",
+            "src/shared/testing/rabbitmq.global-setup.ts",
           ],
         },
       },

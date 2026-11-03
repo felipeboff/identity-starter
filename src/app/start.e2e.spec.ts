@@ -11,11 +11,14 @@ import { faker } from "@faker-js/faker";
 import * as Sentry from "@sentry/node";
 import { SharedLogEvent } from "@shared/application/logging/shared.log-event";
 import { LogLevel } from "@shared/application/ports/logger";
+import { OutboxKind } from "@shared/application/ports/outbox";
 import { OutboxRelay } from "@shared/application/services/outbox-relay";
 import { SharedError } from "@shared/domain/errors/shared.error";
 import { BullOutboxQueue } from "@shared/infrastructure/jobs/bull-outbox-queue";
 import { BullOutboxWorker } from "@shared/infrastructure/jobs/bull-outbox-worker";
 import { BullScheduledJobs } from "@shared/infrastructure/jobs/bull-scheduled-jobs";
+import { RabbitConnection } from "@shared/infrastructure/messaging/rabbit-connection";
+import { RabbitMessageConsumers } from "@shared/infrastructure/messaging/rabbit-message-consumers";
 import { MongoDatabase } from "@shared/infrastructure/mongo/mongo-database";
 import type { OutboxDocument } from "@shared/infrastructure/mongo/outbox.schema";
 import { RedisConnection } from "@shared/infrastructure/redis/redis-connection";
@@ -23,6 +26,7 @@ import { expectAppError } from "@shared/testing/expect-app-error";
 import { FakeSentryIngest } from "@shared/testing/fake-sentry-ingest";
 import { memoryMongoUri } from "@shared/testing/memory-mongo";
 import { useMemoryRedis } from "@shared/testing/memory-redis";
+import { useRabbitMq } from "@shared/testing/rabbitmq-broker";
 import { Queue } from "bullmq";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import mongoose from "mongoose";
@@ -40,6 +44,9 @@ const buildEnv = (overrides: Partial<Env> = {}): Env => ({
   MONGO_URL: faker.internet.url(),
   REDIS_URL: new URL(
     `redis://127.0.0.1:${faker.number.int({ min: 1_024, max: 65_535 })}`,
+  ),
+  RABBITMQ_URL: new URL(
+    `amqp://127.0.0.1:${faker.number.int({ min: 1_024, max: 65_535 })}`,
   ),
   CORS_ORIGINS: [new URL(faker.internet.url())],
   JWT_SECRET: faker.string.alphanumeric(64),
@@ -129,6 +136,7 @@ const signUpInFlight = async (port: number) => {
 
 describe("start", () => {
   const redis = useMemoryRedis();
+  const broker = useRabbitMq();
   const running: RunningApp[] = [];
 
   afterEach(async () => {
@@ -149,6 +157,7 @@ describe("start", () => {
       env: buildEnv({
         MONGO_URL: memoryMongoUri(name),
         REDIS_URL: new URL(redis.url()),
+        RABBITMQ_URL: new URL(broker.url()),
         ...overrides,
       }),
       logDestination: output.logDestination,
@@ -269,6 +278,43 @@ describe("start", () => {
       SharedLogEvent.CacheConnectionFailed.name,
     );
     expect(output.events()).not.toContain(SharedLogEvent.ServerStarted.name);
+    expect(connectionNamed(name)?.readyState).toBe(0);
+  });
+
+  it("connects to RabbitMQ before listening", async () => {
+    const { output } = await startApp();
+
+    const events = output.events();
+
+    expect(events).toContain(SharedLogEvent.BrokerConnected.name);
+    expect(events.indexOf(SharedLogEvent.BrokerConnected.name)).toBeLessThan(
+      events.indexOf(SharedLogEvent.ServerStarted.name),
+    );
+  });
+
+  it("does not listen when RabbitMQ is unavailable, and closes Redis and the database", async () => {
+    const output = createOutput();
+    const name = databaseName();
+    const closeRedis = vi.spyOn(RedisConnection.prototype, "close");
+
+    await expectAppError(
+      start({
+        env: buildEnv({
+          MONGO_URL: memoryMongoUri(name),
+          REDIS_URL: new URL(redis.url()),
+          RABBITMQ_URL: new URL(`amqp://127.0.0.1:${await freePort()}`),
+        }),
+        logDestination: output.logDestination,
+        timeouts: { brokerConnectMs: 300 },
+      }),
+      SharedError.BrokerUnavailable,
+    );
+
+    expect(output.events()).toContain(
+      SharedLogEvent.BrokerConnectionFailed.name,
+    );
+    expect(output.events()).not.toContain(SharedLogEvent.ServerStarted.name);
+    expect(closeRedis).toHaveBeenCalledOnce();
     expect(connectionNamed(name)?.readyState).toBe(0);
   });
 
@@ -407,6 +453,7 @@ describe("start", () => {
           PORT: port,
           MONGO_URL: memoryMongoUri(name),
           REDIS_URL: new URL(redis.url()),
+          RABBITMQ_URL: new URL(broker.url()),
         }),
         logDestination: createOutput().logDestination,
       }),
@@ -455,15 +502,21 @@ describe("start", () => {
     await vi.waitFor(
       async () => {
         expect(
-          await outbox().countDocuments({ processedAt: { $ne: null } }),
+          await outbox().countDocuments({
+            kind: OutboxKind.EFFECT,
+            processedAt: { $ne: null },
+          }),
         ).toBe(2);
       },
       { timeout: 5_000, interval: 100 },
     );
     expect(
-      (await outbox().find().sort({ createdAt: 1 }).toArray()).map(
-        ({ type, payload, failedAt }) => ({ type, payload, failedAt }),
-      ),
+      (
+        await outbox()
+          .find({ kind: OutboxKind.EFFECT })
+          .sort({ createdAt: 1 })
+          .toArray()
+      ).map(({ type, payload, failedAt }) => ({ type, payload, failedAt })),
     ).toStrictEqual([
       {
         type: "identity.email_verification_email",
@@ -494,12 +547,14 @@ describe("start", () => {
     expect(await scheduled.getJobSchedulers()).toStrictEqual([]);
   });
 
-  it("closes the relay and the jobs before Redis and Mongo", async () => {
+  it("closes the relay, the subscribers and RabbitMQ before Redis and Mongo", async () => {
     const steps = {
       relay: vi.spyOn(OutboxRelay.prototype, "stop"),
+      subscribers: vi.spyOn(RabbitMessageConsumers.prototype, "close"),
       outboxWorker: vi.spyOn(BullOutboxWorker.prototype, "close"),
       scheduledJobs: vi.spyOn(BullScheduledJobs.prototype, "close"),
       outboxQueue: vi.spyOn(BullOutboxQueue.prototype, "close"),
+      broker: vi.spyOn(RabbitConnection.prototype, "close"),
       redis: vi.spyOn(RedisConnection.prototype, "close"),
       mongo: vi.spyOn(MongoDatabase.prototype, "close"),
     };
@@ -513,9 +568,11 @@ describe("start", () => {
       .map(([step]) => step);
     expect(order).toStrictEqual([
       "relay",
+      "subscribers",
       "outboxWorker",
       "scheduledJobs",
       "outboxQueue",
+      "broker",
       "redis",
       "mongo",
     ]);
@@ -537,6 +594,7 @@ describe("start", () => {
       env: buildEnv({
         MONGO_URL: memoryMongoUri(databaseName()),
         REDIS_URL: new URL(redis.url()),
+        RABBITMQ_URL: new URL(broker.url()),
       }),
       logDestination: output.logDestination,
     });
@@ -590,6 +648,7 @@ describe("start", () => {
         env: buildEnv({
           MONGO_URL: memoryMongoUri(name),
           REDIS_URL: new URL(redis.url()),
+          RABBITMQ_URL: new URL(broker.url()),
         }),
         logDestination: output.logDestination,
         timeouts: { shutdownMs: 200 },

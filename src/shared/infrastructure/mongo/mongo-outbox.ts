@@ -1,13 +1,14 @@
 import type { Clock } from "@shared/application/ports/clock";
-import type {
-  Outbox,
-  OutboxEffectInput,
-  OutboxPayload,
+import {
+  type Outbox,
+  OutboxKind,
+  type OutboxMessage,
+  type OutboxPayload,
 } from "@shared/application/ports/outbox";
 import type {
   OutboxAbandonment,
   OutboxCompletion,
-  OutboxEffect,
+  OutboxEntry,
   OutboxHandOver,
   OutboxReservation,
   OutboxStore,
@@ -35,24 +36,17 @@ export class MongoOutbox implements Outbox, OutboxStore {
     await this.model.init();
   }
 
-  async record(effect: OutboxEffectInput): Promise<void> {
-    const at = this.deps.clock.now();
-    await new this.model({
-      _id: new Types.ObjectId(),
-      type: effect.type,
-      payload: effect.payload,
-      attempts: 0,
-      nextAttemptAt: at,
-      lockedUntil: null,
-      processedAt: null,
-      failedAt: null,
-      lastError: null,
-      expiresAt: null,
-      createdAt: at,
-    }).save();
+  async publish(message: OutboxMessage): Promise<void> {
+    await new this.model(this.documentOf(message)).save();
   }
 
-  async reserve(reservation: OutboxReservation): Promise<OutboxEffect | null> {
+  async publishAll(messages: readonly OutboxMessage[]): Promise<void> {
+    await this.model.insertMany(
+      messages.map((message) => this.documentOf(message)),
+    );
+  }
+
+  async reserve(reservation: OutboxReservation): Promise<OutboxEntry | null> {
     const now = reservation.now;
     const document = await this.model
       .findOneAndUpdate(
@@ -70,6 +64,7 @@ export class MongoOutbox implements Outbox, OutboxStore {
 
     return {
       id: document._id.toHexString(),
+      kind: document.kind ?? OutboxKind.EFFECT,
       type: document.type,
       payload: document.payload as OutboxPayload,
       attempts: document.attempts,
@@ -111,5 +106,23 @@ export class MongoOutbox implements Outbox, OutboxStore {
         },
       },
     );
+  }
+
+  private documentOf(message: OutboxMessage): OutboxDocument {
+    const at = this.deps.clock.now();
+    return {
+      _id: new Types.ObjectId(),
+      kind: message.kind,
+      type: message.type,
+      payload: message.payload,
+      attempts: 0,
+      nextAttemptAt: at,
+      lockedUntil: null,
+      processedAt: null,
+      failedAt: null,
+      lastError: null,
+      expiresAt: null,
+      createdAt: at,
+    };
   }
 }

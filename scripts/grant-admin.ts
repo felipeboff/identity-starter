@@ -4,6 +4,7 @@ import { AsyncLocalLogContext } from "@shared/infrastructure/logging/async-local
 import { PinoLogger } from "@shared/infrastructure/logging/pino-logger";
 import { MongoDatabase } from "@shared/infrastructure/mongo/mongo-database";
 import { MongoOutbox } from "@shared/infrastructure/mongo/mongo-outbox";
+import { MongoTransactionRunner } from "@shared/infrastructure/mongo/mongo-transaction-runner";
 import { RedisConnection } from "@shared/infrastructure/redis/redis-connection";
 import { SystemClock } from "@shared/infrastructure/time/system-clock";
 
@@ -39,6 +40,7 @@ try {
       logger,
       logContext,
       outbox: new MongoOutbox({ connection: database.connection, clock }),
+      transactions: new MongoTransactionRunner(database.connection),
       clock,
     });
     await identity.grantAdmin.execute({ email: process.argv[2] ?? "" });

@@ -1,6 +1,6 @@
 import { Clock } from "@shared/application/ports/clock";
 import { IdGenerator } from "@shared/application/ports/id-generator";
-import type { Outbox } from "@shared/application/ports/outbox";
+import { type Outbox, OutboxKind } from "@shared/application/ports/outbox";
 
 import { IdentityOutboxEffect } from "../outbox/identity-outbox-effect";
 import { EmailVerificationRepository } from "../ports/email-verification.repository";
@@ -47,7 +47,8 @@ export class EmailVerificationIssuer {
       ),
     );
 
-    await this.deps.outbox.record({
+    await this.deps.outbox.publish({
+      kind: OutboxKind.EFFECT,
       type: IdentityOutboxEffect.EMAIL_VERIFICATION_EMAIL,
       payload: {
         to: account.email.value,

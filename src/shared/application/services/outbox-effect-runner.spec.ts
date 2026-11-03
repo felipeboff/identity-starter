@@ -9,7 +9,7 @@ import { InMemoryOutbox } from "../../testing/in-memory-outbox";
 import { InMemoryTransactionRunner } from "../../testing/in-memory-transaction-runner";
 import { SharedLogEvent } from "../logging/shared.log-event";
 import { LogLevel } from "../ports/logger";
-import type { OutboxEffectHandler } from "../ports/outbox";
+import { type OutboxEffectHandler, OutboxKind } from "../ports/outbox";
 
 import { OutboxEffectRunner, OutboxRunOutcome } from "./outbox-effect-runner";
 
@@ -48,7 +48,11 @@ describe("OutboxEffectRunner", () => {
       to: faker.internet.email(),
       token: faker.string.alphanumeric(32),
     };
-    await outbox.record({ type: effectType, payload });
+    await outbox.publish({
+      kind: OutboxKind.EFFECT,
+      type: effectType,
+      payload,
+    });
     return outbox.effects().at(-1)!;
   };
 

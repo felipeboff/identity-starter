@@ -1,3 +1,4 @@
+import { OutboxKind } from "@shared/application/ports/outbox";
 import { Access, UseCase } from "@shared/application/use-cases";
 
 import { IdentityOutboxEffect } from "../outbox/identity-outbox-effect";
@@ -64,7 +65,8 @@ export class RequestPasswordResetUseCase extends UseCase<{
     );
     await this.deps.passwordResets.save(passwordReset);
 
-    await this.deps.outbox.record({
+    await this.deps.outbox.publish({
+      kind: OutboxKind.EFFECT,
       type: IdentityOutboxEffect.PASSWORD_RESET_EMAIL,
       payload: {
         to: account.email.value,

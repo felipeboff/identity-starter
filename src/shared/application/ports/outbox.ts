@@ -1,12 +1,25 @@
 export type OutboxPayload = Readonly<Record<string, unknown>>;
 
-export type OutboxEffectInput = {
-  type: string;
-  payload: Record<string, unknown>;
+export const OutboxKind = {
+  EFFECT: "effect",
+  EVENT: "event",
+} as const;
+
+export type OutboxKind = (typeof OutboxKind)[keyof typeof OutboxKind];
+
+export type OutboxMessage<
+  TKind extends OutboxKind = OutboxKind,
+  TType extends string = string,
+  TPayload extends Record<string, unknown> = Record<string, unknown>,
+> = {
+  kind: TKind;
+  type: TType;
+  payload: TPayload;
 };
 
 export type Outbox = {
-  record(effect: OutboxEffectInput): Promise<void>;
+  publish(message: OutboxMessage): Promise<void>;
+  publishAll(messages: readonly OutboxMessage[]): Promise<void>;
 };
 
 export type OutboxDelivery = Readonly<{

@@ -35,6 +35,21 @@ describe("SignUpWithEmailUseCase", () => {
     useCase = new SignUpWithEmailUseCase(ctx);
   });
 
+  const spyOnPublished = (email: string) => {
+    const publish = ctx.outbox.publish.bind(ctx.outbox);
+    const seen: { type: string; running: boolean; accountStored: boolean }[] =
+      [];
+    vi.spyOn(ctx.outbox, "publish").mockImplementation(async (message) => {
+      seen.push({
+        type: message.type,
+        running: ctx.transactions.isRunning(),
+        accountStored: (await ctx.accounts.findByEmail(email)) !== null,
+      });
+      return publish(message);
+    });
+    return seen;
+  };
+
   it("creates the account with an e-mail credential, a user membership and a session", async () => {
     const input = makeInput();
 
@@ -168,18 +183,14 @@ describe("SignUpWithEmailUseCase", () => {
 
   it("records the e-mail inside the sign-up transaction", async () => {
     const input = makeInput();
-    const record = ctx.outbox.record.bind(ctx.outbox);
-    const seen: { running: boolean; accountStored: boolean }[] = [];
-    vi.spyOn(ctx.outbox, "record").mockImplementation(async (effect) => {
-      seen.push({
-        running: ctx.transactions.isRunning(),
-        accountStored: (await ctx.accounts.findByEmail(input.email)) !== null,
-      });
-      return record(effect);
-    });
+    const seen = spyOnPublished(input.email);
 
     await useCase.execute(input);
 
-    expect(seen).toStrictEqual([{ running: true, accountStored: true }]);
+    expect(seen).toContainEqual({
+      type: IdentityOutboxEffect.EMAIL_VERIFICATION_EMAIL,
+      running: true,
+      accountStored: true,
+    });
   });
 });

@@ -173,9 +173,9 @@ describe("RequestPasswordResetUseCase", () => {
 
   it("records the e-mail inside the transaction that stores the reset", async () => {
     const ana = await seedAccount(ctx);
-    const record = ctx.outbox.record.bind(ctx.outbox);
+    const publish = ctx.outbox.publish.bind(ctx.outbox);
     const seen: { running: boolean; stored: boolean }[] = [];
-    vi.spyOn(ctx.outbox, "record").mockImplementation(async (effect) => {
+    vi.spyOn(ctx.outbox, "publish").mockImplementation(async (effect) => {
       const { token } = effect.payload as { token: string };
       seen.push({
         running: ctx.transactions.isRunning(),
@@ -183,7 +183,7 @@ describe("RequestPasswordResetUseCase", () => {
           (await ctx.passwordResets.findByTokenHash(ctx.tokens.hash(token))) !==
           null,
       });
-      return record(effect);
+      return publish(effect);
     });
 
     await useCase.execute({ email: ana.email });

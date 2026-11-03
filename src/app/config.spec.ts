@@ -19,6 +19,7 @@ const buildSource = (overrides: Record<string, string | undefined> = {}) => ({
   LOG_LEVEL: faker.helpers.arrayElement(Object.values(LogLevel)),
   MONGO_URL: faker.internet.url(),
   REDIS_URL: `redis://${faker.internet.domainName()}:${faker.number.int({ min: 1_024, max: 65_535 })}`,
+  RABBITMQ_URL: `amqp://${faker.internet.username()}:${faker.string.alphanumeric(16)}@${faker.internet.domainName()}:${faker.number.int({ min: 1_024, max: 65_535 })}`,
   CORS_ORIGINS: `${faker.internet.url()},${faker.internet.url()}`,
   JWT_SECRET: faker.string.alphanumeric(64),
   APP_URL: faker.internet.url(),
@@ -55,6 +56,7 @@ describe("env", () => {
       PORT: Number(processEnv.PORT),
       TRUST_PROXY: Number(processEnv.TRUST_PROXY),
       REDIS_URL: new URL(processEnv.REDIS_URL),
+      RABBITMQ_URL: new URL(processEnv.RABBITMQ_URL),
       CORS_ORIGINS: processEnv.CORS_ORIGINS.split(",").map(
         (url) => new URL(url),
       ),
@@ -116,6 +118,7 @@ describe("loadEnv", () => {
       PORT: Number(source.PORT),
       TRUST_PROXY: Number(source.TRUST_PROXY),
       REDIS_URL: new URL(source.REDIS_URL),
+      RABBITMQ_URL: new URL(source.RABBITMQ_URL),
       CORS_ORIGINS: source.CORS_ORIGINS.split(",").map((url) => new URL(url)),
       APP_URL: new URL(source.APP_URL),
       GITHUB_REDIRECT_URI: new URL(source.GITHUB_REDIRECT_URI),
@@ -149,6 +152,25 @@ describe("loadEnv", () => {
       "http://localhost:5173",
     ]);
     expect(env.APP_URL.href).toBe("http://localhost:5173/");
+  });
+
+  it.each(["amqp", "amqps"])("reads RABBITMQ_URL as an %s URL", (scheme) => {
+    const url = `${scheme}://${faker.internet.domainName()}:${faker.number.int({ min: 1_024, max: 65_535 })}`;
+
+    expect(
+      loadEnv(buildSource({ RABBITMQ_URL: url })).RABBITMQ_URL,
+    ).toStrictEqual(new URL(url));
+  });
+
+  it("requires RABBITMQ_URL", () => {
+    expect(() => loadEnv(buildSource({ RABBITMQ_URL: undefined }))).toThrow(
+      expect.objectContaining({
+        code: SharedError.InputInvalid.code,
+        data: {
+          violations: [expect.objectContaining({ field: "RABBITMQ_URL" })],
+        },
+      }),
+    );
   });
 
   it("reads SENTRY_DSN when it is set", () => {
@@ -248,6 +270,12 @@ describe("loadEnv", () => {
       "REDIS_URL",
     ],
     [
+      "RABBITMQ_URL not an amqp or amqps URL",
+      { RABBITMQ_URL: faker.internet.url() },
+      "RABBITMQ_URL",
+    ],
+    ["RABBITMQ_URL with no host", { RABBITMQ_URL: "amqp://" }, "RABBITMQ_URL"],
+    [
       "CORS_ORIGINS with something that is not a URL",
       { CORS_ORIGINS: `${faker.internet.url()},${faker.lorem.word()}` },
       "CORS_ORIGINS.1",
@@ -342,6 +370,7 @@ describe("loadEnv", () => {
           violations: [
             expect.objectContaining({ field: "APP_NAME" }),
             expect.objectContaining({ field: "MONGO_URL" }),
+            expect.objectContaining({ field: "RABBITMQ_URL" }),
             expect.objectContaining({ field: "JWT_SECRET" }),
             expect.objectContaining({ field: "MAIL_FROM_EMAIL" }),
             expect.objectContaining({ field: "MAIL_FROM_NAME" }),

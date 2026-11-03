@@ -9,10 +9,10 @@ import { CursorPager } from "@shared/application/services/cursor-pager";
 import { RateLimiter } from "@shared/application/services/rate-limiter";
 import { FailOpenCache } from "@shared/infrastructure/cache/fail-open-cache";
 import { FetchHttpClient } from "@shared/infrastructure/http/fetch-http-client";
-import { MongoTransactionRunner } from "@shared/infrastructure/mongo/mongo-transaction-runner";
 import { ObjectIdGenerator } from "@shared/infrastructure/mongo/object-id-generator";
 import { RedisCache } from "@shared/infrastructure/redis/redis-cache";
 import { HttpRoute } from "@shared/presentation/http/http-route";
+import type { MessageConsumer } from "@shared/presentation/messaging/message-consumer";
 import { OutboxConsumer } from "@shared/presentation/outbox/outbox-consumer";
 import type { ScheduledJob } from "@shared/presentation/scheduling/scheduled-job";
 import type { Redis } from "ioredis";
@@ -155,6 +155,7 @@ export type IdentityRuntime = Readonly<{
   logger: Logger;
   logContext: LogContext;
   outbox: Outbox;
+  transactions: TransactionRunner;
   clock: Clock;
 }>;
 
@@ -163,6 +164,7 @@ export type IdentityModule = {
   publicRoutes: readonly HttpRoute[];
   routes: readonly HttpRoute<Actor>[];
   outboxConsumers: readonly OutboxConsumer[];
+  messageConsumers: readonly MessageConsumer[];
   scheduledJobs: readonly ScheduledJob[];
   grantAdmin: GrantAdminUseCase;
 };
@@ -231,6 +233,7 @@ export const assembleIdentityModule = (
     publicRoutes: createIdentityPublicRoutes({ ...useCases, rateLimiter }),
     routes: createIdentityRoutes({ ...useCases, rateLimiter }),
     outboxConsumers: createIdentityOutboxConsumers(useCases),
+    messageConsumers: [],
     scheduledJobs: [],
     grantAdmin: new GrantAdminUseCase(deps),
   };
@@ -242,7 +245,7 @@ export const createIdentityModule = async (
 ): Promise<IdentityModule> => {
   const models = new IdentityModels(runtime.connection);
   await models.ready();
-  const transactions = new MongoTransactionRunner(runtime.connection);
+  const transactions = runtime.transactions;
   const http = new FetchHttpClient({
     timeoutMs: settings.externalCallTimeoutMs,
     logger: runtime.logger,

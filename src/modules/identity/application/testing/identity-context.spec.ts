@@ -1,4 +1,5 @@
 import { faker } from "@faker-js/faker";
+import { OutboxKind } from "@shared/application/ports/outbox";
 import { describe, expect, it } from "vitest";
 
 import { IdentityOutboxEffect } from "../outbox/identity-outbox-effect";
@@ -113,15 +114,18 @@ describe("identity context", () => {
       const first = buildEmail();
       const second = buildEmail();
       const other = buildEmail();
-      await ctx.outbox.record({
+      await ctx.outbox.publish({
+        kind: OutboxKind.EFFECT,
         type: IdentityOutboxEffect.PASSWORD_RESET_EMAIL,
         payload: first,
       });
-      await ctx.outbox.record({
+      await ctx.outbox.publish({
+        kind: OutboxKind.EFFECT,
         type: IdentityOutboxEffect.EMAIL_VERIFICATION_EMAIL,
         payload: other,
       });
-      await ctx.outbox.record({
+      await ctx.outbox.publish({
+        kind: OutboxKind.EFFECT,
         type: IdentityOutboxEffect.PASSWORD_RESET_EMAIL,
         payload: second,
       });

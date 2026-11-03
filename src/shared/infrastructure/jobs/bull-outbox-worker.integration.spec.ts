@@ -5,7 +5,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { SharedLogEvent } from "../../application/logging/shared.log-event";
 import { LogLevel } from "../../application/ports/logger";
-import type { OutboxEffectHandler } from "../../application/ports/outbox";
+import {
+  type OutboxEffectHandler,
+  OutboxKind,
+} from "../../application/ports/outbox";
 import { OutboxEffectRunner } from "../../application/services/outbox-effect-runner";
 import { AppError } from "../../domain/errors/app-error";
 import { SharedError } from "../../domain/errors/shared.error";
@@ -61,7 +64,8 @@ describe("BullOutboxWorker", () => {
     closing.push(connection, worker, outboxQueue, queue);
 
     const enqueueOne = async () => {
-      await outbox.record({
+      await outbox.publish({
+        kind: OutboxKind.EFFECT,
         type,
         payload: { to: faker.internet.email() },
       });

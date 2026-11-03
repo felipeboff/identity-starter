@@ -1,9 +1,11 @@
+import { OutboxKind } from "@shared/application/ports/outbox";
 import { Schema, Types } from "mongoose";
 
-const EFFECT_TYPE = /^[a-z]+(_[a-z]+)*\.[a-z]+(_[a-z]+)*$/;
+const ENTRY_TYPE = /^[a-z]+(_[a-z]+)*(\.[a-z]+(_[a-z]+)*){1,2}$/;
 
 export type OutboxDocument = {
   _id: Types.ObjectId;
+  kind?: OutboxKind;
   type: string;
   payload: Record<string, unknown> | null;
   attempts: number;
@@ -22,10 +24,14 @@ export const outboxSchema = new Schema<OutboxDocument>(
       type: Schema.Types.ObjectId,
       required: true,
     },
+    kind: {
+      type: String,
+      enum: Object.values(OutboxKind),
+    },
     type: {
       type: String,
       required: true,
-      match: EFFECT_TYPE,
+      match: ENTRY_TYPE,
     },
     payload: {
       type: Schema.Types.Mixed,

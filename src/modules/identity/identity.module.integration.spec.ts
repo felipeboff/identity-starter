@@ -5,6 +5,7 @@ import {
 } from "@shared/application/services/outbox-effect-runner";
 import { SharedError } from "@shared/domain/errors/shared.error";
 import { MongoOutbox } from "@shared/infrastructure/mongo/mongo-outbox";
+import { MongoTransactionRunner } from "@shared/infrastructure/mongo/mongo-transaction-runner";
 import type { OutboxDocument } from "@shared/infrastructure/mongo/outbox.schema";
 import { RedisConnection } from "@shared/infrastructure/redis/redis-connection";
 import { Dispatcher } from "@shared/presentation/dispatcher";
@@ -88,6 +89,7 @@ const create = async (settings = buildSettings()) => {
     logger,
     logContext: new FakeLogContext(),
     outbox,
+    transactions: new MongoTransactionRunner(mongo.connection()),
     clock,
   });
   const dispatcher = new Dispatcher({ parser: new SchemaParser() });

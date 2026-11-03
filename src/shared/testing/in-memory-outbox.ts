@@ -1,15 +1,16 @@
 import { faker } from "@faker-js/faker";
 
 import type { Clock } from "../application/ports/clock";
-import type {
-  Outbox,
-  OutboxEffectInput,
-  OutboxPayload,
+import {
+  type Outbox,
+  OutboxKind,
+  type OutboxMessage,
+  type OutboxPayload,
 } from "../application/ports/outbox";
 import type {
   OutboxAbandonment,
   OutboxCompletion,
-  OutboxEffect,
+  OutboxEntry,
   OutboxHandOver,
   OutboxReservation,
   OutboxStore,
@@ -17,8 +18,9 @@ import type {
 
 import type { InMemoryTransactionRunner } from "./in-memory-transaction-runner";
 
-export type OutboxEffectSnapshot = Readonly<{
+export type OutboxEntrySnapshot = Readonly<{
   id: string;
+  kind: OutboxKind;
   type: string;
   payload: OutboxPayload | null;
   attempts: number;
@@ -37,17 +39,18 @@ export type InMemoryOutboxDeps = Readonly<{
 }>;
 
 export class InMemoryOutbox implements Outbox, OutboxStore {
-  private readonly snapshots = new Map<string, OutboxEffectSnapshot>();
+  private readonly snapshots = new Map<string, OutboxEntrySnapshot>();
 
   constructor(private readonly deps: InMemoryOutboxDeps) {}
 
-  record(effect: OutboxEffectInput): Promise<void> {
+  publish(message: OutboxMessage): Promise<void> {
     const id = faker.database.mongodbObjectId();
     const at = this.deps.clock.now();
     this.snapshots.set(id, {
       id,
-      type: effect.type,
-      payload: { ...effect.payload },
+      kind: message.kind,
+      type: message.type,
+      payload: { ...message.payload },
       attempts: 0,
       nextAttemptAt: at,
       lockedUntil: null,
@@ -61,15 +64,19 @@ export class InMemoryOutbox implements Outbox, OutboxStore {
     return Promise.resolve();
   }
 
-  reserve(reservation: OutboxReservation): Promise<OutboxEffect | null> {
+  async publishAll(messages: readonly OutboxMessage[]): Promise<void> {
+    for (const message of messages) await this.publish(message);
+  }
+
+  reserve(reservation: OutboxReservation): Promise<OutboxEntry | null> {
     const now = reservation.now.getTime();
-    const [due] = this.effects()
+    const [due] = this.entries()
       .filter(
-        (effect) =>
-          effect.processedAt === null &&
-          effect.failedAt === null &&
-          effect.nextAttemptAt.getTime() <= now &&
-          (effect.lockedUntil === null || effect.lockedUntil.getTime() <= now),
+        (entry) =>
+          entry.processedAt === null &&
+          entry.failedAt === null &&
+          entry.nextAttemptAt.getTime() <= now &&
+          (entry.lockedUntil === null || entry.lockedUntil.getTime() <= now),
       )
       .sort((a, b) => a.nextAttemptAt.getTime() - b.nextAttemptAt.getTime());
     if (due === undefined) return Promise.resolve(null);
@@ -77,6 +84,7 @@ export class InMemoryOutbox implements Outbox, OutboxStore {
     this.update(due.id, { lockedUntil: reservation.lockedUntil });
     return Promise.resolve({
       id: due.id,
+      kind: due.kind,
       type: due.type,
       payload: due.payload!,
       attempts: due.attempts,
@@ -94,8 +102,8 @@ export class InMemoryOutbox implements Outbox, OutboxStore {
   }
 
   markHandedOver(handOver: OutboxHandOver): Promise<void> {
-    const effect = this.snapshots.get(handOver.id)!;
-    if (effect.processedAt === null && effect.failedAt === null) {
+    const entry = this.snapshots.get(handOver.id)!;
+    if (entry.processedAt === null && entry.failedAt === null) {
       this.update(handOver.id, { lockedUntil: handOver.lockedUntil });
     }
     return Promise.resolve();
@@ -113,11 +121,19 @@ export class InMemoryOutbox implements Outbox, OutboxStore {
     return Promise.resolve();
   }
 
-  effects(): OutboxEffectSnapshot[] {
+  entries(): OutboxEntrySnapshot[] {
     return [...this.snapshots.values()];
   }
 
-  private update(id: string, changes: Partial<OutboxEffectSnapshot>): void {
+  effects(): OutboxEntrySnapshot[] {
+    return this.entries().filter((entry) => entry.kind === OutboxKind.EFFECT);
+  }
+
+  events(): OutboxEntrySnapshot[] {
+    return this.entries().filter((entry) => entry.kind === OutboxKind.EVENT);
+  }
+
+  private update(id: string, changes: Partial<OutboxEntrySnapshot>): void {
     this.snapshots.set(id, { ...this.snapshots.get(id)!, ...changes });
   }
 }

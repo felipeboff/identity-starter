@@ -49,6 +49,11 @@ const envSchema = Type.Object({
   )
     .Decode(toUrl)
     .Encode(String),
+  RABBITMQ_URL: Type.Codec(
+    Type.String({ pattern: "^amqps?://[^\\s/?#]+\\S*$" }),
+  )
+    .Decode(toUrl)
+    .Encode(String),
   CORS_ORIGINS: Type.Array(httpUrlSchema, {
     minItems: 1,
     default: ["http://localhost:5173"],

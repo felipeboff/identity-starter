@@ -16,6 +16,7 @@
     "MAILERSEND",
     "pttl",
     "rediss",
-    "typebox"
+    "typebox",
+    "upserted"
   ]
 }

@@ -1,25 +1,35 @@
 import { faker } from "@faker-js/faker";
 import { beforeEach, expect, it } from "vitest";
 
-import type { Outbox } from "../../application/ports/outbox";
+import { type Outbox, OutboxKind } from "../../application/ports/outbox";
 import type { OutboxStore } from "../../application/ports/outbox-store";
 import type { TransactionRunner } from "../../application/ports/transaction-runner";
 import type { FakeClock } from "../fake-clock";
-import type { OutboxEffectSnapshot } from "../in-memory-outbox";
+import type { OutboxEntrySnapshot } from "../in-memory-outbox";
 
 export type OutboxUnderContract = Readonly<{
   outbox: Outbox & OutboxStore;
   transactions: TransactionRunner;
   clock: FakeClock;
-  stored(): Promise<OutboxEffectSnapshot[]>;
+  stored(): Promise<OutboxEntrySnapshot[]>;
 }>;
 
 const buildEffect = () => ({
+  kind: OutboxKind.EFFECT,
   type: `${faker.lorem.word()}.${faker.lorem.word()}`,
   payload: {
     to: faker.internet.email(),
     token: faker.string.alphanumeric(32),
     expiresAt: faker.date.soon(),
+  },
+});
+
+const buildEvent = () => ({
+  kind: OutboxKind.EVENT,
+  type: `${faker.lorem.word()}.${faker.lorem.word()}.${faker.lorem.word()}`,
+  payload: {
+    accountId: faker.database.mongodbObjectId(),
+    email: faker.internet.email(),
   },
 });
 
@@ -44,7 +54,7 @@ export const outboxContract = (create: () => Promise<OutboxUnderContract>) => {
 
   const recordOne = async () => {
     const effect = buildEffect();
-    await outbox.record(effect);
+    await outbox.publish(effect);
     const [snapshot] = await stored();
     return { effect, id: snapshot.id };
   };
@@ -53,11 +63,12 @@ export const outboxContract = (create: () => Promise<OutboxUnderContract>) => {
     const effect = buildEffect();
     const at = clock.now();
 
-    await outbox.record(effect);
+    await outbox.publish(effect);
 
     expect(await stored()).toStrictEqual([
       {
         id: expect.any(String) as string,
+        kind: OutboxKind.EFFECT,
         type: effect.type,
         payload: effect.payload,
         attempts: 0,
@@ -81,11 +92,114 @@ export const outboxContract = (create: () => Promise<OutboxUnderContract>) => {
 
     expect(reserved).toStrictEqual({
       id,
+      kind: OutboxKind.EFFECT,
       type: effect.type,
       payload: effect.payload,
       attempts: 0,
     });
     expect((await stored())[0].lockedUntil).toStrictEqual(lockedUntil);
+  });
+
+  it("stores a published event pending and due at once, with its name as type", async () => {
+    const event = buildEvent();
+    const at = clock.now();
+
+    await outbox.publish(event);
+
+    expect(await stored()).toStrictEqual([
+      {
+        id: expect.any(String) as string,
+        kind: OutboxKind.EVENT,
+        type: event.type,
+        payload: event.payload,
+        attempts: 0,
+        nextAttemptAt: at,
+        lockedUntil: null,
+        processedAt: null,
+        failedAt: null,
+        lastError: null,
+        expiresAt: null,
+        createdAt: at,
+      },
+    ]);
+  });
+
+  it("reserves a due event as an event", async () => {
+    const event = buildEvent();
+    await outbox.publish(event);
+    const [{ id }] = await stored();
+
+    expect(await reserveNow()).toStrictEqual({
+      id,
+      kind: OutboxKind.EVENT,
+      type: event.type,
+      payload: event.payload,
+      attempts: 0,
+    });
+  });
+
+  it("keeps an event published in a transaction that commits", async () => {
+    const event = buildEvent();
+
+    await transactions.run(() => outbox.publish(event));
+
+    expect((await reserveNow())?.payload).toStrictEqual(event.payload);
+  });
+
+  it("stores every message published together, pending and due at once", async () => {
+    const messages = [buildEffect(), buildEvent()];
+    const at = clock.now();
+
+    await outbox.publishAll(messages);
+
+    expect(await stored()).toStrictEqual(
+      messages.map((message) => ({
+        id: expect.any(String) as string,
+        kind: message.kind,
+        type: message.type,
+        payload: message.payload,
+        attempts: 0,
+        nextAttemptAt: at,
+        lockedUntil: null,
+        processedAt: null,
+        failedAt: null,
+        lastError: null,
+        expiresAt: null,
+        createdAt: at,
+      })),
+    );
+  });
+
+  it("publishes nothing for an empty list", async () => {
+    await outbox.publishAll([]);
+
+    expect(await stored()).toStrictEqual([]);
+  });
+
+  it("drops every message published together in a transaction that aborts", async () => {
+    const failure = new Error(faker.lorem.sentence());
+
+    await expect(
+      transactions.run(async () => {
+        await outbox.publishAll([buildEffect(), buildEvent()]);
+        throw failure;
+      }),
+    ).rejects.toBe(failure);
+
+    expect(await stored()).toStrictEqual([]);
+  });
+
+  it("drops an event published in a transaction that aborts", async () => {
+    const failure = new Error(faker.lorem.sentence());
+
+    await expect(
+      transactions.run(async () => {
+        await outbox.publish(buildEvent());
+        throw failure;
+      }),
+    ).rejects.toBe(failure);
+
+    expect(await stored()).toStrictEqual([]);
   });
 
   it("reserves nothing when no effect is recorded", async () => {
@@ -95,7 +209,7 @@ export const outboxContract = (create: () => Promise<OutboxUnderContract>) => {
   it("keeps an effect recorded in a transaction that commits", async () => {
     const effect = buildEffect();
 
-    await transactions.run(() => outbox.record(effect));
+    await transactions.run(() => outbox.publish(effect));
 
     expect((await reserveNow())?.payload).toStrictEqual(effect.payload);
   });
@@ -105,7 +219,7 @@ export const outboxContract = (create: () => Promise<OutboxUnderContract>) => {
 
     await expect(
       transactions.run(async () => {
-        await outbox.record(buildEffect());
+        await outbox.publish(buildEffect());
         throw failure;
       }),
     ).rejects.toBe(failure);
@@ -173,10 +287,10 @@ export const outboxContract = (create: () => Promise<OutboxUnderContract>) => {
   it("reserves the effect due first, not the one recorded first", async () => {
     const wait = aWait();
     clock.advance(wait);
-    await outbox.record(buildEffect());
+    await outbox.publish(buildEffect());
     const [second] = await stored();
     clock.advance(-2 * wait);
-    await outbox.record(buildEffect());
+    await outbox.publish(buildEffect());
     const first = (await stored()).find((effect) => effect.id !== second.id)!;
     clock.advance(4 * wait);
 

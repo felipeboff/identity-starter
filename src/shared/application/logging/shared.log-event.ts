@@ -53,6 +53,42 @@ export const SharedLogEvent = {
   OutboxRelayFailed: defineLogEvent<{ error: unknown }>(
     "shared.outbox_relay_failed",
   ),
+  BrokerConnected: defineLogEvent<{ host: string }>("shared.broker_connected"),
+  BrokerConnectionFailed: defineLogEvent<{ host: string; error: unknown }>(
+    "shared.broker_connection_failed",
+  ),
+  BrokerDisconnected: defineLogEvent<{ host: string; error: unknown }>(
+    "shared.broker_disconnected",
+  ),
+  BrokerChannelFailed: defineLogEvent<{ channel: string; error: unknown }>(
+    "shared.broker_channel_failed",
+  ),
+  MessageRefused: defineLogEvent<{
+    event: string;
+    consumer: string;
+    id: string;
+    code: string;
+  }>("shared.message_refused"),
+  MessageFailed: defineLogEvent<{
+    event: string;
+    consumer: string;
+    id: string;
+    attempts: number;
+    error: unknown;
+  }>("shared.message_failed"),
+  MessageDeadLettered: defineLogEvent<{
+    event: string;
+    consumer: string;
+    id: string;
+    attempts: number;
+    error: unknown;
+  }>("shared.message_dead_lettered"),
+  MessageUnsettled: defineLogEvent<{
+    event: string;
+    consumer: string;
+    id: string;
+    error: unknown;
+  }>("shared.message_unsettled"),
   ScheduledJobFailed: defineLogEvent<{
     name: string;
     attempts: number;

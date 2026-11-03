@@ -2,6 +2,7 @@ import { once } from "node:events";
 import type { AddressInfo } from "node:net";
 
 import { SharedLogEvent } from "@shared/application/logging/shared.log-event";
+import { MessageRunner } from "@shared/application/services/message-runner";
 import { OutboxEffectRunner } from "@shared/application/services/outbox-effect-runner";
 import { OutboxRelay } from "@shared/application/services/outbox-relay";
 import { DisabledErrorReporter } from "@shared/infrastructure/errors/disabled-error-reporter";
@@ -12,11 +13,17 @@ import { BullOutboxWorker } from "@shared/infrastructure/jobs/bull-outbox-worker
 import { BullScheduledJobs } from "@shared/infrastructure/jobs/bull-scheduled-jobs";
 import { AsyncLocalLogContext } from "@shared/infrastructure/logging/async-local-log-context";
 import { PinoLogger } from "@shared/infrastructure/logging/pino-logger";
+import { RabbitConnection } from "@shared/infrastructure/messaging/rabbit-connection";
+import { RabbitEventBroker } from "@shared/infrastructure/messaging/rabbit-event-broker";
+import { RabbitMessageConsumers } from "@shared/infrastructure/messaging/rabbit-message-consumers";
 import { MongoDatabase } from "@shared/infrastructure/mongo/mongo-database";
+import { MongoInbox } from "@shared/infrastructure/mongo/mongo-inbox";
 import { MongoOutbox } from "@shared/infrastructure/mongo/mongo-outbox";
+import { MongoTransactionRunner } from "@shared/infrastructure/mongo/mongo-transaction-runner";
 import { RedisConnection } from "@shared/infrastructure/redis/redis-connection";
 import { SystemClock } from "@shared/infrastructure/time/system-clock";
 import { Dispatcher } from "@shared/presentation/dispatcher";
+import { MessageConsumerAdapter } from "@shared/presentation/messaging/message-consumer-adapter";
 import { OutboxConsumerAdapter } from "@shared/presentation/outbox/outbox-consumer-adapter";
 import { SchemaParser } from "@shared/presentation/schema-parser";
 import type { DestinationStream } from "pino";
@@ -35,6 +42,7 @@ export type StartTimeouts = Readonly<{
   databaseSelectionMs?: number;
   databaseHeartbeatMs?: number;
   databasePingMs?: number;
+  brokerConnectMs?: number;
   shutdownMs?: number;
 }>;
 
@@ -91,9 +99,25 @@ export const start = async (options: StartOptions): Promise<RunningApp> => {
     throw error;
   }
 
+  const broker = new RabbitConnection({
+    url: env.RABBITMQ_URL.href,
+    logger,
+    connectTimeoutMs: timeouts.brokerConnectMs,
+  });
+  try {
+    await broker.connect();
+  } catch (error) {
+    await cache.close();
+    await database.close();
+    throw error;
+  }
+
   const clock = new SystemClock();
+  const transactions = new MongoTransactionRunner(database.connection);
   const outbox = new MongoOutbox({ connection: database.connection, clock });
   await outbox.ready();
+  const inbox = new MongoInbox(database.connection);
+  await inbox.ready();
 
   const identity = await createIdentityModule(toIdentitySettings(env), {
     connection: database.connection,
@@ -101,6 +125,7 @@ export const start = async (options: StartOptions): Promise<RunningApp> => {
     logger,
     logContext,
     outbox,
+    transactions,
     clock,
   });
 
@@ -124,6 +149,7 @@ export const start = async (options: StartOptions): Promise<RunningApp> => {
   try {
     await once(server, "listening");
   } catch (error) {
+    await broker.close();
     await cache.close();
     await database.close();
     throw error;
@@ -158,9 +184,29 @@ export const start = async (options: StartOptions): Promise<RunningApp> => {
   });
   await scheduledJobs.sync();
 
+  const subscribers = new RabbitMessageConsumers({
+    connection: broker,
+    prefix: env.APP_NAME,
+    subscriptions: new MessageConsumerAdapter({ dispatcher }).toSubscriptions(
+      identity.messageConsumers,
+    ),
+    runner: new MessageRunner({ inbox, transactions, clock, logger }),
+    logger,
+  });
+  await subscribers.start();
+
+  const events = new RabbitEventBroker({
+    connection: broker,
+    prefix: env.APP_NAME,
+    clock,
+    logger,
+  });
+  await events.ready();
+
   const relay = new OutboxRelay({
     store: outbox,
     queue: outboxQueue,
+    events,
     clock,
     logger,
   });
@@ -170,9 +216,11 @@ export const start = async (options: StartOptions): Promise<RunningApp> => {
   const shutdown = async (): Promise<0 | 1> => {
     const outcome = await httpShutdown.run();
     await relay.stop();
+    await subscribers.close();
     await outboxWorker.close();
     await scheduledJobs.close();
     await outboxQueue.close();
+    await broker.close();
     await cache.close();
     await database.close();
     await sentry?.close();

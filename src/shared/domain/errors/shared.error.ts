@@ -65,4 +65,8 @@ export const SharedError = {
     "shared.cache_unavailable",
     "precondition_failed",
   ),
+  BrokerUnavailable: defineError(
+    "shared.broker_unavailable",
+    "precondition_failed",
+  ),
 };

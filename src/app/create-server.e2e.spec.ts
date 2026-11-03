@@ -8,6 +8,7 @@ import type { BasicAuthCredentials } from "@shared/infrastructure/http/basic-aut
 import { AsyncLocalLogContext } from "@shared/infrastructure/logging/async-local-log-context";
 import { PinoLogger } from "@shared/infrastructure/logging/pino-logger";
 import { MongoOutbox } from "@shared/infrastructure/mongo/mongo-outbox";
+import { MongoTransactionRunner } from "@shared/infrastructure/mongo/mongo-transaction-runner";
 import { RedisConnection } from "@shared/infrastructure/redis/redis-connection";
 import { SystemClock } from "@shared/infrastructure/time/system-clock";
 import { Dispatcher } from "@shared/presentation/dispatcher";
@@ -85,6 +86,7 @@ const createApp = async (
         logger: new FakeLogger(),
         logContext,
         outbox: new MongoOutbox({ connection: mongo.connection(), clock }),
+        transactions: new MongoTransactionRunner(mongo.connection()),
         clock,
       }),
     },
@@ -129,6 +131,7 @@ describe("createServer", () => {
           logger: new FakeLogger(),
           logContext,
           outbox: new MongoOutbox({ connection: mongo.connection(), clock }),
+          transactions: new MongoTransactionRunner(mongo.connection()),
           clock,
         }),
       },

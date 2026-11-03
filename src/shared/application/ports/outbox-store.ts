@@ -1,4 +1,4 @@
-import type { OutboxPayload } from "./outbox";
+import type { OutboxKind, OutboxPayload } from "./outbox";
 
 export type OutboxEffect = Readonly<{
   id: string;
@@ -6,6 +6,8 @@ export type OutboxEffect = Readonly<{
   payload: OutboxPayload;
   attempts: number;
 }>;
+
+export type OutboxEntry = OutboxEffect & Readonly<{ kind: OutboxKind }>;
 
 export type OutboxReservation = Readonly<{
   now: Date;
@@ -32,7 +34,7 @@ export type OutboxAbandonment = Readonly<{
 }>;
 
 export type OutboxStore = {
-  reserve(reservation: OutboxReservation): Promise<OutboxEffect | null>;
+  reserve(reservation: OutboxReservation): Promise<OutboxEntry | null>;
   markProcessed(completion: OutboxCompletion): Promise<void>;
   markHandedOver(handOver: OutboxHandOver): Promise<void>;
   markFailed(abandonment: OutboxAbandonment): Promise<void>;
