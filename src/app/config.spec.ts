@@ -47,6 +47,7 @@ const {
   NodeEnv,
   toDocsCredentials,
   toIdentitySettings,
+  toNotificationsSettings,
 } = await import("./config");
 
 describe("env", () => {
@@ -75,12 +76,8 @@ describe("toIdentitySettings", () => {
       appName: source.APP_NAME,
       jwtSecret: source.JWT_SECRET,
       appUrl: source.APP_URL,
+      productName: source.MAIL_FROM_NAME,
       externalCallTimeoutMs: EXTERNAL_CALL_TIMEOUT_MS,
-      mailer: {
-        kind: source.MAILER,
-        apiKey: source.MAILERSEND_API_KEY,
-        from: { email: source.MAIL_FROM_EMAIL, name: source.MAIL_FROM_NAME },
-      },
       google: {
         clientId: source.GOOGLE_CLIENT_ID,
         clientSecret: source.GOOGLE_CLIENT_SECRET,
@@ -90,6 +87,23 @@ describe("toIdentitySettings", () => {
         clientId: source.GITHUB_CLIENT_ID,
         clientSecret: source.GITHUB_CLIENT_SECRET,
         redirectUri: source.GITHUB_REDIRECT_URI,
+      },
+    });
+  });
+});
+
+describe("toNotificationsSettings", () => {
+  it("groups what the notifications module needs from the environment", () => {
+    const source = loadEnv(buildSource());
+
+    expect(toNotificationsSettings(source)).toStrictEqual({
+      appUrl: source.APP_URL,
+      productName: source.MAIL_FROM_NAME,
+      externalCallTimeoutMs: EXTERNAL_CALL_TIMEOUT_MS,
+      mailer: {
+        kind: source.MAILER,
+        apiKey: source.MAILERSEND_API_KEY,
+        from: { email: source.MAIL_FROM_EMAIL, name: source.MAIL_FROM_NAME },
       },
     });
   });

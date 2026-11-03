@@ -16,6 +16,7 @@ import type { OpenApiDocument } from "@shared/presentation/http/open-api-generat
 import { SchemaParser } from "@shared/presentation/schema-parser";
 import { FakeErrorReporter } from "@shared/testing/fake-error-reporter";
 import { FakeLogger } from "@shared/testing/fake-logger";
+import { FakeMailSender } from "@shared/testing/fake-mail-sender";
 import { useMemoryMongo } from "@shared/testing/memory-mongo";
 import { useMemoryRedis } from "@shared/testing/memory-redis";
 import request from "supertest";
@@ -58,11 +59,7 @@ const identitySettings: IdentitySettings = {
   jwtSecret: faker.string.alphanumeric(64),
   appUrl: new URL(faker.internet.url()),
   externalCallTimeoutMs: 1_000,
-  mailer: {
-    kind: "log",
-    apiKey: faker.string.alphanumeric(40),
-    from: { email: faker.internet.email(), name: faker.company.name() },
-  },
+  productName: faker.company.name(),
   google: buildOAuthClient(),
   github: buildOAuthClient(),
 };
@@ -87,6 +84,7 @@ const createApp = async (
         logContext,
         outbox: new MongoOutbox({ connection: mongo.connection(), clock }),
         transactions: new MongoTransactionRunner(mongo.connection()),
+        mail: new FakeMailSender(),
         clock,
       }),
     },
@@ -132,6 +130,7 @@ describe("createServer", () => {
           logContext,
           outbox: new MongoOutbox({ connection: mongo.connection(), clock }),
           transactions: new MongoTransactionRunner(mongo.connection()),
+          mail: new FakeMailSender(),
           clock,
         }),
       },

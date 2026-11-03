@@ -5,6 +5,7 @@ import type {
 
 export const IdentityEvent = {
   ACCOUNT_REGISTERED: "identity.account.registered",
+  EMAIL_CHANGED: "identity.email.changed",
 } as const;
 
 export type IdentityEvent = (typeof IdentityEvent)[keyof typeof IdentityEvent];
@@ -30,3 +31,10 @@ export type AccountRegisteredEvent = OutboxMessage<
   typeof IdentityEvent.ACCOUNT_REGISTERED,
   AccountRegisteredPayload
 >;
+
+export type EmailChangedPayload = Readonly<{
+  accountId: string;
+  previousEmail: string;
+  newEmail: string;
+  name: string;
+}>;

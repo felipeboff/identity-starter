@@ -14,6 +14,7 @@ import { LogLevel } from "@shared/application/ports/logger";
 import { OutboxKind } from "@shared/application/ports/outbox";
 import { OutboxRelay } from "@shared/application/services/outbox-relay";
 import { SharedError } from "@shared/domain/errors/shared.error";
+import { FetchHttpClient } from "@shared/infrastructure/http/fetch-http-client";
 import { BullOutboxQueue } from "@shared/infrastructure/jobs/bull-outbox-queue";
 import { BullOutboxWorker } from "@shared/infrastructure/jobs/bull-outbox-worker";
 import { BullScheduledJobs } from "@shared/infrastructure/jobs/bull-scheduled-jobs";
@@ -72,6 +73,13 @@ const { start } = await import("./start");
 
 type RunningApp = Awaited<ReturnType<typeof start>>;
 
+type LogLine = Readonly<{
+  event: string;
+  template?: string;
+  to?: string;
+  link?: string | null;
+}>;
+
 const createOutput = () => {
   const chunks: string[] = [];
   const logDestination = new Writable({
@@ -87,7 +95,14 @@ const createOutput = () => {
       .split("\n")
       .filter(Boolean)
       .map((line) => (JSON.parse(line) as { event: string }).event);
-  return { logDestination, text, events };
+  const emailsLogged = () =>
+    text()
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => JSON.parse(line) as LogLine)
+      .filter((line) => line.event === "notifications.email_logged");
+  return { logDestination, text, events, emailsLogged };
 };
 
 const freePort = async () => {
@@ -144,6 +159,7 @@ describe("start", () => {
     vi.useRealTimers();
     await Promise.all(running.splice(0).map((app) => app.stop()));
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   const databaseName = () =>
@@ -507,7 +523,7 @@ describe("start", () => {
             kind: OutboxKind.EFFECT,
             processedAt: { $ne: null },
           }),
-        ).toBe(2);
+        ).toBe(3);
       },
       { timeout: 5_000, interval: 100 },
     );
@@ -515,7 +531,7 @@ describe("start", () => {
       (
         await outbox()
           .find({ kind: OutboxKind.EFFECT })
-          .sort({ createdAt: 1 })
+          .sort({ type: 1 })
           .toArray()
       ).map(({ type, payload, failedAt }) => ({ type, payload, failedAt })),
     ).toStrictEqual([
@@ -525,12 +541,133 @@ describe("start", () => {
         failedAt: null,
       },
       { type: "identity.password_reset_email", payload: null, failedAt: null },
+      { type: "notifications.welcome_email", payload: null, failedAt: null },
     ]);
     expect(
-      output.events().filter((event) => event === "identity.email_logged"),
-    ).toHaveLength(2);
+      output
+        .emailsLogged()
+        .map((line) => line.template)
+        .sort(),
+    ).toStrictEqual(["email_verification", "password_reset", "welcome"]);
     const counts = await queueOf("outbox", prefix).getJobCounts();
     expect(Object.values(counts).every((count) => count === 0)).toBe(true);
+  });
+
+  const signUp = async (url: string) => {
+    const account = {
+      name: faker.person.fullName(),
+      email: faker.internet.email().toLowerCase(),
+      password: faker.internet.password(),
+    };
+    const response = await request(url)
+      .post("/api/auth/sign-up")
+      .send(account)
+      .expect(201);
+    const { accessToken } = response.body as { accessToken: string };
+    return { ...account, accessToken };
+  };
+
+  const emailLogged = async (
+    output: ReturnType<typeof createOutput>,
+    template: string,
+    to: string,
+  ) => {
+    let found: LogLine | undefined;
+    await vi.waitFor(
+      () => {
+        found = output
+          .emailsLogged()
+          .find((line) => line.template === template && line.to === to);
+        expect(found).toBeDefined();
+      },
+      { timeout: 5_000, interval: 100 },
+    );
+    return found as LogLine;
+  };
+
+  it("sends the welcome e-mail when an account signs up", async () => {
+    const { url, output } = await startApp();
+
+    const account = await signUp(url);
+
+    expect(await emailLogged(output, "welcome", account.email)).toMatchObject({
+      template: "welcome",
+      to: account.email,
+    });
+  });
+
+  it("sends the e-mail changed notice when an e-mail change is confirmed", async () => {
+    const { url, output } = await startApp();
+    const account = await signUp(url);
+    const newEmail = faker.internet.email().toLowerCase();
+    await request(url)
+      .post("/api/me/email")
+      .set("authorization", `Bearer ${account.accessToken}`)
+      .send({ newEmail, password: account.password })
+      .expect(204);
+    const confirmation = await emailLogged(output, "email_change", newEmail);
+
+    await request(url)
+      .post("/api/auth/email-change")
+      .send({
+        token: new URL(confirmation.link ?? "").searchParams.get("token"),
+      })
+      .expect(200);
+
+    expect(
+      await emailLogged(output, "email_changed", account.email),
+    ).toMatchObject({ template: "email_changed", to: account.email });
+  });
+
+  it("logs identity's e-mails through the notifications sender", async () => {
+    const { url, output } = await startApp();
+    const account = await signUp(url);
+
+    await request(url)
+      .post("/api/auth/password-reset/request")
+      .send({ email: account.email })
+      .expect(204);
+
+    const reset = await emailLogged(output, "password_reset", account.email);
+    expect(reset.link).toMatch(/\/reset-password\?token=.+/);
+  });
+
+  it("sends identity's and notifications' e-mails through one MailSender", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof globalThis.fetch>(() =>
+        Promise.resolve(new Response("", { status: 202 })),
+      ),
+    );
+    const send = vi.spyOn(FetchHttpClient.prototype, "send");
+    const productName = faker.company.name();
+    const { url } = await startApp({
+      MAILER: "mailersend",
+      MAIL_FROM_NAME: productName,
+    });
+    const mailerSendCalls = () =>
+      send.mock.calls.flatMap(([sent], index) =>
+        sent.url === "https://api.mailersend.com/v1/email"
+          ? [{ sent, client: send.mock.contexts[index] }]
+          : [],
+      );
+
+    await signUp(url);
+    await vi.waitFor(
+      () => {
+        expect(mailerSendCalls()).toHaveLength(2);
+      },
+      { timeout: 5_000, interval: 100 },
+    );
+
+    const calls = mailerSendCalls();
+    expect(calls[0]?.client).toBe(calls[1]?.client);
+    expect(
+      calls
+        .map(({ sent }) => (sent.body as { json: { subject: string } }).json)
+        .map((json) => json.subject)
+        .sort(),
+    ).toStrictEqual([`Boas-vindas ao ${productName}`, "Confirme seu e-mail"]);
   });
 
   it("syncs the modules' scheduled jobs on start, removing the ones nobody declares", async () => {

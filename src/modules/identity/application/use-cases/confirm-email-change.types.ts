@@ -1,12 +1,12 @@
 import { Clock } from "@shared/application/ports/clock";
 import type { Logger } from "@shared/application/ports/logger";
+import type { Outbox } from "@shared/application/ports/outbox";
 import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
 
 import { AccountOutput } from "../mappers/toOutputAccount";
 import { AccountRepository } from "../ports/account.repository";
 import { CredentialRepository } from "../ports/credential.repository";
 import { EmailChangeRepository } from "../ports/email-change.repository";
-import { IdentityMailer } from "../ports/identity-mailer";
 import { TokenIssuer } from "../ports/token-issuer";
 import { AccountResolver } from "../services/account-resolver";
 import { SessionRevoker } from "../services/session-revoker";
@@ -24,9 +24,9 @@ export type ConfirmEmailChangeDeps = {
   accounts: AccountRepository;
   credentials: CredentialRepository;
   emailChanges: EmailChangeRepository;
+  outbox: Outbox;
 
   tokens: TokenIssuer;
-  mailer: IdentityMailer;
 
   clock: Clock;
   logger: Logger;

@@ -3,6 +3,7 @@ import { LogLevel } from "@shared/application/ports/logger";
 import { expectAppError } from "@shared/testing/expect-app-error";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { IdentityEvent } from "../events/identity-event";
 import {
   IdentityContext,
   createIdentityContext,
@@ -55,8 +56,8 @@ describe("ConfirmEmailChangeUseCase", () => {
     expect(await ctx.credentials.findByEmail(ana.email)).toBeNull();
   });
 
-  it("signs out every session and tells the old address", async () => {
-    const { ana, newEmail, token } = await givenChange();
+  it("signs out every session", async () => {
+    const { ana, token } = await givenChange();
     const { session } = await seedSession(ctx, ana);
 
     await useCase.execute({ token });
@@ -64,9 +65,68 @@ describe("ConfirmEmailChangeUseCase", () => {
     expect((await ctx.sessions.findById(session.id.value))?.revokedReason).toBe(
       SessionRevocationReason.EMAIL_CHANGED,
     );
-    expect(ctx.mailer.emailChangedNotices).toStrictEqual([
-      { to: ana.email, name: ana.account.name, newEmail },
+  });
+
+  it("publishes identity.email.changed in the change's transaction", async () => {
+    const { ana, newEmail, token } = await givenChange();
+    const publish = ctx.outbox.publish.bind(ctx.outbox);
+    const seen: { running: boolean; changed: boolean }[] = [];
+    vi.spyOn(ctx.outbox, "publish").mockImplementation(async (message) => {
+      seen.push({
+        running: ctx.transactions.isRunning(),
+        changed: (await ctx.accounts.findByEmail(newEmail)) !== null,
+      });
+      return publish(message);
+    });
+
+    await useCase.execute({ token });
+
+    expect(seen).toStrictEqual([{ running: true, changed: true }]);
+    expect(
+      ctx.outbox.events().map(({ type, payload }) => ({ type, payload })),
+    ).toStrictEqual([
+      {
+        type: IdentityEvent.EMAIL_CHANGED,
+        payload: {
+          accountId: ana.accountId,
+          previousEmail: ana.email,
+          newEmail,
+          name: ana.account.name,
+        },
+      },
     ]);
+  });
+
+  it("does not send the e-mail changed notice itself", async () => {
+    const { token } = await givenChange();
+    const sentBefore = {
+      passwordResets: [...ctx.mailer.passwordResets],
+      emailVerifications: [...ctx.mailer.emailVerifications],
+      invitations: [...ctx.mailer.invitations],
+      emailChanges: [...ctx.mailer.emailChanges],
+    };
+
+    await useCase.execute({ token });
+
+    expect({
+      passwordResets: ctx.mailer.passwordResets,
+      emailVerifications: ctx.mailer.emailVerifications,
+      invitations: ctx.mailer.invitations,
+      emailChanges: ctx.mailer.emailChanges,
+    }).toStrictEqual(sentBefore);
+  });
+
+  it("keeps no identity.email.changed when the change fails after publishing it", async () => {
+    const { ana, token } = await givenChange();
+    await seedSession(ctx, ana);
+    const failure = new Error(faker.lorem.sentence());
+    const publish = vi.spyOn(ctx.outbox, "publish");
+    vi.spyOn(ctx.sessions, "save").mockRejectedValueOnce(failure);
+
+    await expect(useCase.execute({ token })).rejects.toBe(failure);
+
+    expect(publish).toHaveBeenCalledOnce();
+    expect(ctx.outbox.events()).toStrictEqual([]);
   });
 
   it("logs identity.email_changed", async () => {
@@ -79,30 +139,6 @@ describe("ConfirmEmailChangeUseCase", () => {
       event: IdentityUseCaseLogEvent.EmailChanged.name,
       fields: { accountId: ana.accountId, oldEmail: ana.email, newEmail },
     });
-  });
-
-  it("still changes the e-mail, and logs it, when the notice cannot be sent", async () => {
-    const { ana, newEmail, token } = await givenChange();
-    const error = new Error(faker.lorem.sentence());
-    vi.spyOn(ctx.mailer, "sendEmailChanged").mockRejectedValueOnce(error);
-
-    await useCase.execute({ token });
-
-    expect((await ctx.accounts.findById(ana.accountId))?.email.value).toBe(
-      newEmail,
-    );
-    expect(ctx.logger.entries).toStrictEqual([
-      {
-        level: LogLevel.INFO,
-        event: IdentityUseCaseLogEvent.EmailChanged.name,
-        fields: { accountId: ana.accountId, oldEmail: ana.email, newEmail },
-      },
-      {
-        level: LogLevel.WARN,
-        event: IdentityUseCaseLogEvent.EmailChangedNoticeNotSent.name,
-        fields: { accountId: ana.accountId, error },
-      },
-    ]);
   });
 
   it("throws InvalidEmailChangeToken for an unknown token", async () => {

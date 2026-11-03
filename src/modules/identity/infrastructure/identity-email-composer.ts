@@ -1,5 +1,6 @@
+import type { OutgoingEmail } from "@shared/application/ports/mail-sender";
+
 import {
-  EmailChangedNotice,
   InvitationEmail,
   TokenEmail,
 } from "../application/ports/identity-mailer";
@@ -9,21 +10,13 @@ export const IdentityEmailTemplate = {
   EMAIL_VERIFICATION: "email_verification",
   INVITATION: "invitation",
   EMAIL_CHANGE: "email_change",
-  EMAIL_CHANGED: "email_changed",
 } as const;
 
 export type IdentityEmailTemplate =
   (typeof IdentityEmailTemplate)[keyof typeof IdentityEmailTemplate];
 
-export type IdentityEmail = Readonly<{
-  template: IdentityEmailTemplate;
-  to: string;
-  name: string;
-  subject: string;
-  text: string;
-  link: string | null;
-  expiresAt: Date | null;
-}>;
+export type IdentityEmail = OutgoingEmail &
+  Readonly<{ template: IdentityEmailTemplate }>;
 
 export type IdentityEmailComposerDeps = Readonly<{
   appUrl: URL;
@@ -61,6 +54,19 @@ export class IdentityEmailComposer {
       ].join("\n\n"),
       link,
       expiresAt: email.expiresAt,
+      layout: {
+        category: "Segurança",
+        title: "Crie uma nova senha",
+        paragraphs: [
+          `Olá, ${email.name}.`,
+          "Recebemos um pedido para redefinir a senha da sua conta.",
+        ],
+        action: "Criar nova senha",
+        validity: this.validity(email.expiresAt),
+        alert: null,
+        footnote:
+          "Se você não pediu a redefinição, ignore este e-mail. Sua senha continua a mesma.",
+      },
     };
   }
 
@@ -79,6 +85,18 @@ export class IdentityEmailComposer {
       ].join("\n\n"),
       link,
       expiresAt: email.expiresAt,
+      layout: {
+        category: "Sua conta",
+        title: "Confirme seu e-mail",
+        paragraphs: [
+          `Olá, ${email.name}.`,
+          "Falta um passo: confirme que este endereço é seu.",
+        ],
+        action: "Confirmar e-mail",
+        validity: this.validity(email.expiresAt),
+        alert: null,
+        footnote: "Se você não criou uma conta, ignore este e-mail.",
+      },
     };
   }
 
@@ -97,6 +115,18 @@ export class IdentityEmailComposer {
       ].join("\n\n"),
       link,
       expiresAt: email.expiresAt,
+      layout: {
+        category: "Convite",
+        title: `Você foi convidado para o ${this.productName}`,
+        paragraphs: [
+          "Olá.",
+          `${email.inviterName} convidou você para o ${this.productName}. Crie sua conta para começar.`,
+        ],
+        action: "Aceitar convite",
+        validity: this.validity(email.expiresAt),
+        alert: null,
+        footnote: "Se você não esperava este convite, ignore este e-mail.",
+      },
     };
   }
 
@@ -115,23 +145,23 @@ export class IdentityEmailComposer {
       ].join("\n\n"),
       link,
       expiresAt: email.expiresAt,
+      layout: {
+        category: "Segurança",
+        title: "Confirme seu novo e-mail",
+        paragraphs: [
+          `Olá, ${email.name}.`,
+          "Para usar este endereço na sua conta, confirme a troca.",
+        ],
+        action: "Confirmar novo e-mail",
+        validity: this.validity(email.expiresAt),
+        alert: null,
+        footnote: "Se você não pediu a troca, ignore este e-mail.",
+      },
     };
   }
 
-  emailChanged(notice: EmailChangedNotice): IdentityEmail {
-    return {
-      template: IdentityEmailTemplate.EMAIL_CHANGED,
-      to: notice.to,
-      name: notice.name,
-      subject: "Seu e-mail foi alterado",
-      text: [
-        `Olá, ${notice.name}.`,
-        `O e-mail da sua conta foi alterado para ${notice.newEmail}.`,
-        "Se não foi você, fale com o suporte imediatamente.",
-      ].join("\n\n"),
-      link: null,
-      expiresAt: null,
-    };
+  private validity(expiresAt: Date): string {
+    return `Vale até ${DATE_FORMAT.format(expiresAt)} (horário de Brasília)`;
   }
 
   private link(path: string, token: string): string {

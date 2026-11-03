@@ -8,14 +8,18 @@ describe("identity public API", () => {
   it("exposes the account registered event, which no identity consumer subscribes to yet", () => {
     const identity = assembleIdentityModule(createIdentityContext());
 
-    expect(IdentityEvent).toStrictEqual({
-      ACCOUNT_REGISTERED: "identity.account.registered",
-    });
+    expect(IdentityEvent.ACCOUNT_REGISTERED).toBe(
+      "identity.account.registered",
+    );
     expect(AccountRegisteredVia).toStrictEqual({
       SIGN_UP: "sign_up",
       OAUTH: "oauth",
       INVITATION: "invitation",
     });
     expect(identity.messageConsumers).toStrictEqual([]);
+  });
+
+  it("exposes the e-mail changed event", () => {
+    expect(IdentityEvent.EMAIL_CHANGED).toBe("identity.email.changed");
   });
 });

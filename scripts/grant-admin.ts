@@ -1,4 +1,9 @@
-import { NodeEnv, env, toIdentitySettings } from "@app/config";
+import {
+  NodeEnv,
+  env,
+  toIdentitySettings,
+  toNotificationsSettings,
+} from "@app/config";
 import { isAppError } from "@shared/domain/errors/app-error";
 import { AsyncLocalLogContext } from "@shared/infrastructure/logging/async-local-log-context";
 import { PinoLogger } from "@shared/infrastructure/logging/pino-logger";
@@ -9,6 +14,7 @@ import { RedisConnection } from "@shared/infrastructure/redis/redis-connection";
 import { SystemClock } from "@shared/infrastructure/time/system-clock";
 
 import { createIdentityModule } from "@/identity/identity.module";
+import { createNotificationsModule } from "@/notifications/notifications.module";
 
 // Gives an existing account the admin role and every permission, reading .env:
 //   pnpm identity:grant-admin ana@example.com
@@ -34,13 +40,20 @@ try {
   await cache.connect();
   try {
     const clock = new SystemClock();
+    const outbox = new MongoOutbox({ connection: database.connection, clock });
+    const transactions = new MongoTransactionRunner(database.connection);
+    const notifications = createNotificationsModule(
+      toNotificationsSettings(env),
+      { logger, outbox, transactions },
+    );
     const identity = await createIdentityModule(toIdentitySettings(env), {
       connection: database.connection,
       redis: cache.client,
       logger,
       logContext,
-      outbox: new MongoOutbox({ connection: database.connection, clock }),
-      transactions: new MongoTransactionRunner(database.connection),
+      outbox,
+      transactions,
+      mail: notifications.mailSender,
       clock,
     });
     await identity.grantAdmin.execute({ email: process.argv[2] ?? "" });

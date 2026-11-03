@@ -33,10 +33,12 @@ import {
   NodeEnv,
   toDocsCredentials,
   toIdentitySettings,
+  toNotificationsSettings,
 } from "./config";
 import { createServer } from "./create-server";
 
 import { createIdentityModule } from "@/identity/identity.module";
+import { createNotificationsModule } from "@/notifications/notifications.module";
 
 export type StartTimeouts = Readonly<{
   databaseSelectionMs?: number;
@@ -119,6 +121,10 @@ export const start = async (options: StartOptions): Promise<RunningApp> => {
   const inbox = new MongoInbox(database.connection);
   await inbox.ready();
 
+  const notifications = createNotificationsModule(
+    toNotificationsSettings(env),
+    { logger, outbox, transactions },
+  );
   const identity = await createIdentityModule(toIdentitySettings(env), {
     connection: database.connection,
     redis: cache.client,
@@ -126,6 +132,7 @@ export const start = async (options: StartOptions): Promise<RunningApp> => {
     logContext,
     outbox,
     transactions,
+    mail: notifications.mailSender,
     clock,
   });
 
@@ -169,9 +176,10 @@ export const start = async (options: StartOptions): Promise<RunningApp> => {
     settings: jobs,
     runner: new OutboxEffectRunner({
       store: outbox,
-      handlers: new OutboxConsumerAdapter({ dispatcher }).toHandlers(
-        identity.outboxConsumers,
-      ),
+      handlers: new OutboxConsumerAdapter({ dispatcher }).toHandlers([
+        ...identity.outboxConsumers,
+        ...notifications.outboxConsumers,
+      ]),
       clock,
       logger,
     }),
@@ -187,9 +195,10 @@ export const start = async (options: StartOptions): Promise<RunningApp> => {
   const subscribers = new RabbitMessageConsumers({
     connection: broker,
     prefix: env.APP_NAME,
-    subscriptions: new MessageConsumerAdapter({ dispatcher }).toSubscriptions(
-      identity.messageConsumers,
-    ),
+    subscriptions: new MessageConsumerAdapter({ dispatcher }).toSubscriptions([
+      ...identity.messageConsumers,
+      ...notifications.messageConsumers,
+    ]),
     runner: new MessageRunner({ inbox, transactions, clock, logger }),
     logger,
   });

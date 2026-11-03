@@ -1,6 +1,8 @@
+import { OutboxKind } from "@shared/application/ports/outbox";
 import { Access, UseCase } from "@shared/application/use-cases";
 import { AppError } from "@shared/domain/errors/app-error";
 
+import { IdentityEvent } from "../events/identity-event";
 import { toOutputAccount } from "../mappers/toOutputAccount";
 import { IdentityUseCaseLogEvent } from "../use-case.log-event";
 
@@ -66,30 +68,28 @@ export class ConfirmEmailChangeUseCase extends UseCase<{
       await this.deps.emailChanges.save(change);
       await this.deps.accounts.save(account);
       await this.deps.credentials.save(credential);
+      await this.deps.outbox.publish({
+        kind: OutboxKind.EVENT,
+        type: IdentityEvent.EMAIL_CHANGED,
+        payload: {
+          accountId: account.id.value,
+          previousEmail: oldEmail,
+          newEmail,
+          name: account.name,
+        },
+      });
       await this.deps.sessionRevoker.revokeActive(account.id.value, {
         reason: SessionRevocationReason.EMAIL_CHANGED,
         at,
       });
 
-      return {
-        account,
-        notice: { to: oldEmail, name: account.name, newEmail },
-      };
+      return { account, oldEmail, newEmail };
     });
     this.deps.logger.info(IdentityUseCaseLogEvent.EmailChanged, {
       accountId: changed.account.id.value,
-      oldEmail: changed.notice.to,
-      newEmail: changed.notice.newEmail,
+      oldEmail: changed.oldEmail,
+      newEmail: changed.newEmail,
     });
-
-    await this.deps.mailer
-      .sendEmailChanged(changed.notice)
-      .catch((error: unknown) => {
-        this.deps.logger.warn(
-          IdentityUseCaseLogEvent.EmailChangedNoticeNotSent,
-          { accountId: changed.account.id.value, error },
-        );
-      });
 
     return { account: toOutputAccount(changed.account) };
   }

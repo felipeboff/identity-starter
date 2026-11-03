@@ -4,6 +4,7 @@ import { SchemaParser } from "@shared/presentation/schema-parser";
 import Type from "typebox";
 
 import type { IdentitySettings } from "@/identity/identity.module";
+import type { NotificationsSettings } from "@/notifications/notifications.module";
 
 export const NodeEnv = {
   DEVELOP: "develop",
@@ -99,12 +100,8 @@ export const toIdentitySettings = (env: Env): IdentitySettings => ({
   appName: env.APP_NAME,
   jwtSecret: env.JWT_SECRET,
   appUrl: env.APP_URL,
+  productName: env.MAIL_FROM_NAME,
   externalCallTimeoutMs: EXTERNAL_CALL_TIMEOUT_MS,
-  mailer: {
-    kind: env.MAILER,
-    apiKey: env.MAILERSEND_API_KEY,
-    from: { email: env.MAIL_FROM_EMAIL, name: env.MAIL_FROM_NAME },
-  },
   google: {
     clientId: env.GOOGLE_CLIENT_ID,
     clientSecret: env.GOOGLE_CLIENT_SECRET,
@@ -114,6 +111,17 @@ export const toIdentitySettings = (env: Env): IdentitySettings => ({
     clientId: env.GITHUB_CLIENT_ID,
     clientSecret: env.GITHUB_CLIENT_SECRET,
     redirectUri: env.GITHUB_REDIRECT_URI,
+  },
+});
+
+export const toNotificationsSettings = (env: Env): NotificationsSettings => ({
+  appUrl: env.APP_URL,
+  productName: env.MAIL_FROM_NAME,
+  externalCallTimeoutMs: EXTERNAL_CALL_TIMEOUT_MS,
+  mailer: {
+    kind: env.MAILER,
+    apiKey: env.MAILERSEND_API_KEY,
+    from: { email: env.MAIL_FROM_EMAIL, name: env.MAIL_FROM_NAME },
   },
 });
 

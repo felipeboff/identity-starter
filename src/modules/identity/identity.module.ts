@@ -3,6 +3,7 @@ import { Clock } from "@shared/application/ports/clock";
 import { IdGenerator } from "@shared/application/ports/id-generator";
 import type { LogContext } from "@shared/application/ports/log-context";
 import type { Logger } from "@shared/application/ports/logger";
+import type { MailSender } from "@shared/application/ports/mail-sender";
 import type { Outbox } from "@shared/application/ports/outbox";
 import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
 import { CursorPager } from "@shared/application/services/cursor-pager";
@@ -75,6 +76,7 @@ import { UpdateMemberPermissionsUseCase } from "./application/use-cases/update-m
 import { UpdateMemberRoleUseCase } from "./application/use-cases/update-member-role.use-case";
 import { VerifyEmailUseCase } from "./application/use-cases/verify-email.use-case";
 import { Argon2PasswordHasher } from "./infrastructure/argon2-password-hasher";
+import { ComposingIdentityMailer } from "./infrastructure/composing-identity-mailer";
 import { CryptoTokenIssuer } from "./infrastructure/crypto-token-issuer";
 import {
   FetchOAuthGateway,
@@ -82,11 +84,6 @@ import {
 } from "./infrastructure/fetch-oauth-gateway";
 import { IdentityEmailComposer } from "./infrastructure/identity-email-composer";
 import { JoseAccessToken } from "./infrastructure/jose-access-token";
-import { LogIdentityMailer } from "./infrastructure/log-identity-mailer";
-import {
-  type MailSender,
-  MailerSendIdentityMailer,
-} from "./infrastructure/mailersend-identity-mailer";
 import { CachedAccountRepository } from "./infrastructure/persistence/cached-account.repository";
 import { CachedMembershipRepository } from "./infrastructure/persistence/cached-membership.repository";
 import { IdentityModels } from "./infrastructure/persistence/identity-models";
@@ -133,18 +130,12 @@ export type IdentityModuleDeps = {
   logger: Logger;
 };
 
-export type IdentityMailerSettings = Readonly<{
-  kind: "log" | "mailersend";
-  apiKey: string;
-  from: MailSender;
-}>;
-
 export type IdentitySettings = Readonly<{
   appName: string;
   jwtSecret: string;
   appUrl: URL;
+  productName: string;
   externalCallTimeoutMs: number;
-  mailer: IdentityMailerSettings;
   google: OAuthClientConfig;
   github: OAuthClientConfig;
 }>;
@@ -156,6 +147,7 @@ export type IdentityRuntime = Readonly<{
   logContext: LogContext;
   outbox: Outbox;
   transactions: TransactionRunner;
+  mail: MailSender;
   clock: Clock;
 }>;
 
@@ -252,7 +244,7 @@ export const createIdentityModule = async (
   });
   const composer = new IdentityEmailComposer({
     appUrl: settings.appUrl,
-    productName: settings.mailer.from.name,
+    productName: settings.productName,
   });
   const cache = new RedisCache({ client: runtime.redis });
   const repositoryCache = new FailOpenCache({ cache, logger: runtime.logger });
@@ -288,16 +280,7 @@ export const createIdentityModule = async (
       secret: settings.jwtSecret,
       clock: runtime.clock,
     }),
-    mailer:
-      settings.mailer.kind === "mailersend"
-        ? new MailerSendIdentityMailer({
-            apiKey: settings.mailer.apiKey,
-            from: settings.mailer.from,
-            http,
-            composer,
-            logger: runtime.logger,
-          })
-        : new LogIdentityMailer({ composer, logger: runtime.logger }),
+    mailer: new ComposingIdentityMailer({ composer, sender: runtime.mail }),
     oauth: new FetchOAuthGateway({
       http,
       logger: runtime.logger,

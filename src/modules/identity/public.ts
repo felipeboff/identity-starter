@@ -10,5 +10,6 @@ export {
   type AccountRegisteredEvent,
   type AccountRegisteredPayload,
   AccountRegisteredVia,
+  type EmailChangedPayload,
   IdentityEvent,
 } from "./application/events/identity-event";

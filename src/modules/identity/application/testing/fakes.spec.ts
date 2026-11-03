@@ -90,23 +90,16 @@ describe("fakes", () => {
         token: email.token,
         expiresAt: email.expiresAt,
       };
-      const notice = {
-        to: email.to,
-        name: email.name,
-        newEmail: faker.internet.email().toLowerCase(),
-      };
 
       await mailer.sendPasswordReset(email);
       await mailer.sendEmailVerification(email);
       await mailer.sendInvitation(invitation);
       await mailer.sendEmailChange(email);
-      await mailer.sendEmailChanged(notice);
 
       expect(mailer.passwordResets).toEqual([email]);
       expect(mailer.emailVerifications).toEqual([email]);
       expect(mailer.invitations).toEqual([invitation]);
       expect(mailer.emailChanges).toEqual([email]);
-      expect(mailer.emailChangedNotices).toEqual([notice]);
     });
   });
 

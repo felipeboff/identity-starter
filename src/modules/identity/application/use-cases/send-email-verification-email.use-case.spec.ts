@@ -16,7 +16,6 @@ const nothingSent = {
   emailVerifications: [],
   invitations: [],
   emailChanges: [],
-  emailChangedNotices: [],
 };
 
 describe("SendEmailVerificationEmailUseCase", () => {
@@ -42,7 +41,6 @@ describe("SendEmailVerificationEmailUseCase", () => {
     emailVerifications: ctx.mailer.emailVerifications,
     invitations: ctx.mailer.invitations,
     emailChanges: ctx.mailer.emailChanges,
-    emailChangedNotices: ctx.mailer.emailChangedNotices,
   });
 
   it("sends the verification e-mail with the recorded fields", async () => {

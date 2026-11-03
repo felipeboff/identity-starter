@@ -3,7 +3,6 @@ import { IdGenerator } from "@shared/application/ports/id-generator";
 
 import { AccessToken, AccessTokenClaims } from "../ports/access-token";
 import {
-  EmailChangedNotice,
   IdentityMailer,
   InvitationEmail,
   TokenEmail,
@@ -65,7 +64,6 @@ export class FakeIdentityMailer implements IdentityMailer {
   readonly emailVerifications: TokenEmail[] = [];
   readonly invitations: InvitationEmail[] = [];
   readonly emailChanges: TokenEmail[] = [];
-  readonly emailChangedNotices: EmailChangedNotice[] = [];
 
   sendPasswordReset(email: TokenEmail): Promise<void> {
     this.passwordResets.push(email);
@@ -84,11 +82,6 @@ export class FakeIdentityMailer implements IdentityMailer {
 
   sendEmailChange(email: TokenEmail): Promise<void> {
     this.emailChanges.push(email);
-    return Promise.resolve();
-  }
-
-  sendEmailChanged(notice: EmailChangedNotice): Promise<void> {
-    this.emailChangedNotices.push(notice);
     return Promise.resolve();
   }
 }

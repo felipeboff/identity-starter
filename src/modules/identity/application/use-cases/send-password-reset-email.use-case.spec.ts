@@ -16,7 +16,6 @@ const nothingSent = {
   emailVerifications: [],
   invitations: [],
   emailChanges: [],
-  emailChangedNotices: [],
 };
 
 describe("SendPasswordResetEmailUseCase", () => {
@@ -42,7 +41,6 @@ describe("SendPasswordResetEmailUseCase", () => {
     emailVerifications: ctx.mailer.emailVerifications,
     invitations: ctx.mailer.invitations,
     emailChanges: ctx.mailer.emailChanges,
-    emailChangedNotices: ctx.mailer.emailChangedNotices,
   });
 
   it("sends the password reset e-mail with the recorded fields", async () => {

@@ -15,6 +15,7 @@ import { expectAppError } from "@shared/testing/expect-app-error";
 import { FakeClock } from "@shared/testing/fake-clock";
 import { FakeLogContext } from "@shared/testing/fake-log-context";
 import { FakeLogger } from "@shared/testing/fake-logger";
+import { FakeMailSender } from "@shared/testing/fake-mail-sender";
 import { useMemoryMongo } from "@shared/testing/memory-mongo";
 import { useMemoryRedis } from "@shared/testing/memory-redis";
 import { jwtVerify } from "jose";
@@ -28,14 +29,8 @@ import {
   vi,
 } from "vitest";
 
-import {
-  type IdentityMailerSettings,
-  type IdentitySettings,
-  createIdentityModule,
-} from "./identity.module";
+import { type IdentitySettings, createIdentityModule } from "./identity.module";
 import { GOOGLE_TOKEN_URL } from "./infrastructure/fetch-oauth-gateway";
-import { IdentityLogEvent } from "./infrastructure/identity.log-event";
-import { MAILERSEND_EMAIL_URL } from "./infrastructure/mailersend-identity-mailer";
 
 import { RateLimitPolicy } from "@/identity/application/rate-limit.policy";
 import { AuthProvider } from "@/identity/domain/credential.entity";
@@ -62,18 +57,12 @@ const buildOAuthClient = () => ({
   redirectUri: new URL(faker.internet.url()),
 });
 
-const buildSettings = (
-  kind: IdentityMailerSettings["kind"] = "log",
-): IdentitySettings => ({
+const buildSettings = (): IdentitySettings => ({
   appName: faker.internet.domainWord(),
   jwtSecret: faker.string.alphanumeric(64),
   appUrl: new URL(faker.internet.url()),
+  productName: faker.company.name(),
   externalCallTimeoutMs: 1_000,
-  mailer: {
-    kind,
-    apiKey: faker.string.alphanumeric(40),
-    from: { email: faker.internet.email(), name: faker.company.name() },
-  },
   google: buildOAuthClient(),
   github: buildOAuthClient(),
 });
@@ -83,6 +72,7 @@ const create = async (settings = buildSettings()) => {
   const clock = new FakeClock(new Date());
   const outbox = new MongoOutbox({ connection: mongo.connection(), clock });
   await outbox.ready();
+  const mail = new FakeMailSender();
   const identity = await createIdentityModule(settings, {
     connection: mongo.connection(),
     redis: cache.client,
@@ -90,6 +80,7 @@ const create = async (settings = buildSettings()) => {
     logContext: new FakeLogContext(),
     outbox,
     transactions: new MongoTransactionRunner(mongo.connection()),
+    mail,
     clock,
   });
   const dispatcher = new Dispatcher({ parser: new SchemaParser() });
@@ -138,7 +129,7 @@ const create = async (settings = buildSettings()) => {
     if (!effect) throw new Error("No effect is due");
     return runner.run({ ...effect, attempt, maxAttempts: 8 });
   };
-  return { logger, call, signUp, settings, deliverNext, clock };
+  return { logger, call, signUp, settings, deliverNext, clock, mail };
 };
 
 const outboxEntries = () =>
@@ -222,12 +213,11 @@ describe("createIdentityModule", () => {
     expect(payload.sub).toBe(output.account.id);
   });
 
-  it("logs the password reset link when the effect is delivered", async () => {
-    const { signUp, call, logger, deliverNext, clock } = await create(
-      buildSettings("log"),
-    );
+  it("sends the password reset e-mail through the MailSender when the effect is delivered", async () => {
+    const { signUp, call, logger, deliverNext, clock, mail } = await create();
     const { email } = await signUp();
     await outboxEntries().deleteMany({});
+    const sentBefore = mail.sent.length;
     const loggedBefore = logger.entries.length;
 
     await call("/auth/password-reset/request", { email });
@@ -240,19 +230,18 @@ describe("createIdentityModule", () => {
       payload: { to: email },
     });
     expect(logger.entries.slice(loggedBefore)).toStrictEqual([]);
+    expect(mail.sent).toHaveLength(sentBefore);
     const { token } = pending.payload as { token: string };
 
     await deliverNext();
 
-    expect(logger.entries).toContainEqual(
+    expect(mail.sent.slice(sentBefore)).toStrictEqual([
       expect.objectContaining({
-        event: IdentityLogEvent.EmailLogged.name,
-        fields: expect.objectContaining({
-          to: email,
-          link: expect.stringContaining(token) as unknown,
-        }) as unknown,
+        template: "password_reset",
+        to: email,
+        link: expect.stringContaining(token) as unknown,
       }),
-    );
+    ]);
     expect(await outboxEntries().findOne({ _id: pending._id })).toMatchObject({
       processedAt: clock.now(),
       payload: null,
@@ -260,26 +249,22 @@ describe("createIdentityModule", () => {
     });
   });
 
-  it("retries the MailerSend delivery after a failure", async () => {
-    const answers = [503, 202];
-    const fetch = vi.fn<typeof globalThis.fetch>(() =>
-      Promise.resolve(new Response("", { status: answers.shift() })),
-    );
-    vi.stubGlobal("fetch", fetch);
-    const settings = buildSettings("mailersend");
-    const { signUp, call, deliverNext, clock } = await create(settings);
+  it("retries the password reset e-mail after the MailSender fails", async () => {
+    const { signUp, call, deliverNext, clock, mail } = await create();
     const { email } = await signUp();
     await outboxEntries().deleteMany({});
     await call("/auth/password-reset/request", { email });
-    const callsDuringRequest = fetch.mock.calls.length;
     const [pending] = await outboxEntries().find().toArray();
+    const sentBefore = mail.sent.length;
+    vi.spyOn(mail, "send").mockRejectedValueOnce(
+      new Error(faker.lorem.sentence()),
+    );
 
     const first = await deliverNext(1);
     const afterFailure = await outboxEntries().findOne({ _id: pending._id });
     clock.advance(30 * 1_000);
     await deliverNext(2);
 
-    expect(callsDuringRequest).toBe(0);
     expect(first).toMatchObject({ outcome: OutboxRunOutcome.RETRY });
     expect(afterFailure).toMatchObject({
       payload: pending.payload,
@@ -290,12 +275,9 @@ describe("createIdentityModule", () => {
       processedAt: clock.now(),
       payload: null,
     });
-    const request = fetch.mock.calls[1]?.[0] as Request;
-    expect(fetch).toHaveBeenCalledTimes(2);
-    expect(request.url).toBe(MAILERSEND_EMAIL_URL);
-    expect(request.headers.get("authorization")).toBe(
-      `Bearer ${settings.mailer.apiKey}`,
-    );
+    expect(mail.sent.slice(sentBefore)).toStrictEqual([
+      expect.objectContaining({ template: "password_reset", to: email }),
+    ]);
   });
 
   it("exchanges OAuth codes with the configured Google client", async () => {
