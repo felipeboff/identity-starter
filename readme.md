@@ -37,6 +37,8 @@ every route.
 - Every use case declares its access: anyone, any member, or the permissions and roles it
   requires; the API answers `403` when one is missing
 - Invitations by e-mail: whoever invites can only grant permissions they already hold
+- Each module declares its own permission codes (`<module>.<subject>.<action>`); the app joins
+  them in one catalog, checked at boot, and `GET /permissions` lists it
 
 **Security and operation**
 
@@ -119,10 +121,33 @@ Sign up, then, with the environment of the API you are targeting:
 pnpm identity:grant-admin you@example.com
 ```
 
-It gives that account the `admin` role and every permission, and clears its cached membership, so
-the next request already sees them. It exits with `1` and logs `identity.admin_grant_failed` when
-the e-mail has no active account. From then on, invite the next people with the permissions they
-need.
+It gives that account the `admin` role and every permission in the catalog, and clears its cached
+membership, so the next request already sees them. It exits with `1` and logs
+`identity.admin_grant_failed` when the e-mail has no active account. From then on, invite the next
+people with the permissions they need.
+
+### Your module's permissions
+
+A module declares its codes in its own domain, prefixed with its name, and exports them next to its
+`create<Module>Module`:
+
+```ts
+export const OrdersPermission = {
+  ORDER_CREATE: "orders.order.create",
+} as const;
+
+export const ordersPermissions: ModulePermissions = {
+  module: "orders",
+  permissions: Object.values(OrdersPermission),
+};
+```
+
+Add `ordersPermissions` to the list in `src/app/permission-catalog.ts`. A code declared twice or
+without the module's prefix stops the boot with `shared.invalid_permission_catalog`. Its use cases
+require the codes in `access` (`{ permissions: [OrdersPermission.ORDER_CREATE] }`), invitations and
+`PUT /members/:accountId/permissions` accept them, and running `pnpm identity:grant-admin` again
+gives them to the administrator. A stored code that leaves the catalog grants nothing and can be
+removed from a member.
 
 ## Configuration
 
@@ -182,39 +207,40 @@ without them, neither route exists.
 "Own or `x`" means the route works on your own account without a permission, and on someone
 else's with `x`.
 
-| Method   | Path                              | Access                      | What it does                                         |
-| -------- | --------------------------------- | --------------------------- | ---------------------------------------------------- |
-| `POST`   | `/auth/sign-up`                   | public                      | creates an account and signs in                      |
-| `POST`   | `/auth/sign-in`                   | public                      | signs in with e-mail and password                    |
-| `POST`   | `/auth/oauth/:provider`           | public                      | signs in (or up) with a Google or GitHub code        |
-| `POST`   | `/auth/refresh`                   | public                      | rotates the refresh token, issues a new access token |
-| `POST`   | `/auth/password-reset/request`    | public                      | e-mails a reset link                                 |
-| `POST`   | `/auth/password-reset`            | public                      | sets a new password from the reset token             |
-| `POST`   | `/auth/email-verification`        | public                      | verifies the e-mail from the token                   |
-| `POST`   | `/auth/invitations/accept`        | public                      | creates the invited account                          |
-| `POST`   | `/auth/email-change`              | public                      | confirms an e-mail change from the token             |
-| `POST`   | `/auth/sign-out`                  | signed in                   | ends the current session                             |
-| `GET`    | `/me`                             | signed in                   | account and membership                               |
-| `PATCH`  | `/me`                             | signed in                   | updates the name                                     |
-| `PUT`    | `/me/password`                    | signed in                   | changes the password                                 |
-| `POST`   | `/me/email`                       | signed in                   | starts an e-mail change                              |
-| `POST`   | `/me/email-verification`          | signed in                   | sends a new verification link                        |
-| `GET`    | `/me/sessions`                    | signed in                   | lists your sessions                                  |
-| `DELETE` | `/me/sessions`                    | signed in                   | ends every session but the current one               |
-| `GET`    | `/me/credentials`                 | signed in                   | lists the password and linked providers              |
-| `POST`   | `/me/oauth/:provider`             | signed in                   | links a provider                                     |
-| `DELETE` | `/me/oauth/:provider`             | signed in                   | unlinks a provider                                   |
-| `DELETE` | `/sessions/:sessionId`            | own or `session.revoke`     | ends one session                                     |
-| `GET`    | `/accounts/:accountId/sessions`   | own or `session.read`       | lists an account's sessions                          |
-| `DELETE` | `/accounts/:accountId/sessions`   | own or `session.revoke_all` | ends every session of an account                     |
-| `POST`   | `/accounts/:accountId/deactivate` | own or `account.deactivate` | deactivates an account                               |
-| `POST`   | `/accounts/:accountId/reactivate` | `account.reactivate`        | reactivates an account                               |
-| `GET`    | `/members`                        | `member.read`               | lists members                                        |
-| `PUT`    | `/members/:accountId/role`        | `member.role.update`        | changes a member's role label                        |
-| `PUT`    | `/members/:accountId/permissions` | `member.permissions.update` | changes a member's permissions                       |
-| `POST`   | `/invitations`                    | `invitation.create`         | invites someone by e-mail                            |
-| `GET`    | `/invitations`                    | `invitation.read`           | lists invitations                                    |
-| `DELETE` | `/invitations/:invitationId`      | `invitation.revoke`         | revokes a pending invitation                         |
+| Method   | Path                              | Access                               | What it does                                         |
+| -------- | --------------------------------- | ------------------------------------ | ---------------------------------------------------- |
+| `POST`   | `/auth/sign-up`                   | public                               | creates an account and signs in                      |
+| `POST`   | `/auth/sign-in`                   | public                               | signs in with e-mail and password                    |
+| `POST`   | `/auth/oauth/:provider`           | public                               | signs in (or up) with a Google or GitHub code        |
+| `POST`   | `/auth/refresh`                   | public                               | rotates the refresh token, issues a new access token |
+| `POST`   | `/auth/password-reset/request`    | public                               | e-mails a reset link                                 |
+| `POST`   | `/auth/password-reset`            | public                               | sets a new password from the reset token             |
+| `POST`   | `/auth/email-verification`        | public                               | verifies the e-mail from the token                   |
+| `POST`   | `/auth/invitations/accept`        | public                               | creates the invited account                          |
+| `POST`   | `/auth/email-change`              | public                               | confirms an e-mail change from the token             |
+| `POST`   | `/auth/sign-out`                  | signed in                            | ends the current session                             |
+| `GET`    | `/me`                             | signed in                            | account and membership                               |
+| `PATCH`  | `/me`                             | signed in                            | updates the name                                     |
+| `PUT`    | `/me/password`                    | signed in                            | changes the password                                 |
+| `POST`   | `/me/email`                       | signed in                            | starts an e-mail change                              |
+| `POST`   | `/me/email-verification`          | signed in                            | sends a new verification link                        |
+| `GET`    | `/me/sessions`                    | signed in                            | lists your sessions                                  |
+| `DELETE` | `/me/sessions`                    | signed in                            | ends every session but the current one               |
+| `GET`    | `/me/credentials`                 | signed in                            | lists the password and linked providers              |
+| `POST`   | `/me/oauth/:provider`             | signed in                            | links a provider                                     |
+| `DELETE` | `/me/oauth/:provider`             | signed in                            | unlinks a provider                                   |
+| `DELETE` | `/sessions/:sessionId`            | own or `identity.session.revoke`     | ends one session                                     |
+| `GET`    | `/accounts/:accountId/sessions`   | own or `identity.session.read`       | lists an account's sessions                          |
+| `DELETE` | `/accounts/:accountId/sessions`   | own or `identity.session.revoke_all` | ends every session of an account                     |
+| `POST`   | `/accounts/:accountId/deactivate` | own or `identity.account.deactivate` | deactivates an account                               |
+| `POST`   | `/accounts/:accountId/reactivate` | `identity.account.reactivate`        | reactivates an account                               |
+| `GET`    | `/members`                        | `identity.member.read`               | lists members                                        |
+| `PUT`    | `/members/:accountId/role`        | `identity.member.role.update`        | changes a member's role label                        |
+| `PUT`    | `/members/:accountId/permissions` | `identity.member.permissions.update` | changes a member's permissions                       |
+| `POST`   | `/invitations`                    | `identity.invitation.create`         | invites someone by e-mail                            |
+| `GET`    | `/invitations`                    | `identity.invitation.read`           | lists invitations                                    |
+| `DELETE` | `/invitations/:invitationId`      | `identity.invitation.revoke`         | revokes a pending invitation                         |
+| `GET`    | `/permissions`                    | signed in                            | lists every permission code that can be granted      |
 
 Errors are problem details (`application/problem+json`):
 
@@ -298,4 +324,5 @@ add `push` or `pull_request` to its `on` to run it on every change.
 The [ADRs](docs/adr/) record why the code looks the way it does: the transport-neutral handler
 layer, optimistic concurrency on every write, TypeBox schemas on handlers, the access every use
 case declares, retrying idempotent outbound calls, Sentry reporting, the Docker image, the
-Mongo outbox and its BullMQ and RabbitMQ delivery, and the `notifications` module.
+Mongo outbox and its BullMQ and RabbitMQ delivery, the `notifications` module, and the permission
+catalog each module adds to.

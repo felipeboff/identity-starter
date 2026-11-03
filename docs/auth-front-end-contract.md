@@ -121,19 +121,19 @@ answers `403 shared.role_missing` with `data.roles` (the accepted roles); no ide
 today.
 Each operation that goes beyond the caller's own account requires its own permission:
 
-| Permission                  | Allows                                                           |
-| --------------------------- | ---------------------------------------------------------------- |
-| `invitation.create`         | `POST /invitations`                                              |
-| `invitation.read`           | `GET /invitations`                                               |
-| `invitation.revoke`         | `DELETE /invitations/:invitationId`                              |
-| `account.reactivate`        | `POST /accounts/:accountId/reactivate`                           |
-| `account.deactivate`        | `POST /accounts/:accountId/deactivate` on someone else's account |
-| `session.read`              | `GET /accounts/:accountId/sessions` on someone else's account    |
-| `session.revoke`            | `DELETE /sessions/:sessionId` on someone else's session          |
-| `session.revoke_all`        | `DELETE /accounts/:accountId/sessions` on someone else's account |
-| `member.read`               | `GET /members`                                                   |
-| `member.role.update`        | `PUT /members/:accountId/role`                                   |
-| `member.permissions.update` | `PUT /members/:accountId/permissions`                            |
+| Permission                           | Allows                                                           |
+| ------------------------------------ | ---------------------------------------------------------------- |
+| `identity.invitation.create`         | `POST /invitations`                                              |
+| `identity.invitation.read`           | `GET /invitations`                                               |
+| `identity.invitation.revoke`         | `DELETE /invitations/:invitationId`                              |
+| `identity.account.reactivate`        | `POST /accounts/:accountId/reactivate`                           |
+| `identity.account.deactivate`        | `POST /accounts/:accountId/deactivate` on someone else's account |
+| `identity.session.read`              | `GET /accounts/:accountId/sessions` on someone else's account    |
+| `identity.session.revoke`            | `DELETE /sessions/:sessionId` on someone else's session          |
+| `identity.session.revoke_all`        | `DELETE /accounts/:accountId/sessions` on someone else's account |
+| `identity.member.read`               | `GET /members`                                                   |
+| `identity.member.role.update`        | `PUT /members/:accountId/role`                                   |
+| `identity.member.permissions.update` | `PUT /members/:accountId/permissions`                            |
 
 Nobody changes their own role or permissions.
 
@@ -146,9 +146,29 @@ role or permissions.
 `PUT /members/:accountId/permissions` replaces the whole set, so send the member's current
 permissions with your changes: the ones you do not hold must stay exactly as they are.
 
+Codes are `<module>.<subject>.<action>` (lowercase letters, digits and `_`, up to 100 characters).
+Other modules add their own codes; `GET /permissions`, open to any signed-in member, lists every
+code that can be granted, in alphabetical order:
+
+```json
+{
+  "permissions": [
+    "identity.account.deactivate",
+    "identity.account.reactivate",
+    "..."
+  ]
+}
+```
+
+A code outside that format answers `400 shared.input_invalid`. A code in the format that is not in
+the list, when it is added, answers `400 identity.invalid_membership_permissions` with
+`data.permissions` (the unknown codes), before any check of what you hold. A member may still hold a
+code that left the list: it grants nothing, may stay in the set you send, and may be removed even
+if you do not hold it.
+
 ## Members
 
-`GET /members` (`member.read`) lists the members, each as `{ account, membership }`, in
+`GET /members` (`identity.member.read`) lists the members, each as `{ account, membership }`, in
 membership id order. Deactivated accounts are included, with `account.deactivatedAt` set. `limit` goes
 from 1 to 100 (50 by default); send the answer's `nextCursor` as `cursor` to get the next page,
 until it comes back `null`:
@@ -195,13 +215,13 @@ password sign-in, with the account's e-mail, when the account has none.
 
 Each sign-in opens a new session; the others stay active, with no limit per account.
 
-| Route                               | What it does                                                                  |
-| ----------------------------------- | ----------------------------------------------------------------------------- |
-| `GET /me/sessions`                  | active sessions, newest first; `current: true` marks the one making the call  |
-| `GET /accounts/:accountId/sessions` | someone's active sessions, newest first (`session.read`, or your own account) |
-| `DELETE /sessions/:sessionId`       | ends one session (`204`)                                                      |
-| `DELETE /me/sessions`               | ends every session except the current one; answers `{ revokedCount }`         |
-| `POST /auth/sign-out`               | ends the current session                                                      |
+| Route                               | What it does                                                                           |
+| ----------------------------------- | -------------------------------------------------------------------------------------- |
+| `GET /me/sessions`                  | active sessions, newest first; `current: true` marks the one making the call           |
+| `GET /accounts/:accountId/sessions` | someone's active sessions, newest first (`identity.session.read`, or your own account) |
+| `DELETE /sessions/:sessionId`       | ends one session (`204`)                                                               |
+| `DELETE /me/sessions`               | ends every session except the current one; answers `{ revokedCount }`                  |
+| `POST /auth/sign-out`               | ends the current session                                                               |
 
 ## Refresh tokens
 
