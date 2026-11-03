@@ -22,6 +22,7 @@ every route.
 - E-mail verification, sent on sign-up and on request
 - Password reset and password change
 - E-mail change, confirmed from the new address, with a notice to the old one
+- Welcome e-mail on every account created, sent by the `notifications` module
 - Profile name update; account deactivation and reactivation
 
 **Sessions**
@@ -85,7 +86,8 @@ pnpm dev                        # API on http://localhost:3000
 pnpm --filter web dev           # front end on http://localhost:5173
 ```
 
-With `MAILER="log"` (the default) no e-mail is sent: the link is printed in the API log. OAuth
+With `MAILER="log"` (the default) no e-mail is sent: the link is printed in the API log
+(`notifications.email_logged`). OAuth
 sign-in needs the provider apps described below; everything else works with the example values.
 
 The front end proxies `/api` to the API. Besides the account pages, it has an API explorer at
@@ -157,9 +159,14 @@ Put the client ids in `web/.env` too (`VITE_GITHUB_CLIENT_ID`, `VITE_GOOGLE_CLIE
 
 `MAILER="log"` prints each e-mail and its link. For real delivery, set `MAILER="mailersend"`,
 create an [API token](https://app.mailersend.com/api-tokens) and use a `MAIL_FROM_EMAIL` on a
-domain verified in MailerSend. Reset and verification e-mails go through the outbox, so a
-MailerSend outage delays them instead of failing the request. The e-mail copy is in Portuguese, in
-[identity-email-composer.ts](src/modules/identity/infrastructure/identity-email-composer.ts).
+domain verified in MailerSend. Reset, verification, welcome and e-mail changed e-mails go through
+the outbox, so a MailerSend outage delays them instead of failing the request. The e-mail copy is
+in Portuguese, in
+[identity-email-composer.ts](src/modules/identity/infrastructure/identity-email-composer.ts) and
+[notifications-email-composer.ts](src/modules/notifications/infrastructure/notifications-email-composer.ts).
+Each e-mail goes out with a plain-text part and an HTML part in the front end's style (lilac
+ground, white card, the mark, the violet button), rendered by
+[email-html-renderer.ts](src/modules/notifications/infrastructure/email-html-renderer.ts).
 
 ### Error tracking
 
@@ -234,10 +241,12 @@ src/
     identity/
       domain/             entities, value objects and errors, no libraries
       application/        use cases, ports, policies and services, no libraries
-      infrastructure/     Mongo repositories, argon2, jose, OAuth, MailerSend
+      infrastructure/     Mongo repositories, argon2, jose, OAuth, e-mail texts
       presentation/       handlers, routes and the authenticate middleware
       identity.module.ts  wires the module
       public.ts           the only file other modules may import
+    notifications/        e-mails sent in reaction to identity events, and the
+                          MailerSend adapter every module sends through
   shared/                 building blocks every module uses (errors, HTTP edge, Mongo,
                           Redis, outbox, RabbitMQ, logging, rate limit, test helpers)
 web/                      Preact front end
@@ -289,4 +298,4 @@ add `push` or `pull_request` to its `on` to run it on every change.
 The [ADRs](docs/adr/) record why the code looks the way it does: the transport-neutral handler
 layer, optimistic concurrency on every write, TypeBox schemas on handlers, the access every use
 case declares, retrying idempotent outbound calls, Sentry reporting, the Docker image, the
-Mongo outbox and its BullMQ and RabbitMQ delivery.
+Mongo outbox and its BullMQ and RabbitMQ delivery, and the `notifications` module.

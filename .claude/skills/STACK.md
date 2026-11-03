@@ -20,8 +20,9 @@ file deserve an ADR (`create-adr`).
   use cases; no DI container, no decorators.
 - **One instance per process of each shared adapter** (clock, logger, log context, connections,
   outbox, transaction runner): `start` creates it and passes it down through each module's runtime
-  (`IdentityRuntime`); a module creates only its own adapters (repositories, mailer, OAuth
-  gateway) and never a second instance of one `start` already has.
+  (`IdentityRuntime`, `NotificationsRuntime`); a module creates only its own adapters
+  (repositories, OAuth gateway) and never a second instance of one `start` already has. The
+  `MailSender` is created by `notifications` and handed to identity by `start`.
 - **Input validation:** TypeBox (`typebox`, [ADR-005](../../docs/adr/005-typebox-input-schemas-declared-on-the-handler.md)).
   Each handler declares `name` and `input` (a TypeBox schema); the dispatcher interprets it
   through `SchemaParser` (`src/shared/presentation`) after the middlewares. A handler that answers
@@ -92,8 +93,11 @@ file deserve an ADR (`create-adr`).
   [ADR-002](../../docs/adr/002-asynchronous-access-token-port.md)) + refresh tokens issued by the
   project (no external IdP). Passwords hashed with argon2id.
 - OAuth providers: Google and GitHub, through `FetchOAuthGateway`. Apple is _planned_.
-- Transactional e-mail: MailerSend behind the `IdentityMailer` port, sent by the outbox relay; a logging mailer for
-  development (`MAILER=log`).
+- Transactional e-mail ([ADR-014](../../docs/adr/014-send-e-mail-from-a-notifications-module-behind-a-shared-port.md)):
+  the `MailSender` port (`src/shared/application/ports`) with a MailerSend adapter and a logging
+  one for development (`MAILER=log`), both in the `notifications` module. Identity composes its
+  token e-mails behind its `IdentityMailer` port; `notifications` sends the welcome and the
+  e-mail changed notice, each scheduled as an outbox effect by an event subscriber.
 
 ## Observability
 
