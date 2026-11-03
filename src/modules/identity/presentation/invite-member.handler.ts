@@ -2,19 +2,17 @@ import { Handler, Inbound } from "@shared/presentation/handler";
 import Type from "typebox";
 
 import { invitationOutputSchema } from "./output.schema";
+import { permissionsSchema } from "./permissions.schema";
 
 import { Actor } from "@/identity/application/actor";
 import { InviteMemberOutput } from "@/identity/application/use-cases/invite-member.types";
 import { InviteMemberUseCase } from "@/identity/application/use-cases/invite-member.use-case";
-import {
-  MembershipPermission,
-  MembershipRole,
-} from "@/identity/domain/membership.entity";
+import { MembershipRole } from "@/identity/domain/membership.entity";
 
 const inputSchema = Type.Object({
   email: Type.String({ format: "email" }),
   role: Type.Enum(Object.values(MembershipRole)),
-  permissions: Type.Array(Type.Enum(Object.values(MembershipPermission))),
+  permissions: permissionsSchema,
 });
 
 type Input = Type.StaticDecode<typeof inputSchema>;

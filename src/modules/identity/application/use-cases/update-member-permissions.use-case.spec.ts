@@ -12,15 +12,13 @@ import {
 import { UpdateMemberPermissionsUseCase } from "./update-member-permissions.use-case";
 
 import { IdentityError } from "@/identity/domain/errors/identity.error";
-import {
-  MembershipPermission,
-  MembershipRole,
-} from "@/identity/domain/membership.entity";
+import { IdentityPermission } from "@/identity/domain/identity.permission";
+import { MembershipRole } from "@/identity/domain/membership.entity";
 
 const ADMIN_PERMISSIONS = [
-  MembershipPermission.MEMBER_PERMISSIONS_UPDATE,
-  MembershipPermission.INVITATION_READ,
-  MembershipPermission.INVITATION_REVOKE,
+  IdentityPermission.MEMBER_PERMISSIONS_UPDATE,
+  IdentityPermission.INVITATION_READ,
+  IdentityPermission.INVITATION_REVOKE,
 ];
 
 describe("UpdateMemberPermissionsUseCase", () => {
@@ -44,8 +42,8 @@ describe("UpdateMemberPermissionsUseCase", () => {
       {
         accountId: ana.accountId,
         permissions: [
-          MembershipPermission.INVITATION_READ,
-          MembershipPermission.INVITATION_REVOKE,
+          IdentityPermission.INVITATION_READ,
+          IdentityPermission.INVITATION_REVOKE,
         ],
       },
       admin.actor,
@@ -54,15 +52,15 @@ describe("UpdateMemberPermissionsUseCase", () => {
     expect(output.membership).toMatchObject({
       accountId: ana.accountId,
       permissions: [
-        MembershipPermission.INVITATION_READ,
-        MembershipPermission.INVITATION_REVOKE,
+        IdentityPermission.INVITATION_READ,
+        IdentityPermission.INVITATION_REVOKE,
       ],
       updatedAt: ctx.clock.now(),
     });
     const membership = await ctx.memberships.findByAccountId(ana.accountId);
     expect(membership?.permissions).toEqual([
-      MembershipPermission.INVITATION_READ,
-      MembershipPermission.INVITATION_REVOKE,
+      IdentityPermission.INVITATION_READ,
+      IdentityPermission.INVITATION_REVOKE,
     ]);
   });
 
@@ -85,11 +83,11 @@ describe("UpdateMemberPermissionsUseCase", () => {
   it("keeps the member's permissions the actor does not hold as they are", async () => {
     const admin = await seedAdmin();
     const ana = await seedAccount(ctx, {
-      permissions: [MembershipPermission.SESSION_REVOKE],
+      permissions: [IdentityPermission.SESSION_REVOKE],
     });
     const permissions = [
-      MembershipPermission.SESSION_REVOKE,
-      MembershipPermission.INVITATION_READ,
+      IdentityPermission.SESSION_REVOKE,
+      IdentityPermission.INVITATION_READ,
     ];
 
     const output = await useCase.execute(
@@ -101,8 +99,8 @@ describe("UpdateMemberPermissionsUseCase", () => {
   });
 
   it.each([
-    ["grants", [], [MembershipPermission.SESSION_REVOKE]],
-    ["removes", [MembershipPermission.SESSION_REVOKE], []],
+    ["grants", [], [IdentityPermission.SESSION_REVOKE]],
+    ["removes", [IdentityPermission.SESSION_REVOKE], []],
   ])(
     "throws Forbidden and saves nothing when the actor %s a permission they do not hold",
     async (_, current, requested) => {
@@ -126,9 +124,9 @@ describe("UpdateMemberPermissionsUseCase", () => {
   it("refuses permission_missing without member.permissions.update, even with the admin role", async () => {
     const bruno = await seedAccount(ctx, {
       role: MembershipRole.ADMIN,
-      permissions: Object.values(MembershipPermission).filter(
+      permissions: Object.values(IdentityPermission).filter(
         (permission) =>
-          permission !== MembershipPermission.MEMBER_PERMISSIONS_UPDATE,
+          permission !== IdentityPermission.MEMBER_PERMISSIONS_UPDATE,
       ),
     });
     const ana = await seedAccount(ctx);
@@ -137,12 +135,12 @@ describe("UpdateMemberPermissionsUseCase", () => {
       useCase.execute(
         {
           accountId: ana.accountId,
-          permissions: [MembershipPermission.MEMBER_PERMISSIONS_UPDATE],
+          permissions: [IdentityPermission.MEMBER_PERMISSIONS_UPDATE],
         },
         bruno.actor,
       ),
       SharedError.PermissionMissing,
-      { required: MembershipPermission.MEMBER_PERMISSIONS_UPDATE },
+      { required: IdentityPermission.MEMBER_PERMISSIONS_UPDATE },
     );
 
     const membership = await ctx.memberships.findByAccountId(ana.accountId);
@@ -169,12 +167,29 @@ describe("UpdateMemberPermissionsUseCase", () => {
       useCase.execute(
         {
           accountId: ana.accountId,
-          permissions: [permission as MembershipPermission],
+          permissions: [permission as IdentityPermission],
         },
         admin.actor,
       ),
       IdentityError.InvalidMembershipPermissions,
       { permissions: [permission] },
     );
+  });
+
+  it("adds a permission another module declares", async () => {
+    const [permission] = ctx.otherModulePermissions.permissions;
+    const admin = await seedAccount(ctx, {
+      permissions: [IdentityPermission.MEMBER_PERMISSIONS_UPDATE, permission],
+    });
+    const ana = await seedAccount(ctx);
+
+    const output = await useCase.execute(
+      { accountId: ana.accountId, permissions: [permission] },
+      admin.actor,
+    );
+
+    expect(output.membership.permissions).toStrictEqual([permission]);
+    const membership = await ctx.memberships.findByAccountId(ana.accountId);
+    expect(membership?.permissions).toStrictEqual([permission]);
   });
 });

@@ -12,8 +12,8 @@ import {
 } from "./invite-member.types";
 
 import { IdentityError } from "@/identity/domain/errors/identity.error";
+import { IdentityPermission } from "@/identity/domain/identity.permission";
 import { Invitation } from "@/identity/domain/invitation.entity";
-import { MembershipPermission } from "@/identity/domain/membership.entity";
 
 export class InviteMemberUseCase extends UseCase<{
   input: InviteMemberInput;
@@ -21,7 +21,7 @@ export class InviteMemberUseCase extends UseCase<{
   deps: InviteMemberDeps;
   actor: Actor;
 }> {
-  readonly access = { permissions: [MembershipPermission.INVITATION_CREATE] };
+  readonly access = { permissions: [IdentityPermission.INVITATION_CREATE] };
 
   async execute(
     input: InviteMemberInput,

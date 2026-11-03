@@ -9,14 +9,14 @@ import {
 } from "./revoke-invitation.types";
 
 import { IdentityError } from "@/identity/domain/errors/identity.error";
-import { MembershipPermission } from "@/identity/domain/membership.entity";
+import { IdentityPermission } from "@/identity/domain/identity.permission";
 
 export class RevokeInvitationUseCase extends UseCase<{
   input: RevokeInvitationInput;
   deps: RevokeInvitationDeps;
   actor: Actor;
 }> {
-  readonly access = { permissions: [MembershipPermission.INVITATION_REVOKE] };
+  readonly access = { permissions: [IdentityPermission.INVITATION_REVOKE] };
 
   async execute(input: RevokeInvitationInput, _actor: Actor): Promise<void> {
     const invitation = await this.deps.invitations.findById(input.invitationId);

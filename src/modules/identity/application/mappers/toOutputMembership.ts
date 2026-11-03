@@ -1,6 +1,5 @@
 import {
   Membership,
-  MembershipPermission,
   MembershipRole,
 } from "@/identity/domain/membership.entity";
 
@@ -8,7 +7,7 @@ export type MembershipOutput = {
   id: string;
   accountId: string;
   role: MembershipRole;
-  permissions: MembershipPermission[];
+  permissions: string[];
   updatedAt: Date;
 };
 

@@ -9,7 +9,7 @@ import {
   ListAccountSessionsOutput,
 } from "./list-account-sessions.types";
 
-import { MembershipPermission } from "@/identity/domain/membership.entity";
+import { IdentityPermission } from "@/identity/domain/identity.permission";
 
 export class ListAccountSessionsUseCase extends UseCase<{
   input: ListAccountSessionsInput;
@@ -26,7 +26,7 @@ export class ListAccountSessionsUseCase extends UseCase<{
     this.deps.accessPolicy.ensureCanManageAccount(
       actor,
       input.accountId,
-      MembershipPermission.SESSION_READ,
+      IdentityPermission.SESSION_READ,
     );
 
     const at = this.deps.clock.now();

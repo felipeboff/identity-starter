@@ -17,10 +17,8 @@ import { InviteMemberUseCase } from "./invite-member.use-case";
 
 import { AuthProvider } from "@/identity/domain/credential.entity";
 import { IdentityError } from "@/identity/domain/errors/identity.error";
-import {
-  MembershipPermission,
-  MembershipRole,
-} from "@/identity/domain/membership.entity";
+import { IdentityPermission } from "@/identity/domain/identity.permission";
+import { MembershipRole } from "@/identity/domain/membership.entity";
 
 describe("AcceptInvitationUseCase", () => {
   let ctx: IdentityContext;
@@ -33,12 +31,12 @@ describe("AcceptInvitationUseCase", () => {
 
   const givenInvitation = async () => {
     const admin = await seedAccount(ctx, {
-      permissions: [MembershipPermission.INVITATION_CREATE],
+      permissions: [IdentityPermission.INVITATION_CREATE],
     });
     const input = {
       email: faker.internet.email().toLowerCase(),
       role: MembershipRole.ADMIN,
-      permissions: [MembershipPermission.INVITATION_CREATE],
+      permissions: [IdentityPermission.INVITATION_CREATE],
     };
     const { invitation } = await new InviteMemberUseCase(ctx).execute(
       input,
@@ -89,6 +87,19 @@ describe("AcceptInvitationUseCase", () => {
       (await ctx.invitations.findById(invitationId))?.toSnapshot(),
     ).toMatchObject({ acceptedAt: now, acceptedByAccountId: accountId });
     expect(output.accessToken).toMatch(`access:${accountId}:`);
+  });
+
+  it("copies a code outside the catalog as it is", async () => {
+    const { invitationId, token } = await givenInvitation();
+    const unknown = `${faker.string.alpha({ length: 10, casing: "lower" })}.${faker.string.alpha({ length: 10, casing: "lower" })}`;
+    const invitation = await ctx.invitations.findById(invitationId);
+    invitation?.updatePermissions([unknown], ctx.clock.now());
+    if (invitation) await ctx.invitations.save(invitation);
+
+    const output = await useCase.execute(makeInput(token));
+
+    const membership = await ctx.memberships.findByAccountId(output.account.id);
+    expect(membership?.permissions).toStrictEqual([unknown]);
   });
 
   it("publishes identity.account.registered when the invitation is accepted, in its transaction", async () => {

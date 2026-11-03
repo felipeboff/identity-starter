@@ -6,7 +6,7 @@ import { Actor } from "../actor";
 import { RevokeSessionDeps, RevokeSessionInput } from "./revoke-session.types";
 
 import { IdentityError } from "@/identity/domain/errors/identity.error";
-import { MembershipPermission } from "@/identity/domain/membership.entity";
+import { IdentityPermission } from "@/identity/domain/identity.permission";
 import { SessionRevocationReason } from "@/identity/domain/session.entity";
 
 /** Revokes one session as `SECURITY`. Allowed for its owner or an admin. */
@@ -28,7 +28,7 @@ export class RevokeSessionUseCase extends UseCase<{
     this.deps.accessPolicy.ensureCanManageAccount(
       actor,
       session.accountId.value,
-      MembershipPermission.SESSION_REVOKE,
+      IdentityPermission.SESSION_REVOKE,
     );
 
     await this.deps.sessionRevoker.revoke(session, {

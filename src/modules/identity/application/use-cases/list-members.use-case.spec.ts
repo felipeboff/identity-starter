@@ -19,9 +19,9 @@ import {
 import { ListMembersOutput } from "./list-members.types";
 import { ListMembersUseCase } from "./list-members.use-case";
 
+import { IdentityPermission } from "@/identity/domain/identity.permission";
 import {
   Membership,
-  MembershipPermission,
   MembershipRole,
 } from "@/identity/domain/membership.entity";
 
@@ -35,7 +35,7 @@ describe("ListMembersUseCase", () => {
   });
 
   const seedReader = () =>
-    seedAccount(ctx, { permissions: [MembershipPermission.MEMBER_READ] });
+    seedAccount(ctx, { permissions: [IdentityPermission.MEMBER_READ] });
 
   const idsOf = (output: ListMembersOutput) =>
     output.members.map((member) => member.membership.id);
@@ -110,15 +110,15 @@ describe("ListMembersUseCase", () => {
   it("refuses permission_missing without member.read, even with the admin role", async () => {
     const ana = await seedAccount(ctx, {
       role: MembershipRole.ADMIN,
-      permissions: Object.values(MembershipPermission).filter(
-        (permission) => permission !== MembershipPermission.MEMBER_READ,
+      permissions: Object.values(IdentityPermission).filter(
+        (permission) => permission !== IdentityPermission.MEMBER_READ,
       ),
     });
 
     await expectAppError(
       useCase.execute({ limit: PAGE_DEFAULT_LIMIT }, ana.actor),
       SharedError.PermissionMissing,
-      { required: MembershipPermission.MEMBER_READ },
+      { required: IdentityPermission.MEMBER_READ },
     );
   });
 });

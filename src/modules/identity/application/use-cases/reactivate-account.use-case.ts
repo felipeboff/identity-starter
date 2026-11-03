@@ -11,7 +11,7 @@ import {
 } from "./reactivate-account.types";
 
 import { IdentityError } from "@/identity/domain/errors/identity.error";
-import { MembershipPermission } from "@/identity/domain/membership.entity";
+import { IdentityPermission } from "@/identity/domain/identity.permission";
 
 /** A deactivated account cannot sign in to reactivate itself. */
 export class ReactivateAccountUseCase extends UseCase<{
@@ -20,7 +20,7 @@ export class ReactivateAccountUseCase extends UseCase<{
   deps: ReactivateAccountDeps;
   actor: Actor;
 }> {
-  readonly access = { permissions: [MembershipPermission.ACCOUNT_REACTIVATE] };
+  readonly access = { permissions: [IdentityPermission.ACCOUNT_REACTIVATE] };
 
   async execute(
     input: ReactivateAccountInput,

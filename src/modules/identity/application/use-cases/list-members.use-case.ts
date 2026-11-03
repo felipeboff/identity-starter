@@ -11,7 +11,7 @@ import {
   ListedMember,
 } from "./list-members.types";
 
-import { MembershipPermission } from "@/identity/domain/membership.entity";
+import { IdentityPermission } from "@/identity/domain/identity.permission";
 
 export class ListMembersUseCase extends UseCase<{
   input: ListMembersInput;
@@ -19,7 +19,7 @@ export class ListMembersUseCase extends UseCase<{
   deps: ListMembersDeps;
   actor: Actor;
 }> {
-  readonly access = { permissions: [MembershipPermission.MEMBER_READ] };
+  readonly access = { permissions: [IdentityPermission.MEMBER_READ] };
 
   async execute(
     input: ListMembersInput,

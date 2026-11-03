@@ -14,9 +14,9 @@ import { IdentityModels } from "./identity-models";
 import { MongoMembershipRepository } from "./mongo-membership.repository";
 
 import { membershipRepositoryContract } from "@/identity/application/testing/contracts/membership-repository.contract";
+import { IdentityPermission } from "@/identity/domain/identity.permission";
 import {
   Membership,
-  MembershipPermission,
   MembershipRole,
 } from "@/identity/domain/membership.entity";
 
@@ -35,7 +35,7 @@ const registerMembership = () => {
       createdBy: accountId,
       role: faker.helpers.objectValue(MembershipRole),
       permissions: faker.helpers.arrayElements(
-        Object.values(MembershipPermission),
+        Object.values(IdentityPermission),
       ),
     },
     faker.date.past(),

@@ -8,6 +8,10 @@ import type { Outbox } from "@shared/application/ports/outbox";
 import type { TransactionRunner } from "@shared/application/ports/transaction-runner";
 import { CursorPager } from "@shared/application/services/cursor-pager";
 import { RateLimiter } from "@shared/application/services/rate-limiter";
+import {
+  ModulePermissions,
+  PermissionCatalog,
+} from "@shared/domain/value-objects/permission-catalog.value-object";
 import { FailOpenCache } from "@shared/infrastructure/cache/fail-open-cache";
 import { FetchHttpClient } from "@shared/infrastructure/http/fetch-http-client";
 import { ObjectIdGenerator } from "@shared/infrastructure/mongo/object-id-generator";
@@ -53,6 +57,7 @@ import { ListAccountSessionsUseCase } from "./application/use-cases/list-account
 import { ListCredentialsUseCase } from "./application/use-cases/list-credentials.use-case";
 import { ListInvitationsUseCase } from "./application/use-cases/list-invitations.use-case";
 import { ListMembersUseCase } from "./application/use-cases/list-members.use-case";
+import { ListPermissionsUseCase } from "./application/use-cases/list-permissions.use-case";
 import { ListSessionsUseCase } from "./application/use-cases/list-sessions.use-case";
 import { ReactivateAccountUseCase } from "./application/use-cases/reactivate-account.use-case";
 import { RefreshSessionUseCase } from "./application/use-cases/refresh-session.use-case";
@@ -75,6 +80,7 @@ import { UpdateAccountNameUseCase } from "./application/use-cases/update-account
 import { UpdateMemberPermissionsUseCase } from "./application/use-cases/update-member-permissions.use-case";
 import { UpdateMemberRoleUseCase } from "./application/use-cases/update-member-role.use-case";
 import { VerifyEmailUseCase } from "./application/use-cases/verify-email.use-case";
+import { IdentityPermission } from "./domain/identity.permission";
 import { Argon2PasswordHasher } from "./infrastructure/argon2-password-hasher";
 import { ComposingIdentityMailer } from "./infrastructure/composing-identity-mailer";
 import { CryptoTokenIssuer } from "./infrastructure/crypto-token-issuer";
@@ -104,6 +110,11 @@ import {
 
 const REPOSITORY_CACHE_TTL_MS = 30 * 1000;
 
+export const identityPermissions: ModulePermissions = {
+  module: "identity",
+  permissions: Object.values(IdentityPermission),
+};
+
 export type IdentityModuleDeps = {
   accounts: AccountRepository;
   credentials: CredentialRepository;
@@ -125,6 +136,7 @@ export type IdentityModuleDeps = {
 
   clock: Clock;
   ids: IdGenerator;
+  permissions: PermissionCatalog;
 
   logContext: LogContext;
   logger: Logger;
@@ -149,6 +161,7 @@ export type IdentityRuntime = Readonly<{
   transactions: TransactionRunner;
   mail: MailSender;
   clock: Clock;
+  permissions: PermissionCatalog;
 }>;
 
 export type IdentityModule = {
@@ -174,7 +187,7 @@ export const assembleIdentityModule = (
     emailVerificationIssuer: new EmailVerificationIssuer(adapters),
     accountResolver: new AccountResolver(adapters),
     membershipResolver: new MembershipResolver(adapters),
-    accessPolicy: new AccessPolicy(),
+    accessPolicy: new AccessPolicy(adapters),
     pager: new CursorPager(),
   };
 
@@ -216,6 +229,7 @@ export const assembleIdentityModule = (
     listMembers: new ListMembersUseCase(deps),
     updateMemberRole: new UpdateMemberRoleUseCase(deps),
     updateMemberPermissions: new UpdateMemberPermissionsUseCase(deps),
+    listPermissions: new ListPermissionsUseCase(deps),
     sendPasswordResetEmail: new SendPasswordResetEmailUseCase(deps),
     sendEmailVerificationEmail: new SendEmailVerificationEmailUseCase(deps),
   };
@@ -291,6 +305,7 @@ export const createIdentityModule = async (
 
     clock: runtime.clock,
     ids: new ObjectIdGenerator(),
+    permissions: runtime.permissions,
 
     cache,
 

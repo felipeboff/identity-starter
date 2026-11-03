@@ -12,10 +12,8 @@ import {
 import { RevokeAllSessionsUseCase } from "./revoke-all-sessions.use-case";
 
 import { IdentityError } from "@/identity/domain/errors/identity.error";
-import {
-  MembershipPermission,
-  MembershipRole,
-} from "@/identity/domain/membership.entity";
+import { IdentityPermission } from "@/identity/domain/identity.permission";
+import { MembershipRole } from "@/identity/domain/membership.entity";
 import { SessionRevocationReason } from "@/identity/domain/session.entity";
 
 describe("RevokeAllSessionsUseCase", () => {
@@ -71,7 +69,7 @@ describe("RevokeAllSessionsUseCase", () => {
   it("lets a user-role member holding session.revoke_all revoke someone else's sessions", async () => {
     const admin = await seedAccount(ctx, {
       role: MembershipRole.USER,
-      permissions: [MembershipPermission.SESSION_REVOKE_ALL],
+      permissions: [IdentityPermission.SESSION_REVOKE_ALL],
     });
     const ana = await seedAccount(ctx);
     const { session } = await seedSession(ctx, ana);
@@ -89,8 +87,8 @@ describe("RevokeAllSessionsUseCase", () => {
   it("throws Forbidden on someone else's account without session.revoke_all, even with the admin role", async () => {
     const bruno = await seedAccount(ctx, {
       role: MembershipRole.ADMIN,
-      permissions: Object.values(MembershipPermission).filter(
-        (permission) => permission !== MembershipPermission.SESSION_REVOKE_ALL,
+      permissions: Object.values(IdentityPermission).filter(
+        (permission) => permission !== IdentityPermission.SESSION_REVOKE_ALL,
       ),
     });
     const ana = await seedAccount(ctx);

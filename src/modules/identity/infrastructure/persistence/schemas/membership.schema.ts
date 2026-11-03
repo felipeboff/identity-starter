@@ -2,7 +2,6 @@ import { Replace } from "@shared/types/replace";
 import { Schema, Types } from "mongoose";
 
 import {
-  MembershipPermission,
   MembershipRole,
   MembershipSnapshot,
 } from "@/identity/domain/membership.entity";
@@ -34,7 +33,7 @@ export const membershipSchema = new Schema<MembershipDocument>(
       required: true,
     },
     permissions: {
-      type: [{ type: String, enum: Object.values(MembershipPermission) }],
+      type: [String],
       required: true,
     },
     createdBy: {

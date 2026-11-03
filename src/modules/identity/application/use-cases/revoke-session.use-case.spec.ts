@@ -14,10 +14,8 @@ import { IdentityUseCaseLogEvent } from "../use-case.log-event";
 import { RevokeSessionUseCase } from "./revoke-session.use-case";
 
 import { IdentityError } from "@/identity/domain/errors/identity.error";
-import {
-  MembershipPermission,
-  MembershipRole,
-} from "@/identity/domain/membership.entity";
+import { IdentityPermission } from "@/identity/domain/identity.permission";
+import { MembershipRole } from "@/identity/domain/membership.entity";
 import { SessionRevocationReason } from "@/identity/domain/session.entity";
 
 describe("RevokeSessionUseCase", () => {
@@ -46,7 +44,7 @@ describe("RevokeSessionUseCase", () => {
   it("lets a user-role member holding session.revoke revoke someone else's session", async () => {
     const admin = await seedAccount(ctx, {
       role: MembershipRole.USER,
-      permissions: [MembershipPermission.SESSION_REVOKE],
+      permissions: [IdentityPermission.SESSION_REVOKE],
     });
     const ana = await seedAccount(ctx);
     const { session } = await seedSession(ctx, ana);
@@ -63,8 +61,8 @@ describe("RevokeSessionUseCase", () => {
   it("throws Forbidden on someone else's session without session.revoke, even with the admin role", async () => {
     const bruno = await seedAccount(ctx, {
       role: MembershipRole.ADMIN,
-      permissions: Object.values(MembershipPermission).filter(
-        (permission) => permission !== MembershipPermission.SESSION_REVOKE,
+      permissions: Object.values(IdentityPermission).filter(
+        (permission) => permission !== IdentityPermission.SESSION_REVOKE,
       ),
     });
     const ana = await seedAccount(ctx);

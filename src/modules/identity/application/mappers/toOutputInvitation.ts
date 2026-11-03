@@ -1,14 +1,11 @@
 import { Invitation } from "@/identity/domain/invitation.entity";
-import {
-  MembershipPermission,
-  MembershipRole,
-} from "@/identity/domain/membership.entity";
+import { MembershipRole } from "@/identity/domain/membership.entity";
 
 export type InvitationOutput = {
   id: string;
   email: string;
   role: MembershipRole;
-  permissions: MembershipPermission[];
+  permissions: string[];
   createdAt: Date;
   expiresAt: Date;
 };

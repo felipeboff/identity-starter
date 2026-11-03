@@ -26,6 +26,7 @@ const LEVEL_SCOPES = {
     "src/modules/*/presentation/**/*.ts",
     "src/app/create-server.ts",
     "src/app/http-routes.ts",
+    "src/app/permission-catalog.ts",
     "src/app/start.ts",
   ],
 };

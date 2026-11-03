@@ -12,10 +12,8 @@ import {
 import { UpdateMemberRoleUseCase } from "./update-member-role.use-case";
 
 import { IdentityError } from "@/identity/domain/errors/identity.error";
-import {
-  MembershipPermission,
-  MembershipRole,
-} from "@/identity/domain/membership.entity";
+import { IdentityPermission } from "@/identity/domain/identity.permission";
+import { MembershipRole } from "@/identity/domain/membership.entity";
 
 describe("UpdateMemberRoleUseCase", () => {
   let ctx: IdentityContext;
@@ -23,7 +21,7 @@ describe("UpdateMemberRoleUseCase", () => {
 
   const seedAdmin = () =>
     seedAccount(ctx, {
-      permissions: [MembershipPermission.MEMBER_ROLE_UPDATE],
+      permissions: [IdentityPermission.MEMBER_ROLE_UPDATE],
     });
 
   beforeEach(() => {
@@ -53,8 +51,8 @@ describe("UpdateMemberRoleUseCase", () => {
   it("refuses permission_missing without member.role.update, even with the admin role", async () => {
     const bruno = await seedAccount(ctx, {
       role: MembershipRole.ADMIN,
-      permissions: Object.values(MembershipPermission).filter(
-        (permission) => permission !== MembershipPermission.MEMBER_ROLE_UPDATE,
+      permissions: Object.values(IdentityPermission).filter(
+        (permission) => permission !== IdentityPermission.MEMBER_ROLE_UPDATE,
       ),
     });
     const ana = await seedAccount(ctx);
@@ -65,7 +63,7 @@ describe("UpdateMemberRoleUseCase", () => {
         bruno.actor,
       ),
       SharedError.PermissionMissing,
-      { required: MembershipPermission.MEMBER_ROLE_UPDATE },
+      { required: IdentityPermission.MEMBER_ROLE_UPDATE },
     );
 
     const membership = await ctx.memberships.findByAccountId(ana.accountId);

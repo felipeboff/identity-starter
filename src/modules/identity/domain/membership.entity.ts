@@ -3,24 +3,6 @@ import { Id } from "@shared/domain/value-objects/id.value-object";
 
 import { IdentityError } from "./errors/identity.error";
 
-/** One code per use case that requires a permission. */
-export const MembershipPermission = {
-  INVITATION_CREATE: "invitation.create",
-  INVITATION_READ: "invitation.read",
-  INVITATION_REVOKE: "invitation.revoke",
-  ACCOUNT_REACTIVATE: "account.reactivate",
-  ACCOUNT_DEACTIVATE: "account.deactivate",
-  SESSION_READ: "session.read",
-  SESSION_REVOKE: "session.revoke",
-  SESSION_REVOKE_ALL: "session.revoke_all",
-  MEMBER_READ: "member.read",
-  MEMBER_ROLE_UPDATE: "member.role.update",
-  MEMBER_PERMISSIONS_UPDATE: "member.permissions.update",
-} as const;
-
-export type MembershipPermission =
-  (typeof MembershipPermission)[keyof typeof MembershipPermission];
-
 export const MembershipRole = {
   USER: "user",
   ADMIN: "admin",
@@ -32,7 +14,7 @@ export type MembershipRole =
 export type MembershipRegister = {
   id: string;
   role: MembershipRole;
-  permissions: MembershipPermission[];
+  permissions: string[];
   createdBy: string;
   accountId: string;
 };
@@ -49,7 +31,7 @@ export type MembershipSnapshot = MembershipRestore;
 export type MembershipState = {
   readonly id: Id;
   role: MembershipRole;
-  permissions: MembershipPermission[];
+  permissions: string[];
   version: number;
   readonly createdBy: Id;
   readonly createdAt: Date;
@@ -61,7 +43,6 @@ export type MembershipState = {
 export class Membership {
   private constructor(private readonly state: MembershipState) {
     this.ensureValidRole(state.role);
-    this.ensureValidPermissions(state.permissions);
   }
 
   public static register(input: MembershipRegister, at: Date): Membership {
@@ -114,7 +95,7 @@ export class Membership {
     return this.state.role;
   }
 
-  public get permissions(): MembershipPermission[] {
+  public get permissions(): string[] {
     return [...this.state.permissions];
   }
 
@@ -157,12 +138,8 @@ export class Membership {
     this.touch(at);
   }
 
-  public updatePermissions(
-    permissions: MembershipPermission[],
-    at: Date,
-  ): void {
+  public updatePermissions(permissions: string[], at: Date): void {
     this.ensureNotDeleted();
-    this.ensureValidPermissions(permissions);
     this.state.permissions = [...permissions];
     this.touch(at);
   }
@@ -201,18 +178,6 @@ export class Membership {
     if (!Object.values(MembershipRole).includes(role)) {
       throw new AppError(IdentityError.InvalidMembershipRole, {
         role,
-      });
-    }
-  }
-
-  private ensureValidPermissions(permissions: MembershipPermission[]): void {
-    if (
-      !permissions.every((permission) =>
-        Object.values(MembershipPermission).includes(permission),
-      )
-    ) {
-      throw new AppError(IdentityError.InvalidMembershipPermissions, {
-        permissions,
       });
     }
   }

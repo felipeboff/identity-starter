@@ -3,14 +3,14 @@ import { Email } from "@shared/domain/value-objects/email.value-object";
 import { Id } from "@shared/domain/value-objects/id.value-object";
 
 import { IdentityError } from "./errors/identity.error";
-import { MembershipPermission, MembershipRole } from "./membership.entity";
+import { MembershipRole } from "./membership.entity";
 import { TokenHash } from "./value-objects/token-hash.value-object";
 
 export type InvitationRegister = {
   id: string;
   email: string;
   role: MembershipRole;
-  permissions: MembershipPermission[];
+  permissions: string[];
   tokenHash: string;
   expiresAt: Date;
   createdBy: string;
@@ -31,7 +31,7 @@ export type InvitationState = {
   readonly id: Id;
   readonly email: Email;
   role: MembershipRole;
-  permissions: MembershipPermission[];
+  permissions: string[];
   readonly tokenHash: TokenHash;
   readonly expiresAt: Date;
   readonly createdBy: Id;
@@ -46,7 +46,6 @@ export type InvitationState = {
 export class Invitation {
   private constructor(private readonly state: InvitationState) {
     this.ensureValidRole(state.role);
-    this.ensureValidPermissions(state.permissions);
   }
 
   public static register(input: InvitationRegister, at: Date): Invitation {
@@ -119,7 +118,7 @@ export class Invitation {
     return this.state.role;
   }
 
-  public get permissions(): MembershipPermission[] {
+  public get permissions(): string[] {
     return [...this.state.permissions];
   }
 
@@ -186,12 +185,8 @@ export class Invitation {
     this.touch(at);
   }
 
-  public updatePermissions(
-    permissions: MembershipPermission[],
-    at: Date,
-  ): void {
+  public updatePermissions(permissions: string[], at: Date): void {
     this.ensurePending(at);
-    this.ensureValidPermissions(permissions);
     this.state.permissions = [...permissions];
     this.touch(at);
   }
@@ -242,18 +237,6 @@ export class Invitation {
     if (!Object.values(MembershipRole).includes(role)) {
       throw new AppError(IdentityError.InvalidMembershipRole, {
         role,
-      });
-    }
-  }
-
-  private ensureValidPermissions(permissions: MembershipPermission[]): void {
-    if (
-      !permissions.every((permission) =>
-        Object.values(MembershipPermission).includes(permission),
-      )
-    ) {
-      throw new AppError(IdentityError.InvalidMembershipPermissions, {
-        permissions,
       });
     }
   }

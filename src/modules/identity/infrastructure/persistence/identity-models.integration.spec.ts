@@ -6,10 +6,8 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { IdentityModels } from "./identity-models";
 
 import { AuthProvider } from "@/identity/domain/credential.entity";
-import {
-  MembershipPermission,
-  MembershipRole,
-} from "@/identity/domain/membership.entity";
+import { IdentityPermission } from "@/identity/domain/identity.permission";
+import { MembershipRole } from "@/identity/domain/membership.entity";
 import { SessionRevocationReason } from "@/identity/domain/session.entity";
 
 type ModelKey = Exclude<keyof IdentityModels, "ready">;
@@ -47,7 +45,7 @@ const membershipDocument = (accountId = objectId()) => ({
   _id: objectId(),
   accountId,
   role: MembershipRole.USER,
-  permissions: [MembershipPermission.INVITATION_READ],
+  permissions: [IdentityPermission.INVITATION_READ],
   createdBy: objectId(),
   ...audit(),
 });
@@ -284,12 +282,6 @@ describe("IdentityModels", () => {
       "memberships",
       { ...membershipDocument(), role: faker.string.alpha(12) },
       "role",
-    ],
-    [
-      "an unknown permission",
-      "memberships",
-      { ...membershipDocument(), permissions: [faker.string.alpha(12)] },
-      "permissions.0",
     ],
     [
       "an unknown revocation reason",

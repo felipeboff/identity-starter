@@ -8,10 +8,8 @@ import { IdentityHttp, createIdentityHttp } from "./testing/identity-http";
 import { seedAccount } from "@/identity/application/testing/identity-context";
 import { INVITATION_TTL_MS } from "@/identity/application/token.policy";
 import { IdentityError } from "@/identity/domain/errors/identity.error";
-import {
-  MembershipPermission,
-  MembershipRole,
-} from "@/identity/domain/membership.entity";
+import { IdentityPermission } from "@/identity/domain/identity.permission";
+import { MembershipRole } from "@/identity/domain/membership.entity";
 
 const failure = (out: { status: number; body?: unknown }) => ({
   status: out.status,
@@ -21,16 +19,16 @@ const failure = (out: { status: number; body?: unknown }) => ({
 const signInInviter = (http: IdentityHttp) =>
   http.signIn({
     permissions: [
-      MembershipPermission.INVITATION_CREATE,
-      MembershipPermission.INVITATION_READ,
-      MembershipPermission.INVITATION_REVOKE,
+      IdentityPermission.INVITATION_CREATE,
+      IdentityPermission.INVITATION_READ,
+      IdentityPermission.INVITATION_REVOKE,
     ],
   });
 
 const buildInvite = () => ({
   email: faker.internet.email().toLowerCase(),
   role: MembershipRole.USER,
-  permissions: [MembershipPermission.INVITATION_READ],
+  permissions: [IdentityPermission.INVITATION_READ],
 });
 
 const invite = async (http: IdentityHttp, token: string) => {
@@ -60,14 +58,14 @@ describe("invitations", () => {
       "POST",
       "/invitations",
       { body: buildInvite() },
-      MembershipPermission.INVITATION_CREATE,
+      IdentityPermission.INVITATION_CREATE,
     ],
-    ["GET", "/invitations", {}, MembershipPermission.INVITATION_READ],
+    ["GET", "/invitations", {}, IdentityPermission.INVITATION_READ],
     [
       "DELETE",
       "/invitations/:invitationId",
       { params: { invitationId: faker.database.mongodbObjectId() } },
-      MembershipPermission.INVITATION_REVOKE,
+      IdentityPermission.INVITATION_REVOKE,
     ],
   ] as const)(
     "answers 403 permission_missing without the route's permission, even with the admin role (%s %s)",
@@ -75,7 +73,7 @@ describe("invitations", () => {
       const http = createIdentityHttp();
       const ana = await http.signIn({
         role: MembershipRole.ADMIN,
-        permissions: Object.values(MembershipPermission).filter(
+        permissions: Object.values(IdentityPermission).filter(
           (permission) => permission !== missing,
         ),
       });
@@ -125,8 +123,8 @@ describe("invitations", () => {
       const http = createIdentityHttp();
       const inviter = await http.signIn({
         permissions: [
-          MembershipPermission.INVITATION_CREATE,
-          MembershipPermission.INVITATION_READ,
+          IdentityPermission.INVITATION_CREATE,
+          IdentityPermission.INVITATION_READ,
         ],
       });
 
@@ -174,9 +172,9 @@ describe("invitations", () => {
       const http = createIdentityHttp();
       const inviter = await http.signIn({
         role: MembershipRole.ADMIN,
-        permissions: Object.values(MembershipPermission).filter(
+        permissions: Object.values(IdentityPermission).filter(
           (permission) =>
-            permission !== MembershipPermission.MEMBER_PERMISSIONS_UPDATE,
+            permission !== IdentityPermission.MEMBER_PERMISSIONS_UPDATE,
         ),
       });
 
@@ -184,7 +182,7 @@ describe("invitations", () => {
         token: inviter.token,
         body: {
           ...buildInvite(),
-          permissions: Object.values(MembershipPermission),
+          permissions: Object.values(IdentityPermission),
         },
       });
 
@@ -197,20 +195,81 @@ describe("invitations", () => {
     it("answers 403 forbidden when the inviter grants a permission they do not have", async () => {
       const http = createIdentityHttp();
       const inviter = await http.signIn({
-        permissions: [MembershipPermission.INVITATION_CREATE],
+        permissions: [IdentityPermission.INVITATION_CREATE],
       });
 
       const out = await http.call("POST", "/invitations", {
         token: inviter.token,
         body: {
           ...buildInvite(),
-          permissions: [MembershipPermission.ACCOUNT_DEACTIVATE],
+          permissions: [IdentityPermission.ACCOUNT_DEACTIVATE],
         },
       });
 
       expect(failure(out)).toStrictEqual({
         status: 403,
         code: IdentityError.Forbidden.code,
+      });
+    });
+
+    it("invites with a permission another module declares", async () => {
+      const http = createIdentityHttp();
+      const [permission] = http.ctx.otherModulePermissions.permissions;
+      const inviter = await http.signIn({
+        permissions: [IdentityPermission.INVITATION_CREATE, permission],
+      });
+
+      const out = await http.call("POST", "/invitations", {
+        token: inviter.token,
+        body: { ...buildInvite(), permissions: [permission] },
+      });
+
+      expect(out.status).toBe(201);
+      expect(out.body).toMatchObject({
+        invitation: { permissions: [permission] },
+      });
+    });
+
+    it("answers 400 for a permission outside the catalog, even one the inviter lacks", async () => {
+      const http = createIdentityHttp();
+      const inviter = await signInInviter(http);
+      const unknown = `${faker.string.alpha({ length: 10, casing: "lower" })}.${faker.string.alpha({ length: 10, casing: "lower" })}`;
+
+      const out = await http.call("POST", "/invitations", {
+        token: inviter.token,
+        body: {
+          ...buildInvite(),
+          permissions: [IdentityPermission.ACCOUNT_DEACTIVATE, unknown],
+        },
+      });
+
+      expect(out).toMatchObject({
+        status: 400,
+        body: {
+          code: IdentityError.InvalidMembershipPermissions.code,
+          data: { permissions: [unknown] },
+        },
+      });
+      expect(http.ctx.mailer.invitations).toStrictEqual([]);
+    });
+
+    it("answers 403 to a member holding only the unprefixed code", async () => {
+      const http = createIdentityHttp();
+      const inviter = await http.signIn({
+        permissions: ["invitation.create", IdentityPermission.INVITATION_READ],
+      });
+
+      const out = await http.call("POST", "/invitations", {
+        token: inviter.token,
+        body: buildInvite(),
+      });
+
+      expect(out).toMatchObject({
+        status: 403,
+        body: {
+          code: SharedError.PermissionMissing.code,
+          data: { required: IdentityPermission.INVITATION_CREATE },
+        },
       });
     });
 

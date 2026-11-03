@@ -10,15 +10,12 @@ import { InvitationRepository } from "../ports/invitation.repository";
 import { TokenIssuer } from "../ports/token-issuer";
 import { AccountResolver } from "../services/account-resolver";
 
-import {
-  MembershipPermission,
-  MembershipRole,
-} from "@/identity/domain/membership.entity";
+import { MembershipRole } from "@/identity/domain/membership.entity";
 
 export type InviteMemberInput = {
   email: string;
   role: MembershipRole;
-  permissions: MembershipPermission[];
+  permissions: string[];
 };
 
 export type InviteMemberOutput = {

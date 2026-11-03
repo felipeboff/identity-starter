@@ -5,11 +5,9 @@ import { AccessPolicy } from "../policies/access.policy";
 import { MembershipRepository } from "../ports/memberships.repository";
 import { MembershipResolver } from "../services/membership-resolver";
 
-import { MembershipPermission } from "@/identity/domain/membership.entity";
-
 export type UpdateMemberPermissionsInput = {
   accountId: string;
-  permissions: MembershipPermission[];
+  permissions: string[];
 };
 
 export type UpdateMemberPermissionsOutput = {

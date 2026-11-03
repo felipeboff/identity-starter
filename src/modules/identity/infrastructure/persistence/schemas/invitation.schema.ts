@@ -2,10 +2,7 @@ import { Replace } from "@shared/types/replace";
 import { Schema, Types } from "mongoose";
 
 import { InvitationSnapshot } from "@/identity/domain/invitation.entity";
-import {
-  MembershipPermission,
-  MembershipRole,
-} from "@/identity/domain/membership.entity";
+import { MembershipRole } from "@/identity/domain/membership.entity";
 
 export type InvitationDocument = Replace<
   InvitationSnapshot,
@@ -34,7 +31,7 @@ export const invitationSchema = new Schema<InvitationDocument>(
       enum: Object.values(MembershipRole),
     },
     permissions: {
-      type: [{ type: String, enum: Object.values(MembershipPermission) }],
+      type: [String],
       required: true,
     },
     tokenHash: {

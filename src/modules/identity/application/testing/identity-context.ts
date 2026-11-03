@@ -1,6 +1,10 @@
 import { faker } from "@faker-js/faker";
 import { CursorPager } from "@shared/application/services/cursor-pager";
 import { RateLimiter } from "@shared/application/services/rate-limiter";
+import {
+  ModulePermissions,
+  PermissionCatalog,
+} from "@shared/domain/value-objects/permission-catalog.value-object";
 import { FakeClock } from "@shared/testing/fake-clock";
 import { FakeLogContext } from "@shared/testing/fake-log-context";
 import { FakeLogger } from "@shared/testing/fake-logger";
@@ -41,9 +45,9 @@ import {
 
 import { Account } from "@/identity/domain/account.entity";
 import { AuthProvider, Credential } from "@/identity/domain/credential.entity";
+import { IdentityPermission } from "@/identity/domain/identity.permission";
 import {
   Membership,
-  MembershipPermission,
   MembershipRole,
 } from "@/identity/domain/membership.entity";
 import { Session } from "@/identity/domain/session.entity";
@@ -98,7 +102,20 @@ export const createIdentityContext = () => {
   });
   const accountResolver = new AccountResolver({ accounts });
   const membershipResolver = new MembershipResolver({ memberships });
-  const accessPolicy = new AccessPolicy();
+  const segment = () => faker.string.alpha({ length: 10, casing: "lower" });
+  const otherModule = segment();
+  const otherModulePermissions: ModulePermissions = {
+    module: otherModule,
+    permissions: faker.helpers.multiple(
+      () => `${otherModule}.${segment()}.${segment()}`,
+      { count: 3 },
+    ),
+  };
+  const permissions = new PermissionCatalog([
+    { module: "identity", permissions: Object.values(IdentityPermission) },
+    otherModulePermissions,
+  ]);
+  const accessPolicy = new AccessPolicy({ permissions });
 
   return {
     transactions,
@@ -129,6 +146,8 @@ export const createIdentityContext = () => {
     accountResolver,
     membershipResolver,
     accessPolicy,
+    permissions,
+    otherModulePermissions,
     pager: new CursorPager(),
   };
 };
@@ -138,7 +157,7 @@ export type SeedAccountOptions = {
   email?: string;
   password?: string;
   role?: MembershipRole;
-  permissions?: MembershipPermission[];
+  permissions?: string[];
 };
 
 export type SeededAccount = {

@@ -15,9 +15,9 @@ import { Account } from "@/identity/domain/account.entity";
 import { AuthProvider, Credential } from "@/identity/domain/credential.entity";
 import { EmailVerification } from "@/identity/domain/email-verification.entity";
 import { IdentityError } from "@/identity/domain/errors/identity.error";
+import { IdentityPermission } from "@/identity/domain/identity.permission";
 import {
   Membership,
-  MembershipPermission,
   MembershipRole,
 } from "@/identity/domain/membership.entity";
 import { PasswordReset } from "@/identity/domain/password-reset.entity";
@@ -647,32 +647,28 @@ describe("identity route failures", () => {
   });
 
   describe("acting on another account", () => {
-    const signInWithout = (http: IdentityHttp, missing: MembershipPermission) =>
+    const signInWithout = (http: IdentityHttp, missing: IdentityPermission) =>
       http.signIn({
         role: MembershipRole.ADMIN,
-        permissions: Object.values(MembershipPermission).filter(
+        permissions: Object.values(IdentityPermission).filter(
           (permission) => permission !== missing,
         ),
       });
 
     const signInAdmin = (http: IdentityHttp) =>
-      http.signIn({ permissions: Object.values(MembershipPermission) });
+      http.signIn({ permissions: Object.values(IdentityPermission) });
 
     it.each([
-      [
-        "GET",
-        "/accounts/:accountId/sessions",
-        MembershipPermission.SESSION_READ,
-      ],
+      ["GET", "/accounts/:accountId/sessions", IdentityPermission.SESSION_READ],
       [
         "DELETE",
         "/accounts/:accountId/sessions",
-        MembershipPermission.SESSION_REVOKE_ALL,
+        IdentityPermission.SESSION_REVOKE_ALL,
       ],
       [
         "POST",
         "/accounts/:accountId/deactivate",
-        MembershipPermission.ACCOUNT_DEACTIVATE,
+        IdentityPermission.ACCOUNT_DEACTIVATE,
       ],
     ] as const)(
       "answers 403 forbidden on someone else's account without the route's permission, even with the admin role, on %s %s",
@@ -698,20 +694,20 @@ describe("identity route failures", () => {
         "POST",
         "/accounts/:accountId/reactivate",
         undefined,
-        MembershipPermission.ACCOUNT_REACTIVATE,
+        IdentityPermission.ACCOUNT_REACTIVATE,
       ],
-      ["GET", "/members", undefined, MembershipPermission.MEMBER_READ],
+      ["GET", "/members", undefined, IdentityPermission.MEMBER_READ],
       [
         "PUT",
         "/members/:accountId/role",
         { role: MembershipRole.ADMIN },
-        MembershipPermission.MEMBER_ROLE_UPDATE,
+        IdentityPermission.MEMBER_ROLE_UPDATE,
       ],
       [
         "PUT",
         "/members/:accountId/permissions",
-        { permissions: [MembershipPermission.INVITATION_READ] },
-        MembershipPermission.MEMBER_PERMISSIONS_UPDATE,
+        { permissions: [IdentityPermission.INVITATION_READ] },
+        IdentityPermission.MEMBER_PERMISSIONS_UPDATE,
       ],
     ] as const)(
       "answers 403 permission_missing without the route's permission, even with the admin role (%s %s)",
@@ -739,14 +735,14 @@ describe("identity route failures", () => {
     it("answers 403 forbidden to a member granting a permission they do not hold", async () => {
       const http = createIdentityHttp();
       const admin = await http.signIn({
-        permissions: [MembershipPermission.MEMBER_PERMISSIONS_UPDATE],
+        permissions: [IdentityPermission.MEMBER_PERMISSIONS_UPDATE],
       });
       const bob = await seedAccount(http.ctx);
 
       const out = await http.call("PUT", "/members/:accountId/permissions", {
         token: admin.token,
         params: { accountId: bob.accountId },
-        body: { permissions: [MembershipPermission.SESSION_REVOKE_ALL] },
+        body: { permissions: [IdentityPermission.SESSION_REVOKE_ALL] },
       });
 
       expect(failure(out)).toStrictEqual({
@@ -777,7 +773,7 @@ describe("identity route failures", () => {
         admin.accountId,
       );
       expect(membership?.permissions).toStrictEqual(
-        Object.values(MembershipPermission),
+        Object.values(IdentityPermission),
       );
     });
 
@@ -793,7 +789,7 @@ describe("identity route failures", () => {
       [
         "PUT",
         "/members/:accountId/permissions",
-        { permissions: [MembershipPermission.INVITATION_READ] },
+        { permissions: [IdentityPermission.INVITATION_READ] },
         "MembershipNotFound",
       ],
     ] as const)(
@@ -820,7 +816,7 @@ describe("identity route failures", () => {
       [
         "PUT",
         "/members/:accountId/permissions",
-        { permissions: [MembershipPermission.INVITATION_READ] },
+        { permissions: [IdentityPermission.INVITATION_READ] },
       ],
     ] as const)(
       "answers 422 to an admin on %s %s for a removed member",

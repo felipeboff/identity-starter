@@ -12,10 +12,8 @@ import {
 import { InviteMemberUseCase } from "./invite-member.use-case";
 import { ListInvitationsUseCase } from "./list-invitations.use-case";
 
-import {
-  MembershipPermission,
-  MembershipRole,
-} from "@/identity/domain/membership.entity";
+import { IdentityPermission } from "@/identity/domain/identity.permission";
+import { MembershipRole } from "@/identity/domain/membership.entity";
 
 describe("ListInvitationsUseCase", () => {
   let ctx: IdentityContext;
@@ -39,8 +37,8 @@ describe("ListInvitationsUseCase", () => {
   it("lists the pending invitations, newest first, without token hashes", async () => {
     const inviter = await seedAccount(ctx, {
       permissions: [
-        MembershipPermission.INVITATION_CREATE,
-        MembershipPermission.INVITATION_READ,
+        IdentityPermission.INVITATION_CREATE,
+        IdentityPermission.INVITATION_READ,
       ],
     });
     const older = await invite(inviter.actor);
@@ -62,15 +60,15 @@ describe("ListInvitationsUseCase", () => {
   it("refuses permission_missing without invitation.read, even with the admin role", async () => {
     const ana = await seedAccount(ctx, {
       role: MembershipRole.ADMIN,
-      permissions: Object.values(MembershipPermission).filter(
-        (permission) => permission !== MembershipPermission.INVITATION_READ,
+      permissions: Object.values(IdentityPermission).filter(
+        (permission) => permission !== IdentityPermission.INVITATION_READ,
       ),
     });
 
     await expectAppError(
       useCase.execute(ana.actor),
       SharedError.PermissionMissing,
-      { required: MembershipPermission.INVITATION_READ },
+      { required: IdentityPermission.INVITATION_READ },
     );
   });
 });

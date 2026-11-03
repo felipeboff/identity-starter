@@ -4,6 +4,7 @@ import {
   toIdentitySettings,
   toNotificationsSettings,
 } from "@app/config";
+import { permissionCatalog } from "@app/permission-catalog";
 import { isAppError } from "@shared/domain/errors/app-error";
 import { AsyncLocalLogContext } from "@shared/infrastructure/logging/async-local-log-context";
 import { PinoLogger } from "@shared/infrastructure/logging/pino-logger";
@@ -55,6 +56,7 @@ try {
       transactions,
       mail: notifications.mailSender,
       clock,
+      permissions: permissionCatalog,
     });
     await identity.grantAdmin.execute({ email: process.argv[2] ?? "" });
   } finally {

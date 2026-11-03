@@ -9,7 +9,7 @@ import {
 } from "./deactivate-account.types";
 
 import { IdentityError } from "@/identity/domain/errors/identity.error";
-import { MembershipPermission } from "@/identity/domain/membership.entity";
+import { IdentityPermission } from "@/identity/domain/identity.permission";
 import { SessionRevocationReason } from "@/identity/domain/session.entity";
 
 /** Soft-deletes the account and revokes its sessions. Owner or admin. */
@@ -25,7 +25,7 @@ export class DeactivateAccountUseCase extends UseCase<{
       this.deps.accessPolicy.ensureCanManageAccount(
         actor,
         input.accountId,
-        MembershipPermission.ACCOUNT_DEACTIVATE,
+        IdentityPermission.ACCOUNT_DEACTIVATE,
       );
 
       const account = await this.deps.accounts.findById(input.accountId);

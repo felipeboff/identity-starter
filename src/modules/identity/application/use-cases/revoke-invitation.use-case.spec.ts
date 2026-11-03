@@ -13,10 +13,8 @@ import { InviteMemberUseCase } from "./invite-member.use-case";
 import { RevokeInvitationUseCase } from "./revoke-invitation.use-case";
 
 import { IdentityError } from "@/identity/domain/errors/identity.error";
-import {
-  MembershipPermission,
-  MembershipRole,
-} from "@/identity/domain/membership.entity";
+import { IdentityPermission } from "@/identity/domain/identity.permission";
+import { MembershipRole } from "@/identity/domain/membership.entity";
 
 describe("RevokeInvitationUseCase", () => {
   let ctx: IdentityContext;
@@ -30,8 +28,8 @@ describe("RevokeInvitationUseCase", () => {
   const inviteAs = async () => {
     const admin = await seedAccount(ctx, {
       permissions: [
-        MembershipPermission.INVITATION_CREATE,
-        MembershipPermission.INVITATION_REVOKE,
+        IdentityPermission.INVITATION_CREATE,
+        IdentityPermission.INVITATION_REVOKE,
       ],
     });
     const { invitation } = await new InviteMemberUseCase(ctx).execute(
@@ -70,15 +68,15 @@ describe("RevokeInvitationUseCase", () => {
     const { invitationId } = await inviteAs();
     const ana = await seedAccount(ctx, {
       role: MembershipRole.ADMIN,
-      permissions: Object.values(MembershipPermission).filter(
-        (permission) => permission !== MembershipPermission.INVITATION_REVOKE,
+      permissions: Object.values(IdentityPermission).filter(
+        (permission) => permission !== IdentityPermission.INVITATION_REVOKE,
       ),
     });
 
     await expectAppError(
       useCase.execute({ invitationId }, ana.actor),
       SharedError.PermissionMissing,
-      { required: MembershipPermission.INVITATION_REVOKE },
+      { required: IdentityPermission.INVITATION_REVOKE },
     );
     expect((await ctx.invitations.findById(invitationId))?.revokedAt).toBe(
       null,

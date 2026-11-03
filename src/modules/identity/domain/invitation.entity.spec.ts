@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 
 import { IdentityError } from "./errors/identity.error";
 import { Invitation, InvitationRegister } from "./invitation.entity";
-import { MembershipPermission, MembershipRole } from "./membership.entity";
+import { MembershipRole } from "./membership.entity";
+
+import { IdentityPermission } from "@/identity/domain/identity.permission";
 
 const laterThan = (date: Date) =>
   faker.date.soon({ refDate: date, days: { min: 1, max: 30 } });
@@ -20,7 +22,7 @@ const makeInvitation = (overrides: Partial<InvitationRegister> = {}) =>
       id: faker.database.mongodbObjectId(),
       email: faker.internet.email().toLowerCase(),
       role: MembershipRole.USER,
-      permissions: [MembershipPermission.INVITATION_READ],
+      permissions: [IdentityPermission.INVITATION_READ],
       tokenHash: faker.string.alphanumeric(32),
       expiresAt: EXPIRES_AT,
       createdBy: faker.database.mongodbObjectId(),
@@ -55,7 +57,7 @@ describe("Invitation", () => {
         id,
         email,
         role: MembershipRole.USER,
-        permissions: [MembershipPermission.INVITATION_READ],
+        permissions: [IdentityPermission.INVITATION_READ],
         tokenHash,
         expiresAt: EXPIRES_AT,
         createdBy,
@@ -75,12 +77,15 @@ describe("Invitation", () => {
       ).toThrow(IdentityError.InvalidMembershipRole.code);
     });
 
-    it("throws InvalidMembershipPermissions when a permission is unknown", () => {
-      expect(() =>
-        makeInvitation({
-          permissions: [faker.string.alpha(12) as MembershipPermission],
-        }),
-      ).toThrow(IdentityError.InvalidMembershipPermissions.code);
+    it("keeps a code outside any catalog, also once restored", () => {
+      const code = `${faker.string.alpha({ length: 10, casing: "lower" })}.${faker.string.alpha({ length: 10, casing: "lower" })}`;
+
+      const invitation = makeInvitation({ permissions: [code] });
+
+      expect(invitation.permissions).toStrictEqual([code]);
+      expect(
+        Invitation.restore(invitation.toSnapshot()).toSnapshot().permissions,
+      ).toStrictEqual([code]);
     });
   });
 
@@ -90,7 +95,7 @@ describe("Invitation", () => {
         id: faker.database.mongodbObjectId(),
         email: faker.internet.email().toLowerCase(),
         role: MembershipRole.ADMIN,
-        permissions: [MembershipPermission.MEMBER_PERMISSIONS_UPDATE],
+        permissions: [IdentityPermission.MEMBER_PERMISSIONS_UPDATE],
         tokenHash: faker.string.alphanumeric(32),
         expiresAt: EXPIRES_AT,
         createdBy: faker.database.mongodbObjectId(),
@@ -146,15 +151,13 @@ describe("Invitation", () => {
     it("return copies of the permissions so callers cannot mutate them", () => {
       const invitation = makeInvitation();
 
-      invitation.permissions.push(
-        MembershipPermission.MEMBER_PERMISSIONS_UPDATE,
-      );
+      invitation.permissions.push(IdentityPermission.MEMBER_PERMISSIONS_UPDATE);
       invitation
         .toSnapshot()
-        .permissions.push(MembershipPermission.MEMBER_PERMISSIONS_UPDATE);
+        .permissions.push(IdentityPermission.MEMBER_PERMISSIONS_UPDATE);
 
       expect(invitation.permissions).toEqual([
-        MembershipPermission.INVITATION_READ,
+        IdentityPermission.INVITATION_READ,
       ]);
     });
   });
@@ -207,17 +210,17 @@ describe("Invitation", () => {
   describe("updatePermissions", () => {
     it("replaces the permissions with a copy and touches updatedAt", () => {
       const invitation = makeInvitation();
-      const permissions: MembershipPermission[] = [
-        MembershipPermission.INVITATION_READ,
-        MembershipPermission.INVITATION_REVOKE,
+      const permissions: string[] = [
+        IdentityPermission.INVITATION_READ,
+        IdentityPermission.INVITATION_REVOKE,
       ];
 
       invitation.updatePermissions(permissions, LATER);
-      permissions.push(MembershipPermission.MEMBER_PERMISSIONS_UPDATE);
+      permissions.push(IdentityPermission.MEMBER_PERMISSIONS_UPDATE);
 
       expect(invitation.permissions).toEqual([
-        MembershipPermission.INVITATION_READ,
-        MembershipPermission.INVITATION_REVOKE,
+        IdentityPermission.INVITATION_READ,
+        IdentityPermission.INVITATION_REVOKE,
       ]);
       expect(invitation.updatedAt).toBe(LATER);
     });
@@ -227,7 +230,7 @@ describe("Invitation", () => {
 
       expect(() =>
         invitation.updatePermissions(
-          [MembershipPermission.INVITATION_REVOKE],
+          [IdentityPermission.INVITATION_REVOKE],
           LATER,
         ),
       ).toThrow(IdentityError.InvitationRevoked.code);
@@ -238,21 +241,19 @@ describe("Invitation", () => {
 
       expect(() =>
         invitation.updatePermissions(
-          [MembershipPermission.INVITATION_REVOKE],
+          [IdentityPermission.INVITATION_REVOKE],
           AFTER_EXPIRY,
         ),
       ).toThrow(IdentityError.InvitationExpired.code);
     });
 
-    it("throws InvalidMembershipPermissions when a permission is unknown", () => {
+    it("keeps a code outside any catalog when updating", () => {
       const invitation = makeInvitation();
+      const code = `${faker.string.alpha({ length: 10, casing: "lower" })}.${faker.string.alpha({ length: 10, casing: "lower" })}`;
 
-      expect(() =>
-        invitation.updatePermissions(
-          [faker.string.alpha(12) as MembershipPermission],
-          LATER,
-        ),
-      ).toThrow(IdentityError.InvalidMembershipPermissions.code);
+      invitation.updatePermissions([code], LATER);
+
+      expect(invitation.permissions).toStrictEqual([code]);
     });
   });
 

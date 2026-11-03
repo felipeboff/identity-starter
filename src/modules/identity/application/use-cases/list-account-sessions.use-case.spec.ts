@@ -11,10 +11,8 @@ import {
 import { ListAccountSessionsUseCase } from "./list-account-sessions.use-case";
 
 import { IdentityError } from "@/identity/domain/errors/identity.error";
-import {
-  MembershipPermission,
-  MembershipRole,
-} from "@/identity/domain/membership.entity";
+import { IdentityPermission } from "@/identity/domain/identity.permission";
+import { MembershipRole } from "@/identity/domain/membership.entity";
 import { SessionRevocationReason } from "@/identity/domain/session.entity";
 
 describe("ListAccountSessionsUseCase", () => {
@@ -28,7 +26,7 @@ describe("ListAccountSessionsUseCase", () => {
 
   it("lists another account's active sessions, newest first, to a holder of session.read", async () => {
     const admin = await seedAccount(ctx, {
-      permissions: [MembershipPermission.SESSION_READ],
+      permissions: [IdentityPermission.SESSION_READ],
     });
     const bob = await seedAccount(ctx);
     const { session: older } = await seedSession(ctx, bob);
@@ -65,8 +63,8 @@ describe("ListAccountSessionsUseCase", () => {
   it("throws Forbidden on someone else's account without session.read, even with the admin role", async () => {
     const ana = await seedAccount(ctx, {
       role: MembershipRole.ADMIN,
-      permissions: Object.values(MembershipPermission).filter(
-        (permission) => permission !== MembershipPermission.SESSION_READ,
+      permissions: Object.values(IdentityPermission).filter(
+        (permission) => permission !== IdentityPermission.SESSION_READ,
       ),
     });
     const bob = await seedAccount(ctx);

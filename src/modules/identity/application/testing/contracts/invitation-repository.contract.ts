@@ -7,11 +7,9 @@ import { InvitationRepository } from "../../ports/invitation.repository";
 import type { RepositoryUnderContract } from "./repository-under-contract";
 import { transactionalSaveContract } from "./transactional-save.contract";
 
+import { IdentityPermission } from "@/identity/domain/identity.permission";
 import { Invitation } from "@/identity/domain/invitation.entity";
-import {
-  MembershipPermission,
-  MembershipRole,
-} from "@/identity/domain/membership.entity";
+import { MembershipRole } from "@/identity/domain/membership.entity";
 
 const tokenHash = () => faker.string.hexadecimal({ length: 64, prefix: "" });
 
@@ -25,7 +23,7 @@ const registerInvitation = (
       email,
       role: faker.helpers.arrayElement(Object.values(MembershipRole)),
       permissions: faker.helpers.arrayElements(
-        Object.values(MembershipPermission),
+        Object.values(IdentityPermission),
       ),
       tokenHash: tokenHash(),
       expiresAt: faker.date.future(),
@@ -63,6 +61,16 @@ export const invitationRepositoryContract = (
     expect((await load(entity)).toSnapshot()).toStrictEqual(
       entity.toSnapshot(),
     );
+  });
+
+  it("keeps a permission code outside the catalog", async () => {
+    const entity = registerInvitation();
+    const code = `${faker.string.alpha({ length: 10, casing: "lower" })}.${faker.string.alpha({ length: 10, casing: "lower" })}`;
+    entity.updatePermissions([code], faker.date.recent());
+
+    await invitations.save(entity);
+
+    expect((await load(entity)).permissions).toStrictEqual([code]);
   });
 
   it("keeps the acceptance saved on the same instance", async () => {

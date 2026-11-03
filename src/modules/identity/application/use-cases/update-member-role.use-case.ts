@@ -11,7 +11,7 @@ import {
 } from "./update-member-role.types";
 
 import { IdentityError } from "@/identity/domain/errors/identity.error";
-import { MembershipPermission } from "@/identity/domain/membership.entity";
+import { IdentityPermission } from "@/identity/domain/identity.permission";
 
 /** Nobody changes their own role. */
 export class UpdateMemberRoleUseCase extends UseCase<{
@@ -20,7 +20,7 @@ export class UpdateMemberRoleUseCase extends UseCase<{
   deps: UpdateMemberRoleDeps;
   actor: Actor;
 }> {
-  readonly access = { permissions: [MembershipPermission.MEMBER_ROLE_UPDATE] };
+  readonly access = { permissions: [IdentityPermission.MEMBER_ROLE_UPDATE] };
 
   async execute(
     input: UpdateMemberRoleInput,

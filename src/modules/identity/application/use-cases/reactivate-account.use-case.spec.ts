@@ -12,10 +12,8 @@ import {
 import { ReactivateAccountUseCase } from "./reactivate-account.use-case";
 
 import { IdentityError } from "@/identity/domain/errors/identity.error";
-import {
-  MembershipPermission,
-  MembershipRole,
-} from "@/identity/domain/membership.entity";
+import { IdentityPermission } from "@/identity/domain/identity.permission";
+import { MembershipRole } from "@/identity/domain/membership.entity";
 
 describe("ReactivateAccountUseCase", () => {
   let ctx: IdentityContext;
@@ -29,7 +27,7 @@ describe("ReactivateAccountUseCase", () => {
   it("reactivates for a user-role member holding account.reactivate", async () => {
     const admin = await seedAccount(ctx, {
       role: MembershipRole.USER,
-      permissions: [MembershipPermission.ACCOUNT_REACTIVATE],
+      permissions: [IdentityPermission.ACCOUNT_REACTIVATE],
     });
     const ana = await seedAccount(ctx);
     ana.account.markAsDeleted(ctx.clock.now());
@@ -53,8 +51,8 @@ describe("ReactivateAccountUseCase", () => {
   it("refuses permission_missing without account.reactivate, even with the admin role", async () => {
     const ana = await seedAccount(ctx, {
       role: MembershipRole.ADMIN,
-      permissions: Object.values(MembershipPermission).filter(
-        (permission) => permission !== MembershipPermission.ACCOUNT_REACTIVATE,
+      permissions: Object.values(IdentityPermission).filter(
+        (permission) => permission !== IdentityPermission.ACCOUNT_REACTIVATE,
       ),
     });
     ana.account.markAsDeleted(ctx.clock.now());
@@ -63,7 +61,7 @@ describe("ReactivateAccountUseCase", () => {
     await expectAppError(
       useCase.execute({ accountId: ana.accountId }, ana.actor),
       SharedError.PermissionMissing,
-      { required: MembershipPermission.ACCOUNT_REACTIVATE },
+      { required: IdentityPermission.ACCOUNT_REACTIVATE },
     );
 
     const account = await ctx.accounts.findById(ana.accountId);
@@ -72,7 +70,7 @@ describe("ReactivateAccountUseCase", () => {
 
   it("throws AccountNotFound when the account does not exist", async () => {
     const admin = await seedAccount(ctx, {
-      permissions: [MembershipPermission.ACCOUNT_REACTIVATE],
+      permissions: [IdentityPermission.ACCOUNT_REACTIVATE],
     });
     const missingId = faker.database.mongodbObjectId();
 

@@ -3,15 +3,15 @@ import { Handler, Inbound } from "@shared/presentation/handler";
 import Type from "typebox";
 
 import { membershipOutputSchema } from "./output.schema";
+import { permissionsSchema } from "./permissions.schema";
 
 import { Actor } from "@/identity/application/actor";
 import { UpdateMemberPermissionsOutput } from "@/identity/application/use-cases/update-member-permissions.types";
 import { UpdateMemberPermissionsUseCase } from "@/identity/application/use-cases/update-member-permissions.use-case";
-import { MembershipPermission } from "@/identity/domain/membership.entity";
 
 const inputSchema = Type.Object({
   accountId: Type.String({ pattern: OBJECT_ID_PATTERN }),
-  permissions: Type.Array(Type.Enum(Object.values(MembershipPermission))),
+  permissions: permissionsSchema,
 });
 
 type Input = Type.StaticDecode<typeof inputSchema>;

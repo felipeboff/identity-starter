@@ -14,10 +14,8 @@ import { AuthenticateUseCase } from "./authenticate.use-case";
 
 import { Account } from "@/identity/domain/account.entity";
 import { IdentityError } from "@/identity/domain/errors/identity.error";
-import {
-  MembershipPermission,
-  MembershipRole,
-} from "@/identity/domain/membership.entity";
+import { IdentityPermission } from "@/identity/domain/identity.permission";
+import { MembershipRole } from "@/identity/domain/membership.entity";
 import { SessionRevocationReason } from "@/identity/domain/session.entity";
 
 describe("AuthenticateUseCase", () => {
@@ -36,8 +34,8 @@ describe("AuthenticateUseCase", () => {
     const ana = await seedAccount(ctx, { role: MembershipRole.ADMIN });
     ana.membership.updatePermissions(
       [
-        MembershipPermission.INVITATION_READ,
-        MembershipPermission.INVITATION_REVOKE,
+        IdentityPermission.INVITATION_READ,
+        IdentityPermission.INVITATION_REVOKE,
       ],
       ctx.clock.now(),
     );
@@ -54,8 +52,8 @@ describe("AuthenticateUseCase", () => {
       membershipId: ana.membership.id.value,
       role: MembershipRole.ADMIN,
       permissions: [
-        MembershipPermission.INVITATION_READ,
-        MembershipPermission.INVITATION_REVOKE,
+        IdentityPermission.INVITATION_READ,
+        IdentityPermission.INVITATION_REVOKE,
       ],
     });
     expectTypeOf<keyof Actor>().toEqualTypeOf<

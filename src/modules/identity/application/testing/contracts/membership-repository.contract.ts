@@ -7,9 +7,9 @@ import { MembershipRepository } from "../../ports/memberships.repository";
 import type { RepositoryUnderContract } from "./repository-under-contract";
 import { transactionalSaveContract } from "./transactional-save.contract";
 
+import { IdentityPermission } from "@/identity/domain/identity.permission";
 import {
   Membership,
-  MembershipPermission,
   MembershipRole,
 } from "@/identity/domain/membership.entity";
 
@@ -22,8 +22,8 @@ const registerMembership = (id = faker.database.mongodbObjectId()) => {
       createdBy: accountId,
       role: MembershipRole.USER,
       permissions: [
-        MembershipPermission.INVITATION_READ,
-        MembershipPermission.INVITATION_REVOKE,
+        IdentityPermission.INVITATION_READ,
+        IdentityPermission.INVITATION_REVOKE,
       ],
     },
     faker.date.past(),
@@ -59,6 +59,16 @@ export const membershipRepositoryContract = (
     expect((await load(membership)).toSnapshot()).toStrictEqual(
       membership.toSnapshot(),
     );
+  });
+
+  it("keeps a permission code outside the catalog", async () => {
+    const membership = registerMembership();
+    const code = `${faker.string.alpha({ length: 10, casing: "lower" })}.${faker.string.alpha({ length: 10, casing: "lower" })}`;
+    membership.updatePermissions([code], faker.date.recent());
+
+    await memberships.save(membership);
+
+    expect((await load(membership)).permissions).toStrictEqual([code]);
   });
 
   it("keeps a change saved on the same instance", async () => {

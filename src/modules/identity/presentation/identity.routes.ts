@@ -13,6 +13,7 @@ import { ListAccountSessionsHandler } from "./list-account-sessions.handler";
 import { ListCredentialsHandler } from "./list-credentials.handler";
 import { ListInvitationsHandler } from "./list-invitations.handler";
 import { ListMembersHandler } from "./list-members.handler";
+import { ListPermissionsHandler } from "./list-permissions.handler";
 import { ListSessionsHandler } from "./list-sessions.handler";
 import { ReactivateAccountHandler } from "./reactivate-account.handler";
 import { RefreshSessionHandler } from "./refresh-session.handler";
@@ -47,6 +48,7 @@ import { ListAccountSessionsUseCase } from "@/identity/application/use-cases/lis
 import { ListCredentialsUseCase } from "@/identity/application/use-cases/list-credentials.use-case";
 import { ListInvitationsUseCase } from "@/identity/application/use-cases/list-invitations.use-case";
 import { ListMembersUseCase } from "@/identity/application/use-cases/list-members.use-case";
+import { ListPermissionsUseCase } from "@/identity/application/use-cases/list-permissions.use-case";
 import { ListSessionsUseCase } from "@/identity/application/use-cases/list-sessions.use-case";
 import { ReactivateAccountUseCase } from "@/identity/application/use-cases/reactivate-account.use-case";
 import { RefreshSessionUseCase } from "@/identity/application/use-cases/refresh-session.use-case";
@@ -103,6 +105,7 @@ export type IdentityHttpDeps = {
   listMembers: ListMembersUseCase;
   updateMemberRole: UpdateMemberRoleUseCase;
   updateMemberPermissions: UpdateMemberPermissionsUseCase;
+  listPermissions: ListPermissionsUseCase;
 };
 
 export const createIdentityPublicRoutes = (
@@ -407,5 +410,12 @@ export const createIdentityRoutes = (
     status: 204,
     failures: [400, 401, 403, 404, 422],
     handler: new RevokeInvitationHandler(deps),
+  },
+  {
+    method: "GET",
+    path: "/permissions",
+    status: 200,
+    failures: [401],
+    handler: new ListPermissionsHandler(deps),
   },
 ];

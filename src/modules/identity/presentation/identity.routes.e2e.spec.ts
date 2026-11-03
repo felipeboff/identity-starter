@@ -21,6 +21,7 @@ import { ListAccountSessionsUseCase } from "@/identity/application/use-cases/lis
 import { ListCredentialsUseCase } from "@/identity/application/use-cases/list-credentials.use-case";
 import { ListInvitationsUseCase } from "@/identity/application/use-cases/list-invitations.use-case";
 import { ListMembersUseCase } from "@/identity/application/use-cases/list-members.use-case";
+import { ListPermissionsUseCase } from "@/identity/application/use-cases/list-permissions.use-case";
 import { ListSessionsUseCase } from "@/identity/application/use-cases/list-sessions.use-case";
 import { ReactivateAccountUseCase } from "@/identity/application/use-cases/reactivate-account.use-case";
 import { RefreshSessionUseCase } from "@/identity/application/use-cases/refresh-session.use-case";
@@ -43,10 +44,8 @@ import { UpdateMemberRoleUseCase } from "@/identity/application/use-cases/update
 import { VerifyEmailUseCase } from "@/identity/application/use-cases/verify-email.use-case";
 import { AuthProvider } from "@/identity/domain/credential.entity";
 import { IdentityError } from "@/identity/domain/errors/identity.error";
-import {
-  MembershipPermission,
-  MembershipRole,
-} from "@/identity/domain/membership.entity";
+import { IdentityPermission } from "@/identity/domain/identity.permission";
+import { MembershipRole } from "@/identity/domain/membership.entity";
 import { SessionRevocationReason } from "@/identity/domain/session.entity";
 
 type UseCaseClass = {
@@ -99,6 +98,7 @@ const PROTECTED_ROUTES: [HttpMethod, string, UseCaseClass][] = [
   ["POST", "/invitations", InviteMemberUseCase],
   ["GET", "/invitations", ListInvitationsUseCase],
   ["DELETE", "/invitations/:invitationId", RevokeInvitationUseCase],
+  ["GET", "/permissions", ListPermissionsUseCase],
 ];
 
 const PUBLIC_ROUTES: [HttpMethod, string][] = [
@@ -263,7 +263,7 @@ describe("identity routes", () => {
     vi.restoreAllMocks();
   });
 
-  it("declares the 28 routes with authentication only on the protected ones", () => {
+  it("declares the 32 routes with authentication only on the protected ones", () => {
     const { routes } = createIdentityHttp();
 
     expect(
@@ -309,7 +309,7 @@ describe("identity routes", () => {
   it("reads a path id over a body field with the same name", async () => {
     const http = createIdentityHttp();
     const admin = await http.signIn({
-      permissions: [MembershipPermission.MEMBER_ROLE_UPDATE],
+      permissions: [IdentityPermission.MEMBER_ROLE_UPDATE],
     });
     const bruno = await seedAccount(http.ctx);
     const carla = await seedAccount(http.ctx);
@@ -405,7 +405,7 @@ describe("identity routes", () => {
     const { routes } = createIdentityHttp();
     const names = routes.map((route) => route.handler.name);
 
-    expect(names).toHaveLength(31);
+    expect(names).toHaveLength(32);
     expect(names.filter((name) => !OPERATION_NAME.test(name))).toStrictEqual(
       [],
     );
@@ -416,7 +416,7 @@ describe("identity routes", () => {
     const { routes } = createIdentityHttp();
     const schemas = routes.map((route) => route.handler.input ?? NO_INPUT);
 
-    expect(schemas).toHaveLength(31);
+    expect(schemas).toHaveLength(32);
     for (const schema of schemas) {
       const json: unknown = JSON.parse(JSON.stringify(schema));
 

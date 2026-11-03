@@ -37,6 +37,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Env } from "./config";
 
+import { IdentityPermission } from "@/identity/public";
+
 const buildEnv = (overrides: Partial<Env> = {}): Env => ({
   APP_NAME: faker.internet.domainWord(),
   NODE_ENV: "test",
@@ -593,6 +595,20 @@ describe("start", () => {
     expect(await emailLogged(output, "welcome", account.email)).toMatchObject({
       template: "welcome",
       to: account.email,
+    });
+  });
+
+  it("lists identity's permissions at GET /permissions", async () => {
+    const { url } = await startApp();
+    const account = await signUp(url);
+
+    const response = await request(url)
+      .get("/api/permissions")
+      .set("authorization", `Bearer ${account.accessToken}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toStrictEqual({
+      permissions: Object.values(IdentityPermission).sort(),
     });
   });
 

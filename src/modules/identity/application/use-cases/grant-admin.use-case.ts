@@ -12,10 +12,7 @@ import {
 } from "./grant-admin.types";
 
 import { IdentityError } from "@/identity/domain/errors/identity.error";
-import {
-  MembershipPermission,
-  MembershipRole,
-} from "@/identity/domain/membership.entity";
+import { MembershipRole } from "@/identity/domain/membership.entity";
 
 /** Run by the operator, outside any session: there is no actor to check. */
 export class GrantAdminUseCase extends UseCase<{
@@ -56,7 +53,7 @@ export class GrantAdminUseCase extends UseCase<{
     );
     const at = this.deps.clock.now();
     membership.updateRole(MembershipRole.ADMIN, at);
-    membership.updatePermissions(Object.values(MembershipPermission), at);
+    membership.updatePermissions(this.deps.permissions.all(), at);
     await this.deps.memberships.save(membership);
 
     this.deps.logger.info(IdentityUseCaseLogEvent.AdminGranted, {

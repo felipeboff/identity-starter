@@ -25,6 +25,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import packageJson from "../../package.json" with { type: "json" };
 
 import { createServer } from "./create-server";
+import { permissionCatalog } from "./permission-catalog";
 
 import {
   type IdentitySettings,
@@ -86,6 +87,7 @@ const createApp = async (
         transactions: new MongoTransactionRunner(mongo.connection()),
         mail: new FakeMailSender(),
         clock,
+        permissions: permissionCatalog,
       }),
     },
     logger,
@@ -132,6 +134,7 @@ describe("createServer", () => {
           transactions: new MongoTransactionRunner(mongo.connection()),
           mail: new FakeMailSender(),
           clock,
+          permissions: permissionCatalog,
         }),
       },
       logger: new FakeLogger(),

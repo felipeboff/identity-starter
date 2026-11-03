@@ -1,5 +1,6 @@
 import { Clock } from "@shared/application/ports/clock";
 import type { Logger } from "@shared/application/ports/logger";
+import { PermissionCatalog } from "@shared/domain/value-objects/permission-catalog.value-object";
 
 import { MembershipOutput } from "../mappers/toOutputMembership";
 import { AccountRepository } from "../ports/account.repository";
@@ -19,6 +20,7 @@ export type GrantAdminDeps = {
   memberships: MembershipRepository;
   clock: Clock;
   logger: Logger;
+  permissions: PermissionCatalog;
 
   membershipResolver: MembershipResolver;
 };

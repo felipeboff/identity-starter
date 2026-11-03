@@ -14,12 +14,8 @@ import { IdentityUseCaseLogEvent } from "../use-case.log-event";
 import { GrantAdminUseCase } from "./grant-admin.use-case";
 
 import { IdentityError } from "@/identity/domain/errors/identity.error";
-import {
-  MembershipPermission,
-  MembershipRole,
-} from "@/identity/domain/membership.entity";
-
-const ALL_PERMISSIONS = Object.values(MembershipPermission);
+import { IdentityPermission } from "@/identity/domain/identity.permission";
+import { MembershipRole } from "@/identity/domain/membership.entity";
 
 describe("GrantAdminUseCase", () => {
   let ctx: IdentityContext;
@@ -30,19 +26,25 @@ describe("GrantAdminUseCase", () => {
     useCase = new GrantAdminUseCase(ctx);
   });
 
-  it("gives the account's membership the admin role and every permission", async () => {
+  const everyCode = () =>
+    [
+      ...Object.values(IdentityPermission),
+      ...ctx.otherModulePermissions.permissions,
+    ].sort();
+
+  it("grants exactly every code in the catalog, another module's included, with the admin role", async () => {
     const ana = await seedAccount(ctx);
 
     const output = await useCase.execute({ email: ana.email });
 
     const stored = await ctx.memberships.findByAccountId(ana.accountId);
     expect(stored?.role).toBe(MembershipRole.ADMIN);
-    expect(stored?.permissions).toStrictEqual(ALL_PERMISSIONS);
+    expect(stored?.permissions).toStrictEqual(everyCode());
     expect(stored?.updatedAt).toEqual(ctx.clock.now());
     expect(output.membership).toMatchObject({
       accountId: ana.accountId,
       role: MembershipRole.ADMIN,
-      permissions: ALL_PERMISSIONS,
+      permissions: everyCode(),
     });
   });
 
@@ -52,12 +54,12 @@ describe("GrantAdminUseCase", () => {
     await useCase.execute({ email: `  ${ana.email.toUpperCase()}  ` });
 
     const stored = await ctx.memberships.findByAccountId(ana.accountId);
-    expect(stored?.permissions).toStrictEqual(ALL_PERMISSIONS);
+    expect(stored?.permissions).toStrictEqual(everyCode());
   });
 
   it("ends in the same state when run twice", async () => {
     const ana = await seedAccount(ctx, {
-      permissions: [MembershipPermission.MEMBER_READ],
+      permissions: [IdentityPermission.MEMBER_READ],
     });
 
     await useCase.execute({ email: ana.email });
@@ -65,7 +67,7 @@ describe("GrantAdminUseCase", () => {
 
     const stored = await ctx.memberships.findByAccountId(ana.accountId);
     expect(stored?.role).toBe(MembershipRole.ADMIN);
-    expect(stored?.permissions).toStrictEqual(ALL_PERMISSIONS);
+    expect(stored?.permissions).toStrictEqual(everyCode());
   });
 
   it("throws EmailRequired when no e-mail is given", async () => {

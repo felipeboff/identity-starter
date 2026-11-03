@@ -4,6 +4,7 @@ import {
   OutboxRunOutcome,
 } from "@shared/application/services/outbox-effect-runner";
 import { SharedError } from "@shared/domain/errors/shared.error";
+import { PermissionCatalog } from "@shared/domain/value-objects/permission-catalog.value-object";
 import { MongoOutbox } from "@shared/infrastructure/mongo/mongo-outbox";
 import { MongoTransactionRunner } from "@shared/infrastructure/mongo/mongo-transaction-runner";
 import type { OutboxDocument } from "@shared/infrastructure/mongo/outbox.schema";
@@ -29,12 +30,17 @@ import {
   vi,
 } from "vitest";
 
-import { type IdentitySettings, createIdentityModule } from "./identity.module";
+import {
+  type IdentitySettings,
+  createIdentityModule,
+  identityPermissions,
+} from "./identity.module";
 import { GOOGLE_TOKEN_URL } from "./infrastructure/fetch-oauth-gateway";
 
 import { RateLimitPolicy } from "@/identity/application/rate-limit.policy";
 import { AuthProvider } from "@/identity/domain/credential.entity";
 import { IdentityError } from "@/identity/domain/errors/identity.error";
+import { IdentityPermission } from "@/identity/domain/identity.permission";
 
 const mongo = useMemoryMongo();
 const redis = useMemoryRedis();
@@ -82,6 +88,7 @@ const create = async (settings = buildSettings()) => {
     transactions: new MongoTransactionRunner(mongo.connection()),
     mail,
     clock,
+    permissions: new PermissionCatalog([identityPermissions]),
   });
   const dispatcher = new Dispatcher({ parser: new SchemaParser() });
 
@@ -317,5 +324,12 @@ describe("createIdentityModule", () => {
       call("/auth/password-reset/request", { email }, ip),
       SharedError.RateLimited,
     );
+  });
+
+  it("declares identity's permissions", () => {
+    expect(identityPermissions).toStrictEqual({
+      module: "identity",
+      permissions: Object.values(IdentityPermission),
+    });
   });
 });

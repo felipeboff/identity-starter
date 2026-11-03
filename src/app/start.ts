@@ -36,6 +36,7 @@ import {
   toNotificationsSettings,
 } from "./config";
 import { createServer } from "./create-server";
+import { permissionCatalog } from "./permission-catalog";
 
 import { createIdentityModule } from "@/identity/identity.module";
 import { createNotificationsModule } from "@/notifications/notifications.module";
@@ -134,6 +135,7 @@ export const start = async (options: StartOptions): Promise<RunningApp> => {
     transactions,
     mail: notifications.mailSender,
     clock,
+    permissions: permissionCatalog,
   });
 
   const dispatcher = new Dispatcher({ parser: new SchemaParser() });

@@ -2,21 +2,16 @@ import { OBJECT_ID_PATTERN } from "@shared/domain/value-objects/id.value-object"
 import { dateTimeSchema } from "@shared/presentation/date.schema";
 import Type from "typebox";
 
+import { permissionsSchema } from "./permissions.schema";
+
 import { AuthProvider } from "@/identity/domain/credential.entity";
-import {
-  MembershipPermission,
-  MembershipRole,
-} from "@/identity/domain/membership.entity";
+import { MembershipRole } from "@/identity/domain/membership.entity";
 
 const idSchema = Type.String({ pattern: OBJECT_ID_PATTERN });
 
 const nullableDateTimeSchema = Type.Union([dateTimeSchema, Type.Null()]);
 
 const roleSchema = Type.Enum(Object.values(MembershipRole));
-
-const permissionsSchema = Type.Array(
-  Type.Enum(Object.values(MembershipPermission)),
-);
 
 export const accountOutputSchema = Type.Object({
   id: idSchema,

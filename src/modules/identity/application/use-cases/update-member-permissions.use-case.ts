@@ -11,7 +11,7 @@ import {
 } from "./update-member-permissions.types";
 
 import { IdentityError } from "@/identity/domain/errors/identity.error";
-import { MembershipPermission } from "@/identity/domain/membership.entity";
+import { IdentityPermission } from "@/identity/domain/identity.permission";
 
 /** Nobody changes their own permissions, so nobody locks themselves out. */
 export class UpdateMemberPermissionsUseCase extends UseCase<{
@@ -21,7 +21,7 @@ export class UpdateMemberPermissionsUseCase extends UseCase<{
   actor: Actor;
 }> {
   readonly access = {
-    permissions: [MembershipPermission.MEMBER_PERMISSIONS_UPDATE],
+    permissions: [IdentityPermission.MEMBER_PERMISSIONS_UPDATE],
   };
 
   async execute(

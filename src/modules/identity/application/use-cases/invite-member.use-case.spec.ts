@@ -13,10 +13,8 @@ import { INVITATION_TTL_MS } from "../token.policy";
 import { InviteMemberUseCase } from "./invite-member.use-case";
 
 import { IdentityError } from "@/identity/domain/errors/identity.error";
-import {
-  MembershipPermission,
-  MembershipRole,
-} from "@/identity/domain/membership.entity";
+import { IdentityPermission } from "@/identity/domain/identity.permission";
+import { MembershipRole } from "@/identity/domain/membership.entity";
 
 describe("InviteMemberUseCase", () => {
   let ctx: IdentityContext;
@@ -25,14 +23,14 @@ describe("InviteMemberUseCase", () => {
   const makeInput = () => ({
     email: faker.internet.email().toLowerCase(),
     role: MembershipRole.USER,
-    permissions: [MembershipPermission.INVITATION_READ],
+    permissions: [IdentityPermission.INVITATION_READ],
   });
 
   const seedInviter = () =>
     seedAccount(ctx, {
       permissions: [
-        MembershipPermission.INVITATION_CREATE,
-        MembershipPermission.INVITATION_READ,
+        IdentityPermission.INVITATION_CREATE,
+        IdentityPermission.INVITATION_READ,
       ],
     });
 
@@ -95,22 +93,22 @@ describe("InviteMemberUseCase", () => {
   it("refuses permission_missing without invitation.create, even with the admin role", async () => {
     const ana = await seedAccount(ctx, {
       role: MembershipRole.ADMIN,
-      permissions: Object.values(MembershipPermission).filter(
-        (permission) => permission !== MembershipPermission.INVITATION_CREATE,
+      permissions: Object.values(IdentityPermission).filter(
+        (permission) => permission !== IdentityPermission.INVITATION_CREATE,
       ),
     });
 
     await expectAppError(
       useCase.execute(makeInput(), ana.actor),
       SharedError.PermissionMissing,
-      { required: MembershipPermission.INVITATION_CREATE },
+      { required: IdentityPermission.INVITATION_CREATE },
     );
     expect(ctx.mailer.invitations).toStrictEqual([]);
   });
 
   it("throws Forbidden when the inviter grants a permission they do not hold", async () => {
     const inviter = await seedAccount(ctx, {
-      permissions: [MembershipPermission.INVITATION_CREATE],
+      permissions: [IdentityPermission.INVITATION_CREATE],
     });
 
     await expectAppError(
@@ -135,19 +133,47 @@ describe("InviteMemberUseCase", () => {
   it("throws Forbidden when the inviter lacks one asked permission, whatever else they hold", async () => {
     const inviter = await seedAccount(ctx, {
       role: MembershipRole.ADMIN,
-      permissions: Object.values(MembershipPermission).filter(
-        (permission) => permission !== MembershipPermission.INVITATION_REVOKE,
+      permissions: Object.values(IdentityPermission).filter(
+        (permission) => permission !== IdentityPermission.INVITATION_REVOKE,
       ),
     });
     const input = {
       ...makeInput(),
-      permissions: Object.values(MembershipPermission),
+      permissions: Object.values(IdentityPermission),
     };
 
     await expectAppError(
       useCase.execute(input, inviter.actor),
       IdentityError.Forbidden,
       { actorAccountId: inviter.accountId },
+    );
+    expect(ctx.mailer.invitations).toStrictEqual([]);
+  });
+
+  it("grants a permission another module declares", async () => {
+    const [permission] = ctx.otherModulePermissions.permissions;
+    const inviter = await seedAccount(ctx, {
+      permissions: [IdentityPermission.INVITATION_CREATE, permission],
+    });
+    const input = { ...makeInput(), permissions: [permission] };
+
+    const output = await useCase.execute(input, inviter.actor);
+
+    expect(output.invitation.permissions).toStrictEqual([permission]);
+  });
+
+  it("throws InvalidMembershipPermissions for a code outside the catalog before Forbidden", async () => {
+    const inviter = await seedInviter();
+    const unknown = `${faker.string.alpha({ length: 10, casing: "lower" })}.${faker.string.alpha({ length: 10, casing: "lower" })}`;
+    const input = {
+      ...makeInput(),
+      permissions: [IdentityPermission.MEMBER_READ, unknown],
+    };
+
+    await expectAppError(
+      useCase.execute(input, inviter.actor),
+      IdentityError.InvalidMembershipPermissions,
+      { permissions: [unknown] },
     );
     expect(ctx.mailer.invitations).toStrictEqual([]);
   });

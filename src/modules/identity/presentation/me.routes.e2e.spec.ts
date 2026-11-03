@@ -13,10 +13,8 @@ import {
 } from "@/identity/application/testing/identity-context";
 import { ListMembersOutput } from "@/identity/application/use-cases/list-members.types";
 import { AuthProvider, Credential } from "@/identity/domain/credential.entity";
-import {
-  MembershipPermission,
-  MembershipRole,
-} from "@/identity/domain/membership.entity";
+import { IdentityPermission } from "@/identity/domain/identity.permission";
+import { MembershipRole } from "@/identity/domain/membership.entity";
 
 const saveGoogleCredential = async (http: IdentityHttp, accountId: string) => {
   const credential = Credential.register(
@@ -235,7 +233,7 @@ describe("identity protected routes", () => {
   it("lists a member's sessions with 200", async () => {
     const http = createIdentityHttp();
     const admin = await http.signIn({
-      permissions: [MembershipPermission.SESSION_READ],
+      permissions: [IdentityPermission.SESSION_READ],
     });
     const bob = await http.signIn();
 
@@ -273,7 +271,7 @@ describe("identity protected routes", () => {
     const http = createIdentityHttp();
     const admin = await http.signIn({
       role: MembershipRole.USER,
-      permissions: [MembershipPermission.ACCOUNT_DEACTIVATE],
+      permissions: [IdentityPermission.ACCOUNT_DEACTIVATE],
     });
     const bruno = await seedAccount(http.ctx);
 
@@ -291,7 +289,7 @@ describe("identity protected routes", () => {
     const http = createIdentityHttp();
     const admin = await http.signIn({
       role: MembershipRole.USER,
-      permissions: [MembershipPermission.ACCOUNT_REACTIVATE],
+      permissions: [IdentityPermission.ACCOUNT_REACTIVATE],
     });
     const bruno = await seedAccount(http.ctx);
     bruno.account.markAsDeleted(http.ctx.clock.now());
@@ -314,7 +312,7 @@ describe("identity protected routes", () => {
   it("lists members with 200, one page at a time", async () => {
     const http = createIdentityHttp();
     const ana = await http.signIn({
-      permissions: [MembershipPermission.MEMBER_READ],
+      permissions: [IdentityPermission.MEMBER_READ],
     });
     const bruno = await seedAccount(http.ctx);
 
@@ -350,7 +348,7 @@ describe("identity protected routes", () => {
     const http = createIdentityHttp();
     const admin = await http.signIn({
       role: MembershipRole.USER,
-      permissions: [MembershipPermission.MEMBER_ROLE_UPDATE],
+      permissions: [IdentityPermission.MEMBER_ROLE_UPDATE],
     });
     const bruno = await seedAccount(http.ctx);
 
@@ -372,13 +370,13 @@ describe("identity protected routes", () => {
   it("changes member permissions with 200", async () => {
     const http = createIdentityHttp();
     const permissions = [
-      MembershipPermission.INVITATION_READ,
-      MembershipPermission.INVITATION_REVOKE,
+      IdentityPermission.INVITATION_READ,
+      IdentityPermission.INVITATION_REVOKE,
     ];
     const admin = await http.signIn({
       role: MembershipRole.USER,
       permissions: [
-        MembershipPermission.MEMBER_PERMISSIONS_UPDATE,
+        IdentityPermission.MEMBER_PERMISSIONS_UPDATE,
         ...permissions,
       ],
     });
