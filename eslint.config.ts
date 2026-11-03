@@ -38,7 +38,7 @@ const NO_OUTER_LAYER_IN_APPLICATION = {
 const ONLY_TYPEBOX_IN_PRESENTATION = {
   regex: "^(?!\\.|@/|@shared/|typebox(/|$))",
   message:
-    "Presentation is transport-neutral (ADR-001): typebox is its only library; transports live in infrastructure.",
+    "Presentation is transport-neutral (docs/architecture.md): typebox is its only library; transports live in infrastructure.",
 };
 
 const NO_INFRASTRUCTURE_IN_PRESENTATION = {

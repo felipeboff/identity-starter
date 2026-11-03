@@ -110,6 +110,24 @@ run the spec three times.
 - Validator results are asserted as `{ ok: true, data }` / `{ ok: false, violations }`.
 - Comments only for non-obvious information.
 
+## Assertions that prove the claim
+
+A test must fail when the behaviour it names breaks. These gaps passed review before:
+
+- **Exactly one.** Assert the whole list (`toStrictEqual([entry])`), never only `list[0]`.
+- **No timer runs.** `expect(vi.getTimerCount()).toBe(0)`, not `vi.advanceTimersByTime(0)`.
+- **A value the test can know** (an `expiresAt`, an id from the arrange step) is pinned, not
+  matched with `expect.any(String)`.
+- **A compound condition** (`a && b`, `a || b`) gets one case per operand, where only that
+  operand flips the result.
+- **Every branch a test names asserts its payload**, including a branch that only swaps the error
+  definition.
+- **A public error body** is proven at the HTTP edge with the whole response (e2e), not only by
+  unit tests of the code that builds it.
+- **"Within a timeout"** asserts the elapsed time, and each default timeout gets its own test.
+- **`vi.waitFor`'s `timeout` stays well below the test's own timeout** (5 s by default), or a slow
+  run fails as a test timeout instead of the wait.
+
 ## Helpers
 
 | Helper                                                                           | For                                                                                                                                                                                                                                                                                                                            |

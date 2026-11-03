@@ -141,4 +141,4 @@ After synthesis, offer a second pass with a different mode if warranted — cons
 ## Project notes (identity-starter)
 
 - Stack decisions live in [`../STACK.md`](../STACK.md); read it before assuming a technology. When challenging a technology choice, start from the reason recorded there (or
-  its ADR in `docs/adr/`), not from a generic comparison.
+  its section in `docs/architecture.md`, its ADR in `docs/adr/`), not from a generic comparison.

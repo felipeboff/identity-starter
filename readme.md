@@ -19,41 +19,32 @@ every route.
 
 **Account**
 
-- E-mail verification, sent on sign-up and on request
-- Password reset and password change
+- E-mail verification, password reset and password change
 - E-mail change, confirmed from the new address, with a notice to the old one
-- Welcome e-mail on every account created, sent by the `notifications` module
+- Welcome e-mail on every account created
 - Profile name update; account deactivation and reactivation
 
 **Sessions**
 
 - Many sessions per account, each with IP and user agent
-- List your sessions (the current one is marked), sign out of one, or of all the others
+- List your sessions, sign out of one, or of all the others
 - Revocation ends the session for good, with a reason (`logout`, `security`, `email_changed`, ...)
 
 **Access control**
 
-- Each account has a membership with a role (`user`, `admin`) and a list of permissions
-- Every use case declares its access: anyone, any member, or the permissions and roles it
-  requires; the API answers `403` when one is missing
+- Each account has a membership with a role label and a list of permissions
+- Every use case declares its access (anyone, any member, or the permissions it requires)
 - Invitations by e-mail: whoever invites can only grant permissions they already hold
-- Each module declares its own permission codes (`<module>.<subject>.<action>`); the app joins
-  them in one catalog, checked at boot, and `GET /permissions` lists it
+- Each module declares its own permission codes; the app joins them in one catalog, checked at boot
 
-**Security and operation**
+**Operation**
 
-- Rate limiting per IP on every sensitive route (Redis), plus a lock after 5 wrong passwords
-- Transactional outbox in MongoDB: reset and verification e-mails leave after the commit, run by
-  a BullMQ worker with retry and backoff
-- Scheduled jobs on BullMQ, declared by each module with a cron pattern and a time zone, run once
-  per occurrence however many API instances there are
-- Events between modules on RabbitMQ, fed by the same outbox: identity publishes
-  `identity.account.registered`; a module subscribes by declaring a `MessageConsumer`, runs each
-  event once (inbox) and gives up after 5 attempts into a dead-letter queue
-- Errors as RFC 9457 problem details with a stable `code`
-- Structured logs with Pino, one event per request, with its request id
-- Unexpected errors reported to Sentry (or a local Bugsink), without personal data
-- Health check on `GET /health`, graceful shutdown, Docker image built from an esbuild bundle
+- Rate limiting per IP on sensitive routes, plus a lock after 5 wrong passwords
+- Transactional outbox: e-mails leave after the commit and are retried by BullMQ
+- Events between modules on RabbitMQ, and scheduled jobs on BullMQ, declared by each module
+- RFC 9457 problem details with a stable `code`; OpenAPI 3.1 generated from the routes
+- Pino logs with a request id; unexpected errors reported to Sentry, without personal data
+- Health check, graceful shutdown, Docker image built from an esbuild bundle
 - 100% test coverage at the unit, integration and e2e levels, plus every route × status pair
 
 ## Stack
@@ -89,8 +80,8 @@ pnpm --filter web dev           # front end on http://localhost:5173
 ```
 
 With `MAILER="log"` (the default) no e-mail is sent: the link is printed in the API log
-(`notifications.email_logged`). OAuth
-sign-in needs the provider apps described below; everything else works with the example values.
+(`notifications.email_logged`). OAuth sign-in needs the provider apps described below; everything
+else works with the example values.
 
 The front end proxies `/api` to the API. Besides the account pages, it has an API explorer at
 `/explorer` that lists every route and lets you call it with the signed-in session.
@@ -107,29 +98,28 @@ The name lives in the environment, so most of a rename is three variables:
 
 What cannot read the environment: `name` in `package.json`, the two `--filter` flags in the
 `Dockerfile`, and the database name in `MONGO_URL` (`.env.example` and the `api` service in
-`docker-compose.yml`).
-
-Pick `APP_NAME` once: it is part of every error `type` (`tag:<APP_NAME>,2026:<code>`), which
-clients may store or compare.
+`docker-compose.yml`). Pick `APP_NAME` once: it is part of every error `type`, which clients may
+store or compare.
 
 ### The first administrator
 
-Every new account gets the `user` role and no permissions, and there is no bootstrap route.
-Sign up, then, with the environment of the API you are targeting:
+Every new account gets the `user` role and no permissions, and there is no bootstrap route. Sign
+up, then, with the environment of the API you are targeting:
 
 ```bash
 pnpm identity:grant-admin you@example.com
 ```
 
-It gives that account the `admin` role and every permission in the catalog, and clears its cached
-membership, so the next request already sees them. It exits with `1` and logs
-`identity.admin_grant_failed` when the e-mail has no active account. From then on, invite the next
-people with the permissions they need.
+It gives that account the `admin` role and every permission in the catalog. From then on, invite
+the next people with the permissions they need.
 
-### Your module's permissions
+### Adding a module
 
-A module declares its codes in its own domain, prefixed with its name, and exports them next to its
-`create<Module>Module`:
+A module goes in `src/modules/<name>/` with the same layers as `identity`, a `<name>.module.ts`
+that wires it and a line in [src/app/http-routes.ts](src/app/http-routes.ts) for its routes.
+
+It declares its permission codes in its own domain, prefixed with its name, and exports them next
+to its `create<Module>Module`:
 
 ```ts
 export const OrdersPermission = {
@@ -142,30 +132,22 @@ export const ordersPermissions: ModulePermissions = {
 };
 ```
 
-Add `ordersPermissions` to the list in `src/app/permission-catalog.ts`. A code declared twice or
-without the module's prefix stops the boot with `shared.invalid_permission_catalog`. Its use cases
-require the codes in `access` (`{ permissions: [OrdersPermission.ORDER_CREATE] }`), invitations and
-`PUT /members/:accountId/permissions` accept them, and running `pnpm identity:grant-admin` again
-gives them to the administrator. A stored code that leaves the catalog grants nothing and can be
-removed from a member.
+Add `ordersPermissions` to [src/app/permission-catalog.ts](src/app/permission-catalog.ts); a
+repeated or unprefixed code stops the boot. Its use cases require the codes in `access`
+(`{ permissions: [OrdersPermission.ORDER_CREATE] }`), and running `pnpm identity:grant-admin`
+again gives them to the administrator.
 
 ## Configuration
 
-Every variable is validated on boot; the API refuses to start and names each invalid one.
-`.env.example` documents them all. The main groups:
+Every variable is validated on boot, and the API refuses to start naming each invalid one.
+`.env.example` documents them all. The ones that bite:
 
-| Variables                                                           | Notes                                                                       |
-| ------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `APP_NAME`, `NODE_ENV`, `PORT`, `TRUST_PROXY`, `LOG_LEVEL`          | `TRUST_PROXY` is the number of proxies in front of the API, used for the IP |
-| `MONGO_URL`                                                         | must point to a replica set (`?replicaSet=rs0` locally)                     |
-| `REDIS_URL`                                                         | rate limit counters and the repository cache                                |
-| `RABBITMQ_URL`                                                      | `amqp://` or `amqps://`; required, the events between modules go through it |
-| `JWT_SECRET`                                                        | at least 32 characters                                                      |
-| `APP_URL`, `CORS_ORIGINS`                                           | e-mail links point to `APP_URL`; `CORS_ORIGINS` is comma-separated          |
-| `MAILER`, `MAIL_FROM_EMAIL`, `MAIL_FROM_NAME`, `MAILERSEND_API_KEY` | `MAILER` is `log` or `mailersend`                                           |
-| `GITHUB_*`, `GOOGLE_*`                                              | client id, secret and redirect URI of each OAuth app                        |
-| `SENTRY_DSN`                                                        | optional; unset turns error reporting off                                   |
-| `DOCS_USERNAME`, `DOCS_PASSWORD`                                    | optional pair; set both to serve the API docs behind HTTP Basic             |
+- `MONGO_URL` must point to a replica set (`?replicaSet=rs0` locally), because the use cases run
+  in transactions.
+- `RABBITMQ_URL` is required; the API does not start without RabbitMQ.
+- `JWT_SECRET` needs at least 32 characters.
+- `TRUST_PROXY` is the number of proxies in front of the API, used to read the client IP.
+- `SENTRY_DSN` and the `DOCS_USERNAME` / `DOCS_PASSWORD` pair are optional and off when unset.
 
 ### OAuth apps
 
@@ -182,15 +164,14 @@ Put the client ids in `web/.env` too (`VITE_GITHUB_CLIENT_ID`, `VITE_GOOGLE_CLIE
 
 ### E-mail
 
-`MAILER="log"` prints each e-mail and its link. For real delivery, set `MAILER="mailersend"`,
-create an [API token](https://app.mailersend.com/api-tokens) and use a `MAIL_FROM_EMAIL` on a
-domain verified in MailerSend. Reset, verification, welcome and e-mail changed e-mails go through
-the outbox, so a MailerSend outage delays them instead of failing the request. The e-mail copy is
-in Portuguese, in
+For real delivery, set `MAILER="mailersend"`, create an
+[API token](https://app.mailersend.com/api-tokens) and use a `MAIL_FROM_EMAIL` on a domain
+verified in MailerSend. Reset, verification, welcome and e-mail changed e-mails go through the
+outbox, so a MailerSend outage delays them instead of failing the request. The copy is in
+Portuguese, in
 [identity-email-composer.ts](src/modules/identity/infrastructure/identity-email-composer.ts) and
-[notifications-email-composer.ts](src/modules/notifications/infrastructure/notifications-email-composer.ts).
-Each e-mail goes out with a plain-text part and an HTML part in the front end's style (lilac
-ground, white card, the mark, the violet button), rendered by
+[notifications-email-composer.ts](src/modules/notifications/infrastructure/notifications-email-composer.ts);
+the HTML layout is
 [email-html-renderer.ts](src/modules/notifications/infrastructure/email-html-renderer.ts).
 
 ### Error tracking
@@ -200,47 +181,9 @@ ground, white card, the mark, the violet button), rendered by
 
 ## API
 
-Every route is under `/api`. Authenticated routes take `Authorization: Bearer <accessToken>`.
-With `DOCS_USERNAME` and `DOCS_PASSWORD` set, `/docs` serves Swagger UI and `/openapi.json` the
-OpenAPI 3.1 document generated from the routes, both behind HTTP Basic with those credentials;
-without them, neither route exists.
-"Own or `x`" means the route works on your own account without a permission, and on someone
-else's with `x`.
-
-| Method   | Path                              | Access                               | What it does                                         |
-| -------- | --------------------------------- | ------------------------------------ | ---------------------------------------------------- |
-| `POST`   | `/auth/sign-up`                   | public                               | creates an account and signs in                      |
-| `POST`   | `/auth/sign-in`                   | public                               | signs in with e-mail and password                    |
-| `POST`   | `/auth/oauth/:provider`           | public                               | signs in (or up) with a Google or GitHub code        |
-| `POST`   | `/auth/refresh`                   | public                               | rotates the refresh token, issues a new access token |
-| `POST`   | `/auth/password-reset/request`    | public                               | e-mails a reset link                                 |
-| `POST`   | `/auth/password-reset`            | public                               | sets a new password from the reset token             |
-| `POST`   | `/auth/email-verification`        | public                               | verifies the e-mail from the token                   |
-| `POST`   | `/auth/invitations/accept`        | public                               | creates the invited account                          |
-| `POST`   | `/auth/email-change`              | public                               | confirms an e-mail change from the token             |
-| `POST`   | `/auth/sign-out`                  | signed in                            | ends the current session                             |
-| `GET`    | `/me`                             | signed in                            | account and membership                               |
-| `PATCH`  | `/me`                             | signed in                            | updates the name                                     |
-| `PUT`    | `/me/password`                    | signed in                            | changes the password                                 |
-| `POST`   | `/me/email`                       | signed in                            | starts an e-mail change                              |
-| `POST`   | `/me/email-verification`          | signed in                            | sends a new verification link                        |
-| `GET`    | `/me/sessions`                    | signed in                            | lists your sessions                                  |
-| `DELETE` | `/me/sessions`                    | signed in                            | ends every session but the current one               |
-| `GET`    | `/me/credentials`                 | signed in                            | lists the password and linked providers              |
-| `POST`   | `/me/oauth/:provider`             | signed in                            | links a provider                                     |
-| `DELETE` | `/me/oauth/:provider`             | signed in                            | unlinks a provider                                   |
-| `DELETE` | `/sessions/:sessionId`            | own or `identity.session.revoke`     | ends one session                                     |
-| `GET`    | `/accounts/:accountId/sessions`   | own or `identity.session.read`       | lists an account's sessions                          |
-| `DELETE` | `/accounts/:accountId/sessions`   | own or `identity.session.revoke_all` | ends every session of an account                     |
-| `POST`   | `/accounts/:accountId/deactivate` | own or `identity.account.deactivate` | deactivates an account                               |
-| `POST`   | `/accounts/:accountId/reactivate` | `identity.account.reactivate`        | reactivates an account                               |
-| `GET`    | `/members`                        | `identity.member.read`               | lists members                                        |
-| `PUT`    | `/members/:accountId/role`        | `identity.member.role.update`        | changes a member's role label                        |
-| `PUT`    | `/members/:accountId/permissions` | `identity.member.permissions.update` | changes a member's permissions                       |
-| `POST`   | `/invitations`                    | `identity.invitation.create`         | invites someone by e-mail                            |
-| `GET`    | `/invitations`                    | `identity.invitation.read`           | lists invitations                                    |
-| `DELETE` | `/invitations/:invitationId`      | `identity.invitation.revoke`         | revokes a pending invitation                         |
-| `GET`    | `/permissions`                    | signed in                            | lists every permission code that can be granted      |
+Every route is under `/api`; authenticated routes take `Authorization: Bearer <accessToken>`. To
+see them all, use the front end's `/explorer`, or set `DOCS_USERNAME` and `DOCS_PASSWORD` to serve
+Swagger UI on `/docs` and the OpenAPI document on `/openapi.json`, behind HTTP Basic.
 
 Errors are problem details (`application/problem+json`):
 
@@ -254,8 +197,8 @@ Errors are problem details (`application/problem+json`):
 }
 ```
 
-Match on `code`. What a client has to do (OAuth `state` and PKCE, password limits, rate limits
-per route, `retryAfterSeconds`) is in the [front end contract](docs/auth-front-end-contract.md).
+Match on `code`. What a client has to do (OAuth `state` and PKCE, password limits, rate limits,
+which permission each route needs) is in the [front end contract](docs/auth-front-end-contract.md).
 
 ## Project structure
 
@@ -276,17 +219,13 @@ src/
   shared/                 building blocks every module uses (errors, HTTP edge, Mongo,
                           Redis, outbox, RabbitMQ, logging, rate limit, test helpers)
 web/                      Preact front end
-docs/adr/                 architecture decision records
+docs/                     architecture decisions, backlog, front end contract
 ```
 
 Each entry point is a transport-neutral handler bound to HTTP by a small route declaration, so
-the same use case can later be exposed to a queue consumer or an MCP tool
-([ADR-001](docs/adr/001-transport-neutral-handler-layer.md)). ESLint enforces the boundaries:
-`domain` and `application` import no package, other modules import only
+the same use case can later be exposed to a queue consumer or an MCP tool. ESLint enforces the
+boundaries: `domain` and `application` import no package, other modules import only
 `@/<module>/public`, and `shared` never imports a module.
-
-A new module goes in `src/modules/<name>/` with the same layers, a `<name>.module.ts` that wires
-it and a line in [src/app/http-routes.ts](src/app/http-routes.ts) for its routes.
 
 ## Scripts
 
@@ -302,27 +241,24 @@ it and a line in [src/app/http-routes.ts](src/app/http-routes.ts) for its routes
 | `pnpm test:unit` / `:integration` / `:e2e` | one test level                                         |
 | `pnpm test:coverage`                       | every test, with coverage                              |
 
-To run the API in a container next to MongoDB, Redis and RabbitMQ:
-`docker compose --profile app up -d --wait`
-([ADR-009](docs/adr/009-run-the-api-from-an-esbuild-bundle-in-a-slim-image.md)).
+To run the API in a container next to its services: `docker compose --profile app up -d --wait`.
 
 ## Testing
 
 Tests sit next to the code: `*.spec.ts` (unit), `*.integration.spec.ts` and `*.e2e.spec.ts`.
-Integration and e2e tests start MongoDB and Redis in memory and RabbitMQ in a container
-(Testcontainers), so Docker must be running for them, and for the `pre-commit` hook. Each level
-has its own 100% coverage threshold, and the e2e run also fails when a declared route × status
-pair is never exercised.
+Integration and e2e tests start MongoDB and Redis in memory and RabbitMQ in a container, so Docker
+must be running for them and for the `pre-commit` hook. Each level has its own 100% coverage
+threshold, and the e2e run also fails when a declared route × status pair is never exercised.
 
 The `pre-commit` hook runs lint-staged, the typecheck and every coverage level; `commit-msg`
-checks Conventional Commits. The GitHub Actions workflow (`.github/workflows/ci.yml`) runs the
-format check, lint, typecheck and unit coverage; it only starts by hand (`workflow_dispatch`), so
-add `push` or `pull_request` to its `on` to run it on every change.
+checks Conventional Commits. The GitHub Actions workflow runs the format check, lint, typecheck
+and unit coverage, started by hand (`workflow_dispatch`).
 
-## Decisions
+## Docs
 
-The [ADRs](docs/adr/) record why the code looks the way it does: the transport-neutral handler
-layer, optimistic concurrency on every write, TypeBox schemas on handlers, the access every use
-case declares, retrying idempotent outbound calls, Sentry reporting, the Docker image, the
-Mongo outbox and its BullMQ and RabbitMQ delivery, the `notifications` module, and the permission
-catalog each module adds to.
+- [docs/architecture.md](docs/architecture.md): why the code looks the way it does, one section
+  per decision.
+- [docs/backlog.md](docs/backlog.md): known risks, work left out on purpose and what was decided
+  against.
+- [docs/auth-front-end-contract.md](docs/auth-front-end-contract.md): what a client has to do so
+  sign-in stays safe.

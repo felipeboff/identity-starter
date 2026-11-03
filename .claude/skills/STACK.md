@@ -1,13 +1,13 @@
 # Stack
 
 Decided technologies for identity-starter. Skills in this folder reference this file instead of
-repeating it. Items marked _planned_ are decided but not yet in the codebase. Changes to this
-file deserve an ADR (`create-adr`).
+repeating it. Items marked _planned_ are decided but not yet in the codebase. Why each choice was made
+is in [`docs/architecture.md`](../../docs/architecture.md); a change to this file updates it too.
 
 ## Runtime and HTTP
 
 - **Node.js**, TypeScript, pnpm, ESM.
-- **Inbound edge** ([ADR-001](../../docs/adr/001-transport-neutral-handler-layer.md)): one
+- **Inbound edge** ([why](../../docs/architecture.md#transport-neutral-handlers)): one
   transport-neutral `Handler` per entry point, wrapped by `Middleware`s
   (`src/shared/presentation/handler.ts`), bound to each transport by a small declaration: `HttpRoute`
   (method, path, success status), `OutboxConsumer` (effect type, dispatched for the outbox relay by
@@ -23,7 +23,7 @@ file deserve an ADR (`create-adr`).
   (`IdentityRuntime`, `NotificationsRuntime`); a module creates only its own adapters
   (repositories, OAuth gateway) and never a second instance of one `start` already has. The
   `MailSender` is created by `notifications` and handed to identity by `start`.
-- **Input validation:** TypeBox (`typebox`, [ADR-005](../../docs/adr/005-typebox-input-schemas-declared-on-the-handler.md)).
+- **Input validation:** TypeBox (`typebox`, [why](../../docs/architecture.md#transport-neutral-handlers)).
   Each handler declares `name` and `input` (a TypeBox schema); the dispatcher interprets it
   through `SchemaParser` (`src/shared/presentation`) after the middlewares. A handler that answers
   a body also declares `output`, the TypeBox schema of what it returns (`dateTimeSchema` for a
@@ -44,7 +44,7 @@ file deserve an ADR (`create-adr`).
   entities never see `Document`, `ObjectId` or schema types. Ids cross the boundary as strings
   wrapped in the shared `Id` value object.
 - **Optimistic concurrency** on every repository write (`OptimisticWriter`,
-  [ADR-003](../../docs/adr/003-optimistic-concurrency-on-repository-writes.md)).
+  [why](../../docs/architecture.md#repository-writes)).
 - **Redis** (ioredis): the `Cache` port (`RedisCache`: get, set, setIfNewer, delete, increment, ttl). The
   shared `RateLimiter` sits on it (fixed window, lets requests through if Redis is down).
   BullMQ runs on the same Redis, which must use `maxmemory-policy noeviction`.
@@ -54,12 +54,12 @@ file deserve an ADR (`create-adr`).
 
 ## Integrations
 
-- **Outbound HTTP** ([ADR-004](../../docs/adr/004-outbound-http-with-native-fetch.md)): native
+- **Outbound HTTP** ([why](../../docs/architecture.md#outbound-http)): native
   `fetch` through the shared `FetchHttpClient`, with a timeout on every call (10 s); no vendor
   SDKs. Timeouts and network failures come back as results, and each adapter turns them into an
   `AppError`. Under it, `ky` retries a `GET` up to 2 times on a network error or
   `408`/`500`/`502`/`503`/`504`, with full-jitter backoff, inside the same 10 s; a `POST` is sent
-  once ([ADR-007](../../docs/adr/007-retry-idempotent-outbound-calls-with-ky.md)).
+  once.
 
 ## Messaging and jobs
 
@@ -67,10 +67,9 @@ file deserve an ADR (`create-adr`).
   and `kind: "effect"` inside their transaction; an `OutboxRelay` in the API process polls every second and hands
   each due effect to BullMQ's `outbox` queue (`jobId` = effect id), holding it for 2 h; a finished
   effect loses its payload and a TTL index removes it 7 days later
-  ([ADR-010](../../docs/adr/010-transactional-outbox-in-mongo-with-an-in-process-relay.md),
-  [ADR-012](../../docs/adr/012-run-outbox-effects-and-scheduled-jobs-on-bullmq.md)).
+  ([why](../../docs/architecture.md#outbox-and-jobs)).
 - **RabbitMQ** for events between modules (`src/shared/infrastructure/messaging`,
-  [ADR-013](../../docs/adr/013-publish-events-between-modules-on-rabbitmq-from-the-outbox.md)):
+  [why](../../docs/architecture.md#events-between-modules)):
   use cases write an event with `Outbox.publish` (or `publishAll`) and `kind: "event"`
   (`<module>.<aggregate>.<action>`, ids and public data, never a secret); the relay hands it to the
   `EventBroker` port, which sends it on a confirm channel to the `<APP_NAME>.events` topic exchange,
@@ -81,7 +80,7 @@ file deserve an ADR (`create-adr`).
   `transactions.run` inside another joins it. The API does not start without RabbitMQ
   (`amqp-connection-manager` reconnects while it runs).
 - **BullMQ** (`src/shared/infrastructure/jobs`,
-  [ADR-012](../../docs/adr/012-run-outbox-effects-and-scheduled-jobs-on-bullmq.md)): a worker runs
+  [why](../../docs/architecture.md#outbox-and-jobs)): a worker runs
   the outbox effects through `OutboxEffectRunner` (8 attempts, exponential backoff from 30 s with
   jitter, 5 at a time); modules declare `ScheduledJob`s (cron pattern + time zone) like routes, and
   `start` keeps one BullMQ job scheduler per job, so each occurrence runs once across instances.
@@ -90,10 +89,10 @@ file deserve an ADR (`create-adr`).
 ## Identity
 
 - JWT access tokens (HS256 with `jose`, behind an asynchronous `AccessToken` port,
-  [ADR-002](../../docs/adr/002-asynchronous-access-token-port.md)) + refresh tokens issued by the
+  [why](../../docs/architecture.md#access-tokens)) + refresh tokens issued by the
   project (no external IdP). Passwords hashed with argon2id.
-- OAuth providers: Google and GitHub, through `FetchOAuthGateway`. Apple is _planned_.
-- Transactional e-mail ([ADR-014](../../docs/adr/014-send-e-mail-from-a-notifications-module-behind-a-shared-port.md)):
+- OAuth providers: Google and GitHub, through `FetchOAuthGateway`.
+- Transactional e-mail ([why](../../docs/architecture.md#e-mail)):
   the `MailSender` port (`src/shared/application/ports`) with a MailerSend adapter and a logging
   one for development (`MAILER=log`), both in the `notifications` module. Identity composes its
   token e-mails behind its `IdentityMailer` port; `notifications` sends the welcome and the
@@ -109,14 +108,14 @@ file deserve an ADR (`create-adr`).
   and process crashes, with the request fields as tags and no personal data; off without
   `SENTRY_DSN`, which locally can point at **Bugsink** (Sentry-compatible, started by
   `docker compose up`)
-  ([ADR-008](../../docs/adr/008-report-unexpected-errors-to-sentry.md)).
+  ([why](../../docs/architecture.md#error-reporting)).
 
 ## Delivery
 
 - Docker + Docker Compose. The API image is an esbuild bundle (`pnpm build`, every package external)
   run by `node --enable-source-maps` on `node:24-slim`, as `node`, with production dependencies only;
   `docker compose --profile app up` starts it next to Mongo and Redis
-  ([ADR-009](../../docs/adr/009-run-the-api-from-an-esbuild-bundle-in-a-slim-image.md)).
+  ([why](../../docs/architecture.md#delivery-image)).
 - CI: **GitHub Actions** (`.github/workflows/ci.yml`: format check, lint, typecheck and unit
   coverage), started by hand (`workflow_dispatch`).
 - Infra: EC2 or VPS, provisioned with **Terraform**. _planned_
