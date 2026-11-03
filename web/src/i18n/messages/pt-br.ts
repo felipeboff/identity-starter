@@ -103,17 +103,17 @@ const violationReasons: Record<string, string> = {
 };
 
 const permissions: Record<Permission, string> = {
-  "invitation.create": "Criar convites",
-  "invitation.read": "Ver convites",
-  "invitation.revoke": "Revogar convites",
-  "account.reactivate": "Reativar contas",
-  "account.deactivate": "Desativar contas",
-  "session.read": "Ver sessões de outros",
-  "session.revoke": "Encerrar sessões de outros",
-  "session.revoke_all": "Encerrar todas as sessões de uma conta",
-  "member.read": "Ver membros",
-  "member.role.update": "Alterar papel de membros",
-  "member.permissions.update": "Alterar permissões de membros",
+  "identity.invitation.create": "Criar convites",
+  "identity.invitation.read": "Ver convites",
+  "identity.invitation.revoke": "Revogar convites",
+  "identity.account.reactivate": "Reativar contas",
+  "identity.account.deactivate": "Desativar contas",
+  "identity.session.read": "Ver sessões de outros",
+  "identity.session.revoke": "Encerrar sessões de outros",
+  "identity.session.revoke_all": "Encerrar todas as sessões de uma conta",
+  "identity.member.read": "Ver membros",
+  "identity.member.role.update": "Alterar papel de membros",
+  "identity.member.permissions.update": "Alterar permissões de membros",
 };
 
 const roles: Record<Role, string> = {
@@ -235,6 +235,10 @@ const routes: Record<RouteId, RouteCopy> = {
   "revoke-invitation": {
     summary: "Revoga um convite pendente; um aceito responde 422.",
   },
+  "list-permissions": {
+    summary:
+      "Todos os códigos de permissão que podem ser concedidos, em ordem alfabética.",
+  },
 };
 
 const queryHints: Record<QueryName, string> = {
@@ -318,6 +322,8 @@ export const ptBr: Messages = {
     unknownDevice: "Dispositivo desconhecido",
   },
   permissions,
+  permissionLabel: (code: string) =>
+    (permissions as Record<string, string | undefined>)[code] ?? code,
   roles,
   oauth: {
     notConfigured: (provider) => `Login com ${provider} não configurado`,

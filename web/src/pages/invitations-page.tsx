@@ -1,9 +1,4 @@
-import {
-  ALL_ROLES,
-  Permission,
-  type Permission as PermissionCode,
-  type Role,
-} from "../api/identity.types";
+import { ALL_ROLES, Permission, type Role } from "../api/identity.types";
 import { useAuth, useMe } from "../auth/auth-context";
 import { useMessages } from "../hooks/use-messages";
 import { useResource } from "../hooks/use-resource";
@@ -42,7 +37,7 @@ export const InvitationsPage = () => {
   }));
   const grantable = me.membership.permissions.map((permission) => ({
     value: permission,
-    label: t.permissions[permission],
+    label: t.permissionLabel(permission),
   }));
 
   return (
@@ -56,8 +51,8 @@ export const InvitationsPage = () => {
         <Card>
           <EmptyState icon={<LockIcon />} title={t.invitations.noAccess}>
             {t.invitations.noAccessDescription(
-              t.permissions["invitation.create"],
-              t.permissions["invitation.read"],
+              t.permissions["identity.invitation.create"],
+              t.permissions["identity.invitation.read"],
             )}
           </EmptyState>
         </Card>
@@ -75,7 +70,7 @@ export const InvitationsPage = () => {
                 const output = await identityApi.inviteMember({
                   email: values.text("email"),
                   role: values.text("role") as Role,
-                  permissions: values.list("permissions") as PermissionCode[],
+                  permissions: values.list("permissions"),
                 });
                 toast.show({
                   tone: "success",

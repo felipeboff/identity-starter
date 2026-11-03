@@ -1,4 +1,3 @@
-import { ALL_PERMISSIONS } from "../api/identity.types";
 import { useMe } from "../auth/auth-context";
 import { useAction } from "../hooks/use-action";
 import { useMessages } from "../hooks/use-messages";
@@ -25,6 +24,8 @@ export const OverviewPage = () => {
   const me = useMe();
   const toast = useToast();
   const sessions = useResource(() => identityApi.listSessions(), []);
+  const catalog = useResource(() => identityApi.listPermissions(), []);
+  const grantable = catalog.data?.permissions ?? [];
   const resend = useAction(async () => {
     await identityApi.requestEmailVerification();
     toast.show({
@@ -110,7 +111,7 @@ export const OverviewPage = () => {
             <span class="stat-label">{t.overview.permissions}</span>
             <strong class="stat-value">
               {held.length}
-              <small> {t.overview.outOf(ALL_PERMISSIONS.length)}</small>
+              <small> {t.overview.outOf(grantable.length)}</small>
             </strong>
           </div>
         </div>
@@ -133,14 +134,14 @@ export const OverviewPage = () => {
           description={t.overview.yourPermissionsDescription}
         >
           <ul class="permission-list">
-            {ALL_PERMISSIONS.map((permission) => {
+            {grantable.map((permission) => {
               const granted = held.includes(permission);
               return (
                 <li key={permission} class={granted ? "is-granted" : ""}>
                   <span class="permission-icon">
                     {granted ? <CheckIcon size={14} /> : <LockIcon size={14} />}
                   </span>
-                  <span>{t.permissions[permission]}</span>
+                  <span>{t.permissionLabel(permission)}</span>
                   <code>{permission}</code>
                 </li>
               );

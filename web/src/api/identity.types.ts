@@ -3,22 +3,20 @@ export const PASSWORD_MAX_LENGTH = 128;
 export const OBJECT_ID_PATTERN = "[a-fA-F0-9]{24}";
 
 export const Permission = {
-  INVITATION_CREATE: "invitation.create",
-  INVITATION_READ: "invitation.read",
-  INVITATION_REVOKE: "invitation.revoke",
-  ACCOUNT_REACTIVATE: "account.reactivate",
-  ACCOUNT_DEACTIVATE: "account.deactivate",
-  SESSION_READ: "session.read",
-  SESSION_REVOKE: "session.revoke",
-  SESSION_REVOKE_ALL: "session.revoke_all",
-  MEMBER_READ: "member.read",
-  MEMBER_ROLE_UPDATE: "member.role.update",
-  MEMBER_PERMISSIONS_UPDATE: "member.permissions.update",
+  INVITATION_CREATE: "identity.invitation.create",
+  INVITATION_READ: "identity.invitation.read",
+  INVITATION_REVOKE: "identity.invitation.revoke",
+  ACCOUNT_REACTIVATE: "identity.account.reactivate",
+  ACCOUNT_DEACTIVATE: "identity.account.deactivate",
+  SESSION_READ: "identity.session.read",
+  SESSION_REVOKE: "identity.session.revoke",
+  SESSION_REVOKE_ALL: "identity.session.revoke_all",
+  MEMBER_READ: "identity.member.read",
+  MEMBER_ROLE_UPDATE: "identity.member.role.update",
+  MEMBER_PERMISSIONS_UPDATE: "identity.member.permissions.update",
 } as const;
 
 export type Permission = (typeof Permission)[keyof typeof Permission];
-
-export const ALL_PERMISSIONS: readonly Permission[] = Object.values(Permission);
 
 export const MEMBER_ACTION_PERMISSIONS: readonly Permission[] = [
   Permission.MEMBER_ROLE_UPDATE,
@@ -62,7 +60,7 @@ export type Membership = {
   id: string;
   accountId: string;
   role: Role;
-  permissions: Permission[];
+  permissions: string[];
   updatedAt: string;
 };
 
@@ -79,7 +77,7 @@ export type Invitation = {
   id: string;
   email: string;
   role: Role;
-  permissions: Permission[];
+  permissions: string[];
   createdAt: string;
   expiresAt: string;
 };
@@ -163,7 +161,7 @@ export type RequestEmailChangeInput = {
 export type InviteMemberInput = {
   email: string;
   role: Role;
-  permissions: Permission[];
+  permissions: string[];
 };
 
 export type UpdateMemberRoleInput = {
@@ -171,9 +169,13 @@ export type UpdateMemberRoleInput = {
   role: Role;
 };
 
+export type PermissionsOutput = {
+  permissions: string[];
+};
+
 export type UpdateMemberPermissionsInput = {
   accountId: string;
-  permissions: Permission[];
+  permissions: string[];
 };
 
 export type AccountOutput = {

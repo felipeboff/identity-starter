@@ -42,7 +42,8 @@ export type RouteId =
   | "update-member-permissions"
   | "invite-member"
   | "list-invitations"
-  | "revoke-invitation";
+  | "revoke-invitation"
+  | "list-permissions";
 
 export type RouteGroup =
   "auth" | "account" | "sessions" | "members" | "invitations";
@@ -312,7 +313,7 @@ export const ROUTE_CATALOG: readonly CatalogRoute[] = [
     method: "DELETE",
     path: "/sessions/:sessionId",
     authenticated: true,
-    permission: "session.revoke",
+    permission: "identity.session.revoke",
     status: 204,
     failures: [400, 401, 403, 404],
   },
@@ -322,7 +323,7 @@ export const ROUTE_CATALOG: readonly CatalogRoute[] = [
     method: "GET",
     path: "/accounts/:accountId/sessions",
     authenticated: true,
-    permission: "session.read",
+    permission: "identity.session.read",
     status: 200,
     failures: [400, 401, 403],
   },
@@ -332,7 +333,7 @@ export const ROUTE_CATALOG: readonly CatalogRoute[] = [
     method: "DELETE",
     path: "/accounts/:accountId/sessions",
     authenticated: true,
-    permission: "session.revoke_all",
+    permission: "identity.session.revoke_all",
     status: 200,
     failures: [400, 401, 403],
   },
@@ -342,7 +343,7 @@ export const ROUTE_CATALOG: readonly CatalogRoute[] = [
     method: "POST",
     path: "/accounts/:accountId/deactivate",
     authenticated: true,
-    permission: "account.deactivate",
+    permission: "identity.account.deactivate",
     status: 204,
     failures: [400, 401, 403, 404],
   },
@@ -352,7 +353,7 @@ export const ROUTE_CATALOG: readonly CatalogRoute[] = [
     method: "POST",
     path: "/accounts/:accountId/reactivate",
     authenticated: true,
-    permission: "account.reactivate",
+    permission: "identity.account.reactivate",
     status: 200,
     failures: [400, 401, 403, 404],
   },
@@ -362,7 +363,7 @@ export const ROUTE_CATALOG: readonly CatalogRoute[] = [
     method: "GET",
     path: "/members",
     authenticated: true,
-    permission: "member.read",
+    permission: "identity.member.read",
     status: 200,
     failures: [400, 401, 403],
     query: ["limit", "cursor"],
@@ -373,7 +374,7 @@ export const ROUTE_CATALOG: readonly CatalogRoute[] = [
     method: "PUT",
     path: "/members/:accountId/role",
     authenticated: true,
-    permission: "member.role.update",
+    permission: "identity.member.role.update",
     status: 200,
     failures: [400, 401, 403, 404, 422],
     body: () => ({ role: "admin" }),
@@ -384,7 +385,7 @@ export const ROUTE_CATALOG: readonly CatalogRoute[] = [
     method: "PUT",
     path: "/members/:accountId/permissions",
     authenticated: true,
-    permission: "member.permissions.update",
+    permission: "identity.member.permissions.update",
     status: 200,
     failures: [400, 401, 403, 404, 422],
     body: (context) => ({
@@ -397,7 +398,7 @@ export const ROUTE_CATALOG: readonly CatalogRoute[] = [
     method: "POST",
     path: "/invitations",
     authenticated: true,
-    permission: "invitation.create",
+    permission: "identity.invitation.create",
     status: 201,
     failures: [400, 401, 403, 422],
     body: (context) => ({
@@ -412,7 +413,7 @@ export const ROUTE_CATALOG: readonly CatalogRoute[] = [
     method: "GET",
     path: "/invitations",
     authenticated: true,
-    permission: "invitation.read",
+    permission: "identity.invitation.read",
     status: 200,
     failures: [401, 403],
   },
@@ -422,9 +423,18 @@ export const ROUTE_CATALOG: readonly CatalogRoute[] = [
     method: "DELETE",
     path: "/invitations/:invitationId",
     authenticated: true,
-    permission: "invitation.revoke",
+    permission: "identity.invitation.revoke",
     status: 204,
     failures: [400, 401, 403, 404, 422],
+  },
+  {
+    id: "list-permissions",
+    group: "members",
+    method: "GET",
+    path: "/permissions",
+    authenticated: true,
+    status: 200,
+    failures: [401],
   },
 ];
 

@@ -108,17 +108,17 @@ const violationReasons: Record<string, string> = {
 };
 
 const permissions: Record<Permission, string> = {
-  "invitation.create": "Create invitations",
-  "invitation.read": "View invitations",
-  "invitation.revoke": "Revoke invitations",
-  "account.reactivate": "Reactivate accounts",
-  "account.deactivate": "Deactivate accounts",
-  "session.read": "View other people's sessions",
-  "session.revoke": "End other people's sessions",
-  "session.revoke_all": "End all sessions of an account",
-  "member.read": "View members",
-  "member.role.update": "Change members' roles",
-  "member.permissions.update": "Change members' permissions",
+  "identity.invitation.create": "Create invitations",
+  "identity.invitation.read": "View invitations",
+  "identity.invitation.revoke": "Revoke invitations",
+  "identity.account.reactivate": "Reactivate accounts",
+  "identity.account.deactivate": "Deactivate accounts",
+  "identity.session.read": "View other people's sessions",
+  "identity.session.revoke": "End other people's sessions",
+  "identity.session.revoke_all": "End all sessions of an account",
+  "identity.member.read": "View members",
+  "identity.member.role.update": "Change members' roles",
+  "identity.member.permissions.update": "Change members' permissions",
 };
 
 const roles: Record<Role, string> = {
@@ -243,6 +243,10 @@ const routes: Record<RouteId, RouteCopy> = {
   "revoke-invitation": {
     summary: "Revokes a pending invitation; an accepted one responds 422.",
   },
+  "list-permissions": {
+    summary:
+      "Every permission code that can be granted, in alphabetical order.",
+  },
 };
 
 const queryHints: Record<QueryName, string> = {
@@ -327,6 +331,8 @@ export const en = {
     unknownDevice: "Unknown device",
   },
   permissions,
+  permissionLabel: (code: string) =>
+    (permissions as Record<string, string | undefined>)[code] ?? code,
   roles,
   oauth: {
     notConfigured: (provider: string) =>

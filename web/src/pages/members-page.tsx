@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from "preact/hooks";
 
 import {
-  ALL_PERMISSIONS,
   ALL_ROLES,
   MEMBER_ACTION_PERMISSIONS,
   OBJECT_ID_PATTERN,
@@ -10,7 +9,6 @@ import {
   type Member,
   type MembersOutput,
   type Membership,
-  type Permission as PermissionCode,
   type Role,
 } from "../api/identity.types";
 import { useAuth, useMe } from "../auth/auth-context";
@@ -75,9 +73,11 @@ const MemberActions = (props: MemberActionsProps) => {
     value: role,
     label: t.roles[role],
   }));
-  const permissionOptions = ALL_PERMISSIONS.map((permission) => ({
+  const catalog = useResource(() => identityApi.listPermissions(), []);
+  const grantable = catalog.data?.permissions ?? [];
+  const permissionOptions = grantable.map((permission) => ({
     value: permission,
-    label: t.permissions[permission],
+    label: t.permissionLabel(permission),
   }));
 
   return (
@@ -127,7 +127,7 @@ const MemberActions = (props: MemberActionsProps) => {
             action={async (values) => {
               const output = await identityApi.updateMemberPermissions({
                 accountId: props.accountId,
-                permissions: values.list("permissions") as PermissionCode[],
+                permissions: values.list("permissions"),
               });
               props.onChanged({ membership: output.membership });
               toast.show({
@@ -144,7 +144,7 @@ const MemberActions = (props: MemberActionsProps) => {
               name="permissions"
               options={permissionOptions}
               defaultValues={props.member?.membership.permissions ?? []}
-              lockedValues={ALL_PERMISSIONS.filter(
+              lockedValues={grantable.filter(
                 (permission) => !auth.can(permission),
               )}
               lockedTitle={t.members.lockedPermission}
@@ -606,7 +606,7 @@ const ManualMember = () => {
   return (
     <div class="stack">
       <Alert tone="info" title={t.members.listHidden}>
-        {t.members.listHiddenDescription(t.permissions["member.read"])}
+        {t.members.listHiddenDescription(t.permissions["identity.member.read"])}
       </Alert>
       <Card title={t.members.member}>
         <div class={`field ${accountId && !valid ? "is-invalid" : ""}`}>
@@ -658,7 +658,9 @@ export const MembersPage = () => {
       ) : (
         <Card>
           <EmptyState icon={<LockIcon />} title={t.members.noAccess}>
-            {t.members.noAccessDescription(t.permissions["member.read"])}
+            {t.members.noAccessDescription(
+              t.permissions["identity.member.read"],
+            )}
           </EmptyState>
         </Card>
       )}

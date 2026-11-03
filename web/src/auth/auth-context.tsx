@@ -30,7 +30,7 @@ export type AuthContextValue = {
   reloadMe: () => Promise<void>;
   signOut: () => Promise<void>;
   endLocally: (notice: string | null) => void;
-  can: (permission: Permission) => boolean;
+  can: (permission: string) => boolean;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);

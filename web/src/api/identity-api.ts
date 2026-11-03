@@ -15,6 +15,7 @@ import type {
   MembersOutput,
   MembershipOutput,
   OAuthCodeInput,
+  PermissionsOutput,
   OAuthProvider,
   OAuthSignInResult,
   RequestEmailChangeInput,
@@ -265,6 +266,14 @@ export class IdentityApi {
       method: "POST",
       path: "/invitations",
       body: input,
+      authenticated: true,
+    });
+  }
+
+  listPermissions(): Promise<PermissionsOutput> {
+    return this.client.send({
+      method: "GET",
+      path: "/permissions",
       authenticated: true,
     });
   }
